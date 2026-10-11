@@ -38,6 +38,12 @@ return [
         'reapprove_on_edit' => (bool) env('MARKETPLACE_REAPPROVE_ON_EDIT', true),
     ],
 
+    'contact' => [
+        // Public store phone numbers let buyers skip the platform (and its commission). Set to false
+        // once in-app inquiries are the main contact route.
+        'show_seller_phone' => (bool) env('MARKETPLACE_SHOW_SELLER_PHONE', true),
+    ],
+
     // Placeholder only. The real rate becomes an admin setting in the payments milestone.
     'commission' => [
         'default_rate_percent' => (float) env('MARKETPLACE_DEFAULT_COMMISSION_PERCENT', 10),

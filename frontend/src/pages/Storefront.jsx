@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { useSearchParams, useParams } from 'react-router-dom'
+import ContactSeller from '../components/ContactSeller'
 import { ProductGrid } from '../components/ProductCard'
 import { EmptyState, ErrorState, Pagination, Spinner } from '../components/ui'
 import { BUSINESS_TYPES, toQuery } from '../lib/format'
@@ -9,6 +11,7 @@ export default function Storefront() {
   const [params, setParams] = useSearchParams()
   const seller = useFetch(`/sellers/${encodeURIComponent(slug)}`)
   const products = useFetch(seller.data ? `/products?${toQuery({ seller: slug, page: params.get('page') || '' })}` : null)
+  const [contactOpen, setContactOpen] = useState(false)
 
   if (seller.loading) return <Spinner />
   if (seller.error) return <div className="container-page py-12"><ErrorState error={seller.error} /></div>
@@ -30,8 +33,12 @@ export default function Storefront() {
               {s.offers_delivery && <span className="rounded-full bg-stone-100 px-2.5 py-1 font-semibold text-stone-700">Delivers in Addis Ababa</span>}
             </div>
           </div>
-          {s.phone && <a href={`tel:${s.phone.replace(/\s/g, '')}`} className="btn-primary shrink-0">Call {s.phone}</a>}
+          <div className="flex shrink-0 flex-wrap gap-2">
+            {!contactOpen && <button type="button" className="btn-primary" onClick={() => setContactOpen(true)}>Message store</button>}
+            {s.phone && <a href={`tel:${s.phone.replace(/\s/g, '')}`} className="btn-secondary">Call {s.phone}</a>}
+          </div>
         </div>
+        {contactOpen && <div className="mt-4 max-w-xl"><ContactSeller seller={s} onCancel={() => setContactOpen(false)} /></div>}
       </header>
 
       <h2 className="mb-4 text-lg font-bold text-stone-900">Listings ({s.products_count})</h2>

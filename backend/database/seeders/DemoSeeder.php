@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Enums\Role;
 use App\Models\Area;
 use App\Models\Category;
+use App\Models\DeliveryZone;
 use App\Models\Product;
 use App\Models\SellerProfile;
 use App\Models\User;
@@ -51,6 +52,13 @@ class DemoSeeder extends Seeder
         ['custom-made', 'Custom Carved Traditional Bench', 18000, 'Wanza Wood', 'Natural', 'new', 'made_to_order', 20, 160, 45, 85],
         ['other-furniture', 'Outdoor Patio Set', 24500, 'Rattan, Steel', 'Brown', 'new', 'in_stock', 3, 120, 120, 75],
         ['other-furniture', 'Kids Study Desk and Chair', 8900, 'MDF', 'Blue', 'new', 'in_stock', 6, 90, 50, 70],
+    ];
+
+    // [zone name, demo fee birr, min days, max days, area slugs]
+    private const ZONES = [
+        ['Central Addis (demo)', 400, 1, 2, ['kirkos', 'arada', 'lideta', 'addis-ketema']],
+        ['Inner ring (demo)', 600, 1, 3, ['bole', 'yeka', 'gulele', 'kolfe-keranio', 'nifas-silk-lafto']],
+        ['Outer sub-cities (demo)', 900, 2, 4, ['akaky-kaliti', 'lemi-kura']],
     ];
 
     private const COLORS = [[94, 75, 60], [120, 98, 76], [70, 90, 82], [140, 120, 96], [88, 70, 92], [160, 110, 70]];
@@ -136,6 +144,15 @@ class DemoSeeder extends Seeder
             $path = "products/{$product->id}/demo-".Str::random(8).'.jpg';
             Storage::disk('public')->put($path, $this->placeholderJpeg($name, self::COLORS[$i % count(self::COLORS)]));
             $product->images()->create(['path' => $path, 'alt' => $name, 'sort_order' => 0]);
+        }
+
+        // Example zones so delivery estimates show something locally. The fees are made up;
+        // real fees are set by an administrator under Admin > Delivery.
+        foreach (self::ZONES as [$zoneName, $feeBirr, $min, $max, $areaSlugs]) {
+            $zone = DeliveryZone::firstOrCreate(['name' => $zoneName], [
+                'fee_santim' => $feeBirr * 100, 'min_days' => $min, 'max_days' => $max, 'is_active' => true,
+            ]);
+            Area::whereIn('slug', $areaSlugs)->whereNull('delivery_zone_id')->update(['delivery_zone_id' => $zone->id]);
         }
 
         if ($this->command) {

@@ -5,6 +5,7 @@ const LINKS = [
   ['/admin/sellers', 'Sellers'],
   ['/admin/listings', 'Listings'],
   ['/admin/categories', 'Categories'],
+  ['/admin/delivery', 'Delivery'],
   ['/admin/audit', 'Audit log'],
 ]
 

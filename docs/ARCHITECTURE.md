@@ -17,9 +17,9 @@ React SPA (frontend/)  --HTTPS, Bearer token-->  Laravel API (backend/, /api/*) 
 | Role | How it is assigned | Can |
 |---|---|---|
 | guest | not signed in | browse published listings, storefronts, categories |
-| customer | `POST /api/auth/register` | wishlist (orders, reviews, inquiries in later milestones) |
-| seller | `POST /api/auth/register-seller` creates the account and a **pending** store | drafts while pending; submit listings once approved; only ever sees own records |
-| admin | `php artisan marketplace:create-admin` only | approve/reject/suspend sellers, moderate listings, manage categories, audit log |
+| customer | `POST /api/auth/register` | wishlist, delivery addresses, inquiries to sellers, accept or decline quotes (orders and reviews in later milestones) |
+| seller | `POST /api/auth/register-seller` creates the account and a **pending** store | drafts while pending; submit listings once approved; answer inquiries and send quotes; only ever sees own records |
+| admin | `php artisan marketplace:create-admin` only | approve/reject/suspend sellers, moderate listings, manage categories and delivery zones, audit log. Admins cannot read private conversations |
 | delivery | reserved for a later milestone | |
 
 `role` and `status` are not mass-assignable, so no API payload can change them.
@@ -53,6 +53,29 @@ erDiagram
 | favorites | (user_id, product_id) unique |
 | audit_logs | append-only: user, action, subject, JSON meta, IP |
 
+### Added in milestone 2
+
+```mermaid
+erDiagram
+    delivery_zones ||--o{ areas : "groups (nullable)"
+    users ||--o{ addresses : saves
+    areas ||--o{ addresses : "located in"
+    users ||--o{ conversations : "starts (customer)"
+    seller_profiles ||--o{ conversations : receives
+    products |o--o{ conversations : "about (optional)"
+    conversations ||--o{ messages : contains
+    conversations ||--o{ quotes : contains
+    quotes |o--o{ messages : "announced by"
+```
+
+| Table | Key columns and constraints |
+|---|---|
+| delivery_zones | name unique, fee_santim, min_days, max_days, notes, is_active. `areas.delivery_zone_id` nullable, set null when a zone is deleted |
+| addresses | user_id cascade, area_id restrict, recipient_name, phone, address_line, landmark, is_default. Max 10 per user, exactly one default while any exist |
+| conversations | customer_id, seller_profile_id (restrict), product_id nullable, type (question/availability/negotiation/custom_request), status open/closed, last_message_id, customer_last_read_id, seller_last_read_id |
+| messages | conversation_id cascade, sender_id, body (max 2000), quote_id nullable. Append-only, no edits |
+| quotes | conversation_id, seller_profile_id, title, description, price_santim, quantity, delivery_fee_santim nullable, production_days, valid_until, status pending/accepted/declined/withdrawn |
+
 Foreign keys use `restrict` where deleting the parent would destroy history (sellers, categories, cities) and `cascade` only for pure child rows (images, favorites).
 
 ## Business rules implemented
@@ -68,6 +91,30 @@ Foreign keys use `restrict` where deleting the parent would destroy history (sel
 - `archived` hides a listing; resubmitting sends it to review. Delete is a soft delete so future order history keeps its product rows.
 - Made-to-order items carry production days and no stock count; in-stock items carry a count and no production days. Every listing offers delivery, pickup, or both.
 
+**Inquiries (Method B).**
+- Only customer accounts start inquiries, about a visible listing or a visible store. Seller and admin accounts cannot.
+- Allowed types follow the seller's settings: price offers only on listings marked negotiable, custom requests only where the listing or store accepts custom orders, availability and price offers only about a listing.
+- A second inquiry about the same listing while a thread is open is added to that thread instead of opening a duplicate (serialised with a row lock).
+- Either side can close a thread. Closed threads stay readable but take no new messages or quotes.
+- When a store is suspended, both sides keep read access to history but nobody can write.
+- Unread state is tracked by message id per side, not by timestamp, so two messages in the same second are never missed. Sending a message marks the thread read for the sender.
+- Outsiders get 404 on every conversation and quote endpoint.
+- Rate limits: 10 new inquiries per hour and 30 per day per customer; 20 messages per minute and 500 per day per user.
+
+**Quotes.**
+- Only the conversation's seller sends quotes. A new quote withdraws the seller's earlier pending quote in that thread, so the customer can only accept the latest terms.
+- Validity is at most 60 days and inclusive of the last day. Expiry is derived from `valid_until` and never stored, so there is no cron job to forget.
+- Accept, decline and withdraw run under row locks (conversation, then quote, the same order quote creation uses) and succeed exactly once. Verified with parallel requests against MariaDB.
+- Accepting needs an open thread and an active store. Declining and withdrawing always work.
+- Closing a thread ends any pending quote: declined when the customer closes, withdrawn when the seller closes.
+- An accepted quote is an agreement in the thread only. It becomes an order when checkout ships (milestone 3).
+
+**Delivery fees.**
+- Admins group sub-cities into delivery zones with a default fee and day range.
+- The estimate for a listing and sub-city uses the listing's own fee first (0 means free), then the zone fee, else "the seller confirms the fee before you pay". Made-to-order production days are added to the day range.
+- Inactive zones are ignored. Deleting a zone leaves its sub-cities unassigned.
+- `DemoSeeder` creates three demo zones with made-up fees. Real fees are a business decision set in Admin > Delivery.
+
 **Ownership.** All seller endpoints look records up through the signed-in seller's own profile, so another seller's id returns 404 (no existence leak). Tests cover show, update, delete, submit, archive, image upload and image delete across sellers.
 
 ## Security measures in place
@@ -79,7 +126,7 @@ Foreign keys use `restrict` where deleting the parent would destroy history (sel
 - Uploads: content-checked images only (jpg, png, webp; no SVG), 5 MB, 200 to 8000 px, max 8 per listing enforced under a row lock, stored under random names.
 - API 404s never reveal model names; 500s never return server messages to the UI.
 - CORS limited to `CORS_ALLOWED_ORIGINS`. Bearer tokens mean CSRF does not apply to the API; there are no cookie-authenticated API routes.
-- Audit log for seller applications and reviews, listing create/update/submit/archive/delete/moderation, category changes and CLI admin creation.
+- Audit log for seller applications and reviews, listing create/update/submit/archive/delete/moderation, category changes, quotes (sent, accepted, declined, withdrawn), delivery zone changes and CLI admin creation.
 
 ## Decisions and defaults (change if the business decides otherwise)
 
@@ -90,7 +137,9 @@ Foreign keys use `restrict` where deleting the parent would destroy history (sel
 | Moderation on edit | content fields only | Avoids blocking sellers from updating price and stock while still catching bait-and-switch content |
 | Brand name | "Betoch Furniture" via `MARKETPLACE_NAME` | Placeholder; one env change |
 | Commission | 10% placeholder in config, unused yet | Real rate becomes an admin setting with the payments milestone |
-| Contact seller | public store phone with call link | Works today; in-app inquiries come in milestone 2 |
+| Contact seller | in-app inquiries, plus the public store phone while `MARKETPLACE_SHOW_SELLER_PHONE=true` | Keeps today's behavior. Turning it off keeps deals in the app, where commission can be earned |
+| Admin access to conversations | none | Privacy by default. Needed later for disputes, with an audited read |
+| New-message alerts | in-app unread badge, polled every 60 seconds | No email or SMS provider is configured yet |
 
 ## Planned design for the next milestones
 
@@ -104,7 +153,7 @@ Foreign keys use `restrict` where deleting the parent would destroy history (sel
 
 **Commission and settlements.** `commission_records` per seller order store the rate and amount used at the time. `seller_settlements` group delivered, non-disputed orders into payouts. Reports separate GMV, platform revenue (commission + fees), seller payouts, operating costs and profit; total sales are never labeled profit.
 
-**Also planned:** inquiries/conversations (Method B, quotes for custom work), customer addresses, delivery zones and fees per area, reviews for delivered orders, disputes, admin user management and reports.
+**Also planned:** turning accepted quotes into orders at checkout, email or SMS alerts for new messages, reviews for delivered orders, disputes, admin user management and reports.
 
 ## Roadmap
 
@@ -115,7 +164,7 @@ Foreign keys use `restrict` where deleting the parent would destroy history (sel
 | 3 | Catalog: home, categories, search, filters, sorting, pagination, product page, storefronts, wishlist | Done. Inquiries move to milestone 2 |
 | 4 | Seller: application, approval, dashboard, listings, photos, stock | Done. Orders and finance views come with stage 5 |
 | 6 (part) | Admin: seller approval, listing moderation, categories, audit log, counts | Done |
-| 2 next | Inquiries and custom quotes, customer addresses, delivery zones | Next |
+| 2 (milestone 2) | Inquiries and custom quotes, customer addresses, delivery zones | Done |
 | 5 | Cart, checkout, multi-seller orders, stock reservation, COD and payment provider integration | Planned |
 | 6 rest | Orders, disputes, commission settings, settlements, reports, user management | Planned |
 | 7 | CI, end-to-end tests, deployment scripts, backups automation | Planned |

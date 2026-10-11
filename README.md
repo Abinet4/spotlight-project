@@ -10,7 +10,7 @@ The brand name is configurable (`MARKETPLACE_NAME` in `backend/.env`). Nothing e
 
 ## Status
 
-Milestone 1 (foundation and catalog) is implemented. See `docs/ARCHITECTURE.md` for what is done and what comes next. Cart, checkout, payments, inquiries/messaging, orders and reviews are **not built yet**; the UI says so instead of showing dead buttons.
+Milestone 1 (foundation and catalog) and milestone 2 (in-app inquiries, custom quotes, customer addresses, delivery zones) are implemented. See `docs/ARCHITECTURE.md` for what is done and what comes next. Cart, checkout, payments, orders and reviews are **not built yet**; the UI says so instead of showing dead buttons.
 
 ## Requirements
 

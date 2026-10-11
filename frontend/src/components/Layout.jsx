@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useConfig } from '../context/ConfigContext'
+import { useInbox } from '../context/InboxContext'
 
 function SearchBox({ className = '', id = 'site-search' }) {
   const navigate = useNavigate()
@@ -40,6 +41,7 @@ function SearchBox({ className = '', id = 'site-search' }) {
 
 function AccountLinks({ onNavigate }) {
   const { user, signOut } = useAuth()
+  const { unread } = useInbox()
   const navigate = useNavigate()
   const linkClass = ({ isActive }) => `rounded-md px-3 py-2 text-sm font-medium ${isActive ? 'bg-brand-50 text-brand-800' : 'text-stone-700 hover:bg-stone-100'}`
 
@@ -57,7 +59,19 @@ function AccountLinks({ onNavigate }) {
     <>
       {user.role === 'seller' && <NavLink to="/seller" className={linkClass} onClick={onNavigate}>Seller dashboard</NavLink>}
       {user.role === 'admin' && <NavLink to="/admin" className={linkClass} onClick={onNavigate}>Admin</NavLink>}
+      {user.role !== 'admin' && (
+        <NavLink to="/messages" className={linkClass} onClick={onNavigate}>
+          Messages
+          {unread > 0 && (
+            <span className="ml-1.5 inline-flex min-w-5 justify-center rounded-full bg-brand-700 px-1.5 text-xs font-semibold text-white">
+              {unread > 99 ? '99+' : unread}
+              <span className="sr-only"> unread</span>
+            </span>
+          )}
+        </NavLink>
+      )}
       <NavLink to="/wishlist" className={linkClass} onClick={onNavigate}>Wishlist</NavLink>
+      {user.role === 'customer' && <NavLink to="/account/addresses" className={linkClass} onClick={onNavigate}>Addresses</NavLink>}
       <button
         type="button"
         className="rounded-md px-3 py-2 text-left text-sm font-medium text-stone-700 hover:bg-stone-100"

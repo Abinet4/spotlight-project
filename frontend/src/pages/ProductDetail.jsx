@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import ContactSeller from '../components/ContactSeller'
+import DeliveryEstimate from '../components/DeliveryEstimate'
 import FavoriteButton from '../components/FavoriteButton'
 import { ProductImage } from '../components/ProductCard'
 import { ErrorState, Spinner } from '../components/ui'
@@ -21,6 +23,7 @@ export default function ProductDetail() {
   const { data, error, loading, reload } = useFetch(`/products/${encodeURIComponent(slug)}`)
   const seller = useFetch(data ? `/sellers/${data.data.seller.slug}` : null)
   const [active, setActive] = useState(0)
+  const [contactOpen, setContactOpen] = useState(false)
 
   if (loading) return <Spinner />
   if (error) {
@@ -86,19 +89,22 @@ export default function ProductDetail() {
               {p.delivery.pickup_available && <li>Pickup available{p.area ? ` in ${p.area}` : ''}</li>}
               {p.delivery.notes && <li className="text-stone-600">{p.delivery.notes}</li>}
             </ul>
+            {p.delivery.offers_delivery && <DeliveryEstimate slug={p.slug} />}
           </div>
 
           <div className="mt-5 flex flex-wrap gap-2">
-            {phone && <a href={`tel:${phone}`} className="btn-primary">Call seller {store.phone}</a>}
+            {!contactOpen && <button type="button" className="btn-primary" onClick={() => setContactOpen(true)}>Message seller</button>}
+            {phone && <a href={`tel:${phone}`} className="btn-secondary">Call {store.phone}</a>}
             <FavoriteButton productId={p.id} initial={p.is_favorite} />
           </div>
+          {contactOpen && <div className="mt-4"><ContactSeller product={p} onCancel={() => setContactOpen(false)} /></div>}
           <p className="mt-2 text-xs text-stone-500">
-            Online ordering and in-app messaging are coming soon. For now, contact the seller to confirm availability, finishes and delivery.
+            Online ordering is coming soon. For now, message the seller to confirm availability, finishes, delivery and a final price.
           </p>
 
           {p.custom_order_available && (
             <div className="mt-5 rounded-lg border border-brand-200 bg-brand-50 p-4 text-sm text-brand-900">
-              This seller accepts custom orders. Ask about other sizes, materials or colors.
+              This seller accepts custom orders. Send a custom request to ask about other sizes, materials or colors and get a quote.
             </div>
           )}
         </div>
