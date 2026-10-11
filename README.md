@@ -25,6 +25,14 @@ Milestone 1 (foundation and catalog), milestone 2 (in-app inquiries, custom quot
 ./scripts/try-locally.sh     # needs PHP 8.3+, Composer and Node 22+; on a Mac: brew install php composer node
 ```
 
+On Windows, in PowerShell (Composer is downloaded if missing, and PHP extensions are switched on for this script only):
+
+```powershell
+winget install -e --id PHP.PHP.8.3
+winget install -e --id OpenJS.NodeJS.LTS
+powershell -ExecutionPolicy Bypass -File scripts\try-locally.ps1
+```
+
 It uses SQLite (no MySQL needed), adds demo sellers, listings and an admin, starts both servers and prints the logins. Open http://localhost:5173 and press Ctrl+C to stop. Running it again keeps your data. The demo passwords are public, so use it on your own computer only.
 
 ## Local setup
