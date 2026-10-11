@@ -132,6 +132,8 @@ if ((& php $Helper user-exists customer@demo.local) -ne 'yes') {
     Invoke-Checked 'php' @('artisan', 'db:seed', '--class=DemoSeeder', '--no-interaction')
 } else {
     Write-Host 'Demo sellers and listings already there'
+    # Older demo data has plain colored pictures; swap them for drawn furniture (demo pictures only).
+    Invoke-Checked 'php' @('artisan', 'marketplace:demo-pictures', '--no-interaction')
 }
 if ((& php $Helper user-exists $AdminEmail) -ne 'yes') {
     Step 'Backend: adding the demo admin'

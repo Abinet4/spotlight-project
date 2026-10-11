@@ -211,12 +211,23 @@ Foreign keys use `restrict` where deleting the parent would destroy history (sel
 - Wrong current passwords are limited to 5 per account every 15 minutes. Each attempt is counted before it is checked, so parallel guesses cannot get past the limit; a correct password resets the count. Typos in other fields are not counted.
 - The customer header shows Account instead of Addresses; addresses are linked from My account and used at checkout.
 
+**Shopping helpers and look (UI refresh).**
+- Libraries: lucide-react (icons), @headlessui/react (accessible menus, dialogs, drawer, filter sheet), sonner (toasts), embla-carousel-react (photo gallery and product rails), Inter and Fraunces fonts from @fontsource (served from the app, no Google Fonts request).
+- Compare: up to 4 listings side by side (price, rating, stock, size, material, color, condition, delivery, custom orders, seller, location) with the lowest price marked. The list is kept in this browser (`mp_compare`), follows other open tabs, and still works for the page view when site storage is blocked. Listings that are removed or hidden since they were picked leave the list on the compare page, with a note.
+- Recently viewed: the last 12 listings this browser opened (`mp_recent`), shown on the home page and under each listing (without the one being viewed). Prices and stock are always fetched fresh.
+- Quick view on product cards (tablet and desktop), similar furniture from the same category under each listing, share to Telegram, WhatsApp, the phone's share sheet or a copied link.
+- Catalog: active filters shown as removable chips; on phones the filters open as a bottom sheet with a live result count.
+- Phones: the listing page has a fixed buy bar; the compare pill is hidden there so it does not cover the bar.
+- `GET /products?slugs=a,b,c` returns only those listings that are visible to the public (unknown or hidden ones are skipped), at most 24, for compare and recently viewed.
+- Account, seller and admin pages are loaded on demand, so shoppers download less on first visit.
+- Demo listings get drawn furniture pictures (`DemoFurnitureArt`). `php artisan marketplace:demo-pictures` redraws the old plain demo pictures on an existing demo database; it touches only demo images, never seller uploads.
+
 **Ownership.** All seller endpoints look records up through the signed-in seller's own profile, so another seller's id returns 404 (no existence leak). Tests cover show, update, delete, submit, archive, image upload and image delete across sellers.
 
 ## Security measures in place
 
 - bcrypt password hashing; minimum 8 characters with letters and numbers (12 + symbols for admins).
-- Login: constant-time path for unknown emails, 5 attempts per minute per email+IP and 20 per IP. Registration 10 per hour per IP. Uploads 30 per minute per user. Catalog 120 per minute.
+- Login: constant-time path for unknown emails, 5 attempts per minute per email+IP and 20 per IP. Registration 10 per hour per IP. Uploads 30 per minute per user. Catalog browsing 300 per minute per user, or per IP for guests (`MARKETPLACE_CATALOG_RATE`; set high because mobile carriers put many phones behind one IP).
 - Validation on every write; LIKE search input is escaped; all queries use bindings.
 - Mass assignment restricted with explicit fillable lists; strict model mode in non-production to catch silently dropped attributes and lazy loading.
 - Uploads: content-checked images only (jpg, png, webp; no SVG), 5 MB, 200 to 8000 px, max 8 per listing enforced under a row lock, stored under random names.

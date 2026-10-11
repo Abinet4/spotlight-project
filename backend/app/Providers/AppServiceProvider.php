@@ -48,6 +48,6 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('checkout', fn (Request $request) => Limit::perMinute(10)->by('c|'.$request->user()?->id));
 
-        RateLimiter::for('catalog', fn (Request $request) => Limit::perMinute(120)->by($request->user()?->id ?: $request->ip()));
+        RateLimiter::for('catalog', fn (Request $request) => Limit::perMinute(config('marketplace.catalog.requests_per_minute'))->by($request->user()?->id ?: $request->ip()));
     }
 }

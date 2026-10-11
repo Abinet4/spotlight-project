@@ -25,6 +25,9 @@ return [
     'catalog' => [
         'per_page_default' => 24,
         'per_page_max' => 48,
+        // Browsing requests per minute per signed-in user, or per IP for guests. Mobile carriers
+        // put many phones behind one IP, and a product page makes about five requests.
+        'requests_per_minute' => (int) env('MARKETPLACE_CATALOG_RATE', 300),
     ],
 
     'products' => [

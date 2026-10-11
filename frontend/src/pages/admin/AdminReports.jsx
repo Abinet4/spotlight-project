@@ -69,7 +69,7 @@ export default function AdminReports() {
           <section className="card mt-6 p-4">
             <h2 className="mb-3 font-semibold text-stone-900">Top stores by delivered sales</h2>
             {d.top_sellers.length === 0 ? <p className="text-sm text-stone-500">No delivered orders in this period.</p> : (
-              <div className="overflow-x-auto">
+              <div className="relative overflow-x-auto">
                 <table className="w-full min-w-[420px] text-left text-sm">
                   <thead className="text-xs text-stone-500 uppercase"><tr><th className="py-2 pr-3">Store</th><th className="py-2 pr-3 text-right">Orders</th><th className="py-2 pr-3 text-right">Gross</th><th className="py-2 text-right">Commission</th></tr></thead>
                   <tbody className="divide-y divide-stone-100">
@@ -84,7 +84,7 @@ export default function AdminReports() {
             <h2 className="mb-1 font-semibold text-stone-900">Delivered sales by day</h2>
             <p className="mb-3 text-xs text-stone-500">Days with no deliveries are left out.</p>
             {activeDays.length === 0 ? <p className="text-sm text-stone-500">No deliveries in this period.</p> : (
-            <div className="overflow-x-auto">
+            <div className="relative overflow-x-auto">
               <table className="w-full min-w-[420px] text-left text-sm">
                 <thead className="text-xs text-stone-500 uppercase"><tr><th className="py-2 pr-3">Day</th><th className="py-2 pr-3 text-right">Orders</th><th className="py-2 pr-3">Gross</th><th className="py-2 text-right">Commission</th></tr></thead>
                 <tbody className="divide-y divide-stone-100">

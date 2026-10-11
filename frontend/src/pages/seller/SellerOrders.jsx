@@ -29,7 +29,7 @@ export function SellerOrders() {
           <Link to="/seller/balance" className="card p-4 hover:border-brand-300"><p className="text-sm text-stone-600">Commission you owe</p><p className="text-2xl font-bold">{formatETB(Math.max(0, summary.data.data.balance.balance_santim)) || 'ETB 0'}</p></Link>
         </div>
       )}
-      <div className="mb-4 flex gap-1 overflow-x-auto border-b border-stone-200" role="tablist">
+      <div className="mb-4 flex gap-1 relative overflow-x-auto border-b border-stone-200" role="tablist">
         {TABS.map((t) => (
           <button key={t} type="button" role="tab" aria-selected={status === t} onClick={() => setParams(t ? { status: t } : {})}
             className={`shrink-0 border-b-2 px-3 py-2 text-sm font-medium ${status === t ? 'border-brand-700 text-brand-800' : 'border-transparent text-stone-600 hover:text-stone-900'}`}>

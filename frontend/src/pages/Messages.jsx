@@ -38,7 +38,7 @@ export function Inbox() {
     <div className="container-page py-8">
       <PageHeader title="Messages"
         subtitle={isSeller ? 'Questions, price offers and custom requests from customers.' : 'Your conversations with sellers.'} />
-      <div className="mb-4 flex gap-1 overflow-x-auto" role="tablist" aria-label="Filter conversations">
+      <div className="mb-4 flex gap-1 relative overflow-x-auto" role="tablist" aria-label="Filter conversations">
         {FILTERS.map(([key, label]) => (
           <button key={key} type="button" role="tab" aria-selected={filter === key}
             className={`shrink-0 rounded-full px-3 py-1.5 text-sm font-medium ${filter === key ? 'bg-brand-700 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}`}

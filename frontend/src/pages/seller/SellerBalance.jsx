@@ -11,7 +11,7 @@ import { useFetch } from '../../lib/useFetch'
 export function LedgerTable({ entries, admin = false }) {
   if (!entries.length) return <p className="text-sm text-stone-500">Nothing yet. Commission is added when a cash order is marked delivered.</p>
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <table className="w-full min-w-[560px] text-left text-sm">
         <thead className="text-xs text-stone-500 uppercase">
           <tr><th className="py-2 pr-3 font-semibold">Date</th><th className="py-2 pr-3 font-semibold">What</th><th className="py-2 pr-3 font-semibold">Details</th><th className="py-2 text-right font-semibold">Amount</th></tr>

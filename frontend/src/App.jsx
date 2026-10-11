@@ -1,41 +1,52 @@
+import { lazy } from 'react'
 import { Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import RequireRole from './components/RequireRole'
 import { NotFound } from './components/ui'
-import AdminAudit from './pages/admin/AdminAudit'
-import AdminCategories from './pages/admin/AdminCategories'
-import AdminDelivery from './pages/admin/AdminDelivery'
-import AdminLayout from './pages/admin/AdminLayout'
-import { AdminOrderDetail, AdminOrders } from './pages/admin/AdminOrders'
-import AdminReports from './pages/admin/AdminReports'
-import AdminReviews from './pages/admin/AdminReviews'
-import { AdminSettlementDetail, AdminSettlements } from './pages/admin/AdminSettlements'
-import { AdminUserDetail, AdminUsers } from './pages/admin/AdminUsers'
-import AdminListings from './pages/admin/AdminListings'
-import AdminOverview from './pages/admin/AdminOverview'
-import AdminSellers from './pages/admin/AdminSellers'
-import AdminSettings from './pages/admin/AdminSettings'
-import AdminSms from './pages/admin/AdminSms'
-import Addresses from './pages/Addresses'
-import Account from './pages/Account'
+import Compare from './pages/Compare'
 import { Login, Register, SellerApply } from './pages/Auth'
 import Cart from './pages/Cart'
-import Checkout from './pages/Checkout'
 import Catalog from './pages/Catalog'
 import Help from './pages/Help'
 import Home from './pages/Home'
-import { ConversationView, Inbox } from './pages/Messages'
-import { AlertSettings, Notifications } from './pages/Notifications'
-import { OrderDetail, Orders } from './pages/Orders'
 import ProductDetail from './pages/ProductDetail'
-import SellerDashboard from './pages/seller/SellerDashboard'
-import SellerBalance from './pages/seller/SellerBalance'
-import { SellerOrderDetail, SellerOrders } from './pages/seller/SellerOrders'
-import SellerReviews from './pages/seller/SellerReviews'
-import SellerProductForm from './pages/seller/SellerProductForm'
-import SellerProfile from './pages/seller/SellerProfile'
 import Storefront from './pages/Storefront'
 import Wishlist from './pages/Wishlist'
+
+// Account, seller and admin screens load on first visit, so shoppers download only the store.
+const AdminAudit = lazy(() => import('./pages/admin/AdminAudit'))
+const AdminCategories = lazy(() => import('./pages/admin/AdminCategories'))
+const AdminDelivery = lazy(() => import('./pages/admin/AdminDelivery'))
+const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'))
+const AdminOrderDetail = lazy(() => import('./pages/admin/AdminOrders').then((m) => ({ default: m.AdminOrderDetail })))
+const AdminOrders = lazy(() => import('./pages/admin/AdminOrders').then((m) => ({ default: m.AdminOrders })))
+const AdminReports = lazy(() => import('./pages/admin/AdminReports'))
+const AdminReviews = lazy(() => import('./pages/admin/AdminReviews'))
+const AdminSettlementDetail = lazy(() => import('./pages/admin/AdminSettlements').then((m) => ({ default: m.AdminSettlementDetail })))
+const AdminSettlements = lazy(() => import('./pages/admin/AdminSettlements').then((m) => ({ default: m.AdminSettlements })))
+const AdminUserDetail = lazy(() => import('./pages/admin/AdminUsers').then((m) => ({ default: m.AdminUserDetail })))
+const AdminUsers = lazy(() => import('./pages/admin/AdminUsers').then((m) => ({ default: m.AdminUsers })))
+const AdminListings = lazy(() => import('./pages/admin/AdminListings'))
+const AdminOverview = lazy(() => import('./pages/admin/AdminOverview'))
+const AdminSellers = lazy(() => import('./pages/admin/AdminSellers'))
+const AdminSettings = lazy(() => import('./pages/admin/AdminSettings'))
+const AdminSms = lazy(() => import('./pages/admin/AdminSms'))
+const Addresses = lazy(() => import('./pages/Addresses'))
+const Account = lazy(() => import('./pages/Account'))
+const Checkout = lazy(() => import('./pages/Checkout'))
+const ConversationView = lazy(() => import('./pages/Messages').then((m) => ({ default: m.ConversationView })))
+const Inbox = lazy(() => import('./pages/Messages').then((m) => ({ default: m.Inbox })))
+const AlertSettings = lazy(() => import('./pages/Notifications').then((m) => ({ default: m.AlertSettings })))
+const Notifications = lazy(() => import('./pages/Notifications').then((m) => ({ default: m.Notifications })))
+const OrderDetail = lazy(() => import('./pages/Orders').then((m) => ({ default: m.OrderDetail })))
+const Orders = lazy(() => import('./pages/Orders').then((m) => ({ default: m.Orders })))
+const SellerDashboard = lazy(() => import('./pages/seller/SellerDashboard'))
+const SellerBalance = lazy(() => import('./pages/seller/SellerBalance'))
+const SellerOrderDetail = lazy(() => import('./pages/seller/SellerOrders').then((m) => ({ default: m.SellerOrderDetail })))
+const SellerOrders = lazy(() => import('./pages/seller/SellerOrders').then((m) => ({ default: m.SellerOrders })))
+const SellerReviews = lazy(() => import('./pages/seller/SellerReviews'))
+const SellerProductForm = lazy(() => import('./pages/seller/SellerProductForm'))
+const SellerProfile = lazy(() => import('./pages/seller/SellerProfile'))
 
 export default function App() {
   return (
@@ -50,6 +61,7 @@ export default function App() {
         <Route path="login" element={<Login />} />
         <Route path="register" element={<Register />} />
         <Route path="sell" element={<SellerApply />} />
+        <Route path="compare" element={<Compare />} />
 
         <Route path="wishlist" element={<RequireRole><Wishlist /></RequireRole>} />
         <Route path="messages" element={<RequireRole roles={['customer', 'seller']}><Inbox /></RequireRole>} />

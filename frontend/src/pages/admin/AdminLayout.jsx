@@ -1,4 +1,6 @@
+import { Suspense } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
+import { Spinner } from '../../components/ui'
 
 const LINKS = [
   ['/admin', 'Overview', true],
@@ -19,7 +21,7 @@ const LINKS = [
 export default function AdminLayout() {
   return (
     <div className="container-page py-8">
-      <nav aria-label="Admin" className="mb-6 flex gap-1 overflow-x-auto border-b border-stone-200">
+      <nav aria-label="Admin" className="mb-6 flex gap-1 relative overflow-x-auto border-b border-stone-200">
         {LINKS.map(([to, label, end]) => (
           <NavLink key={to} to={to} end={end}
             className={({ isActive }) => `shrink-0 border-b-2 px-3 py-2 text-sm font-medium ${isActive ? 'border-brand-700 text-brand-800' : 'border-transparent text-stone-600 hover:text-stone-900'}`}>
@@ -27,7 +29,9 @@ export default function AdminLayout() {
           </NavLink>
         ))}
       </nav>
-      <Outlet />
+      <Suspense fallback={<Spinner />}>
+        <Outlet />
+      </Suspense>
     </div>
   )
 }

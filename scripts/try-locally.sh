@@ -82,6 +82,8 @@ if [ "$(user_exists customer@demo.local)" != "yes" ]; then
   DEMO_USER_PASSWORD="$DEMO_PASSWORD" php artisan db:seed --class=DemoSeeder --no-interaction
 else
   echo "Demo sellers and listings already there"
+  # Older demo data has plain colored pictures; swap them for drawn furniture (demo pictures only).
+  php artisan marketplace:demo-pictures --no-interaction
 fi
 if [ "$(user_exists "$ADMIN_EMAIL")" != "yes" ]; then
   step "Backend: adding the demo admin"

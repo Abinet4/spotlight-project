@@ -81,7 +81,7 @@ export default function SellerDashboard() {
       )}
       {notice && <div className="mb-4"><Alert tone={notice.tone}>{notice.text}</Alert></div>}
 
-      <div className="mb-4 flex gap-1 overflow-x-auto border-b border-stone-200" role="tablist">
+      <div className="mb-4 flex gap-1 relative overflow-x-auto border-b border-stone-200" role="tablist">
         {TABS.map(([value, label]) => (
           <button key={value} role="tab" aria-selected={status === value} type="button" onClick={() => setParams(value ? { status: value } : {})}
             className={`shrink-0 border-b-2 px-3 py-2 text-sm font-medium ${status === value ? 'border-brand-700 text-brand-800' : 'border-transparent text-stone-600 hover:text-stone-900'}`}>

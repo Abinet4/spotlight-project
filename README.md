@@ -10,7 +10,7 @@ The brand name is configurable (`MARKETPLACE_NAME` in `backend/.env`). Nothing e
 
 ## Status
 
-Milestone 1 (foundation and catalog), milestone 2 (in-app inquiries, custom quotes, customer addresses, delivery zones) milestone 3 (cart, checkout with one order per seller, stock reservation, cash on delivery, seller and admin order handling, commission settings) milestone 4 (seller commission balances and settlements, reviews, admin user management, sales reports with CSV export) and milestone 5 (in-app, email and SMS alerts for orders, messages, quotes, approvals and payments) are implemented. See `docs/ARCHITECTURE.md` for what is done and what comes next. Online payments and disputes are **not built yet**.
+Milestone 1 (foundation and catalog), milestone 2 (in-app inquiries, custom quotes, customer addresses, delivery zones) milestone 3 (cart, checkout with one order per seller, stock reservation, cash on delivery, seller and admin order handling, commission settings) milestone 4 (seller commission balances and settlements, reviews, admin user management, sales reports with CSV export) milestone 5 (in-app, email and SMS alerts for orders, messages, quotes, approvals and payments), a My account page, and a refreshed storefront (compare, quick view, recently viewed, similar items, sharing, phone filter sheet) are implemented. See `docs/ARCHITECTURE.md` for what is done and what comes next. Online payments and disputes are **not built yet**.
 
 ## Requirements
 
@@ -33,7 +33,7 @@ winget install -e --id OpenJS.NodeJS.LTS
 powershell -ExecutionPolicy Bypass -File scripts\try-locally.ps1
 ```
 
-It uses SQLite (no MySQL needed), adds demo sellers, listings and an admin, starts both servers and prints the logins. Open http://localhost:5173 and press Ctrl+C to stop. Running it again keeps your data. The demo passwords are public, so use it on your own computer only.
+It uses SQLite (no MySQL needed), adds demo sellers, listings and an admin, starts both servers and prints the logins. Open http://localhost:5173 and press Ctrl+C to stop. Running it again keeps your data (and redraws old plain demo pictures as furniture). The demo passwords are public, so use it on your own computer only.
 
 ## Local setup
 
