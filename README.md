@@ -19,6 +19,14 @@ Milestone 1 (foundation and catalog), milestone 2 (in-app inquiries, custom quot
 - Node 22+ and npm
 - MySQL 8 or MariaDB 10.6+ (SQLite works for quick local tries and is used by the test suite)
 
+## Quick try with demo data
+
+```bash
+./scripts/try-locally.sh     # needs PHP 8.3+, Composer and Node 22+; on a Mac: brew install php composer node
+```
+
+It uses SQLite (no MySQL needed), adds demo sellers, listings and an admin, starts both servers and prints the logins. Open http://localhost:5173 and press Ctrl+C to stop. Running it again keeps your data. The demo passwords are public, so use it on your own computer only.
+
 ## Local setup
 
 ```bash
