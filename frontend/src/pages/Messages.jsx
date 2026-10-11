@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ProductImage } from '../components/ProductCard'
 import { Alert, EmptyState, ErrorState, Field, PageHeader, Pagination, Spinner } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
+import { useCart } from '../context/CartContext'
 import { useInbox } from '../context/InboxContext'
 import { api, parseError } from '../lib/api'
 import { INQUIRY_TYPES, QUOTE_STATUS_LABELS, formatETB, timeAgo, toQuery } from '../lib/format'
@@ -138,11 +139,47 @@ function QuoteCard({ quote, side, onChanged }) {
       {pending && side === 'seller' && (
         <button type="button" className="btn-ghost mt-2 text-red-700" disabled={busy} onClick={() => act('withdraw')}>Withdraw quote</button>
       )}
-      {quote.status === 'accepted' && (
+      {quote.status === 'accepted' && side === 'customer' && <OrderQuote quote={quote} />}
+      {quote.status === 'accepted' && side === 'seller' && (
         <p className="mt-2 text-emerald-800">
-          {side === 'customer' ? 'Accepted. The seller will confirm the next steps with you here.' : 'Accepted. Confirm production, payment and delivery details with the customer here.'}
+          {quote.ordered ? 'Ordered. You will find it under Orders.' : 'Accepted. The customer can now order it at this price. You will see it under Orders when they do.'}
         </p>
       )}
+    </div>
+  )
+}
+
+function OrderQuote({ quote }) {
+  const { refreshCart } = useCart()
+  const navigate = useNavigate()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const expired = quote.order_by && new Date(quote.order_by) < new Date()
+
+  async function add() {
+    setBusy(true)
+    setError(null)
+    try {
+      await api.post(`/quotes/${quote.id}/add-to-cart`)
+      refreshCart()
+      navigate('/cart')
+    } catch (err) {
+      const e = parseError(err)
+      setError(Object.values(e.fields)[0] || e.message)
+      setBusy(false)
+    }
+  }
+
+  if (quote.ordered) return <p className="mt-2 text-emerald-800">Ordered. Track it under <Link to="/orders" className="font-medium underline">My orders</Link>.</p>
+  if (expired) return <p className="mt-2 text-stone-600">This quote can no longer be ordered. Ask the seller for a new one.</p>
+
+  return (
+    <div className="mt-3">
+      {error && <p className="mb-2 font-medium text-red-700">{error}</p>}
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="button" className="btn-primary" disabled={busy} onClick={add}>{busy ? 'Adding...' : 'Add to cart'}</button>
+        <span className="text-xs text-stone-600">Order by {new Date(quote.order_by).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}. Pay cash on delivery.</span>
+      </div>
     </div>
   )
 }

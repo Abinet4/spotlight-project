@@ -84,3 +84,58 @@ export function santimToBirr(santim) {
   const n = Math.round(Number(santim))
   return `${Math.floor(n / 100)}.${String(n % 100).padStart(2, '0')}`
 }
+
+export const ORDER_STATUS_LABELS = {
+  pending_confirmation: 'Waiting for seller',
+  confirmed: 'Confirmed',
+  processing: 'Being prepared',
+  ready: 'Ready',
+  dispatched: 'On the way',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled',
+}
+
+export const ORDER_STATUS_TONES = {
+  pending_confirmation: 'bg-amber-100 text-amber-800',
+  confirmed: 'bg-sky-100 text-sky-800',
+  processing: 'bg-sky-100 text-sky-800',
+  ready: 'bg-sky-100 text-sky-800',
+  dispatched: 'bg-indigo-100 text-indigo-800',
+  delivered: 'bg-emerald-100 text-emerald-800',
+  cancelled: 'bg-stone-200 text-stone-700',
+}
+
+/**
+ * Wording for the "ready" step depends on whether the customer collects.
+ */
+export function orderStatusLabel(status, fulfillment) {
+  if (status === 'ready') return fulfillment === 'pickup' ? 'Ready for pickup' : 'Ready for delivery'
+  if (status === 'delivered' && fulfillment === 'pickup') return 'Picked up'
+  return ORDER_STATUS_LABELS[status] || status
+}
+
+/**
+ * Button text for the seller moving an order to `status`.
+ */
+export function orderActionLabel(status, fulfillment) {
+  const pickup = fulfillment === 'pickup'
+  return {
+    processing: 'Start preparing',
+    ready: pickup ? 'Ready for pickup' : 'Ready for delivery',
+    dispatched: 'Out for delivery',
+    delivered: pickup ? 'Picked up and paid' : 'Delivered and paid',
+  }[status] || status
+}
+
+export function formatDateTime(iso) {
+  if (!iso) return ''
+  return new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+/**
+ * Random id for the checkout Idempotency-Key header; falls back where crypto.randomUUID is missing.
+ */
+export function newIdempotencyKey() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID()
+  return `k-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
+}

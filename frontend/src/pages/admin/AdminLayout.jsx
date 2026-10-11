@@ -2,10 +2,12 @@ import { NavLink, Outlet } from 'react-router-dom'
 
 const LINKS = [
   ['/admin', 'Overview', true],
+  ['/admin/orders', 'Orders'],
   ['/admin/sellers', 'Sellers'],
   ['/admin/listings', 'Listings'],
   ['/admin/categories', 'Categories'],
   ['/admin/delivery', 'Delivery'],
+  ['/admin/settings', 'Settings'],
   ['/admin/audit', 'Audit log'],
 ]
 

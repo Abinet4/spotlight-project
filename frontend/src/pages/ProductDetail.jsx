@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import AddToCart from '../components/AddToCart'
 import ContactSeller from '../components/ContactSeller'
 import DeliveryEstimate from '../components/DeliveryEstimate'
 import FavoriteButton from '../components/FavoriteButton'
@@ -92,14 +93,15 @@ export default function ProductDetail() {
             {p.delivery.offers_delivery && <DeliveryEstimate slug={p.slug} />}
           </div>
 
-          <div className="mt-5 flex flex-wrap gap-2">
-            {!contactOpen && <button type="button" className="btn-primary" onClick={() => setContactOpen(true)}>Message seller</button>}
+          <div className="mt-5"><AddToCart product={p} /></div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {!contactOpen && <button type="button" className="btn-secondary" onClick={() => setContactOpen(true)}>Message seller</button>}
             {phone && <a href={`tel:${phone}`} className="btn-secondary">Call {store.phone}</a>}
             <FavoriteButton productId={p.id} initial={p.is_favorite} />
           </div>
           {contactOpen && <div className="mt-4"><ContactSeller product={p} onCancel={() => setContactOpen(false)} /></div>}
           <p className="mt-2 text-xs text-stone-500">
-            Online ordering is coming soon. For now, message the seller to confirm availability, finishes, delivery and a final price.
+            Pay cash on delivery. The seller confirms your order and delivery details before preparing it.
           </p>
 
           {p.custom_order_available && (

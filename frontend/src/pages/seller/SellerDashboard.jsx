@@ -30,7 +30,9 @@ export default function SellerDashboard() {
   const status = params.get('status') || ''
   const profile = useFetch('/seller/profile')
   const products = useFetch(`/seller/products?${toQuery({ status, page: params.get('page') || '' })}`)
+  const orders = useFetch('/seller/orders/summary')
   const [notice, setNotice] = useState(null)
+  const waiting = orders.data?.data.counts.pending_confirmation || 0
 
   async function act(product, action) {
     if (action === 'delete' && !window.confirm(`Delete "${product.name}"? This cannot be undone.`)) return
@@ -58,11 +60,17 @@ export default function SellerDashboard() {
         title={p.store_name}
         subtitle={p.status === 'approved' ? <>Your storefront: <Link className="text-brand-700 hover:underline" to={`/sellers/${p.slug}`}>view public page</Link></> : 'Seller dashboard'}
         actions={<>
+          <Link to="/seller/orders" className="btn-secondary">Orders</Link>
           <Link to="/seller/profile" className="btn-secondary">Store profile</Link>
           {canWrite && <Link to="/seller/products/new" className="btn-primary">Add listing</Link>}
         </>}
       />
       <StoreStatus profile={p} />
+      {waiting > 0 && (
+        <div className="mb-6"><Alert tone="warning">
+          {waiting === 1 ? '1 order is' : `${waiting} orders are`} waiting for your confirmation. <Link to="/seller/orders?status=pending_confirmation" className="font-semibold underline">Review orders</Link>
+        </Alert></div>
+      )}
       {notice && <div className="mb-4"><Alert tone={notice.tone}>{notice.text}</Alert></div>}
 
       <div className="mb-4 flex gap-1 overflow-x-auto border-b border-stone-200" role="tablist">

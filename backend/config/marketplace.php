@@ -44,9 +44,26 @@ return [
         'show_seller_phone' => (bool) env('MARKETPLACE_SHOW_SELLER_PHONE', true),
     ],
 
-    // Placeholder only. The real rate becomes an admin setting in the payments milestone.
+    // Default only: administrators change the live rate in Admin > Settings. Each order stores
+    // the rate used when it was placed, so changes never rewrite past orders.
     'commission' => [
         'default_rate_percent' => (float) env('MARKETPLACE_DEFAULT_COMMISSION_PERCENT', 10),
+        'max_rate_percent' => 50,
+    ],
+
+    'payments' => [
+        // Cash on delivery. Online payment providers are added in a later milestone.
+        'cod_enabled' => (bool) env('MARKETPLACE_COD_ENABLED', true),
+    ],
+
+    'cart' => [
+        'max_lines' => 30,
+        'max_quantity' => 99,
+    ],
+
+    // Days after acceptance a customer still has to order an accepted quote, if its own validity is shorter.
+    'quotes' => [
+        'order_grace_days' => 7,
     ],
 
 ];

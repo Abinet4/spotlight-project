@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { ErrorState, PageHeader, Spinner } from '../../components/ui'
-import { STATUS_LABELS } from '../../lib/format'
+import { ORDER_STATUS_LABELS, STATUS_LABELS, formatETB } from '../../lib/format'
 import { useFetch } from '../../lib/useFetch'
 
 function Stat({ label, value, to, highlight }) {
@@ -26,6 +26,19 @@ export default function AdminOverview() {
       <div className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Seller applications" value={s.sellers.pending} to="/admin/sellers?status=pending" highlight={s.sellers.pending > 0} />
         <Stat label="Listings to review" value={s.products.pending_review} to="/admin/listings" highlight={s.products.pending_review > 0} />
+        <Stat label="Orders waiting for sellers" value={s.orders.pending_confirmation} to="/admin/orders?status=pending_confirmation" highlight={s.orders.pending_confirmation > 0} />
+      </div>
+      <h2 className="mb-3 text-sm font-bold tracking-wide text-stone-500 uppercase">Money (delivered orders only)</h2>
+      <div className="mb-2 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Stat label="Gross sales" value={formatETB(s.money.delivered_gross_santim)} />
+        <Stat label="Commission earned" value={formatETB(s.money.commission_earned_santim)} />
+        <Stat label="Open orders value" value={formatETB(s.money.open_orders_value_santim)} />
+        <Stat label="Current commission rate" value={`${s.money.commission_rate_percent}%`} to="/admin/settings" />
+      </div>
+      <p className="mb-8 text-xs text-stone-500">Gross sales is what customers paid sellers, delivery included. Commission is the platform's revenue. Neither is profit.</p>
+      <h2 className="mb-3 text-sm font-bold tracking-wide text-stone-500 uppercase">Orders</h2>
+      <div className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-4">
+        {Object.entries(s.orders).map(([k, v]) => <Stat key={k} label={ORDER_STATUS_LABELS[k]} value={v} to={`/admin/orders?status=${k}`} />)}
       </div>
       <h2 className="mb-3 text-sm font-bold tracking-wide text-stone-500 uppercase">Accounts</h2>
       <div className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -36,9 +49,6 @@ export default function AdminOverview() {
       <div className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-5">
         {Object.entries(s.products).map(([k, v]) => <Stat key={k} label={STATUS_LABELS[k]} value={v} to={`/admin/listings?status=${k}`} />)}
       </div>
-      <p className="text-sm text-stone-500">
-        Orders, gross merchandise value, platform revenue and seller payouts appear here once checkout is live. They are tracked separately so sales are never reported as profit.
-      </p>
     </>
   )
 }

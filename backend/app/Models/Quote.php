@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\QuoteStatus;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -51,6 +52,36 @@ class Quote extends Model
         return $this->status;
     }
 
+    public function seller(): BelongsTo
+    {
+        return $this->belongsTo(SellerProfile::class, 'seller_profile_id');
+    }
+
+    /**
+     * Last moment an accepted quote can be ordered: the end of its validity date, or a grace
+     * period after acceptance when the customer accepted close to that date.
+     */
+    public function orderDeadline(): CarbonInterface
+    {
+        $grace = $this->responded_at?->copy()->addDays((int) config('marketplace.quotes.order_grace_days'));
+        $end = $this->valid_until->copy()->endOfDay();
+
+        return $grace && $grace->gt($end) ? $grace : $end;
+    }
+
+    /**
+     * Whether the quote is already part of an order that has not been cancelled.
+     */
+    public function isOrdered(): bool
+    {
+        return OrderItem::where('quote_id', $this->id)
+            ->whereHas('order', fn ($q) => $q->where('status', '!=', 'cancelled'))
+            ->exists();
+    }
+
+    /**
+     * Unit price for a cart line: the quote price covers `quantity` pieces as one line.
+     */
     public function totalSantim(): int
     {
         return $this->price_santim * $this->quantity + (int) $this->delivery_fee_santim;

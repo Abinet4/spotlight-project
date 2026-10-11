@@ -76,6 +76,29 @@ erDiagram
 | messages | conversation_id cascade, sender_id, body (max 2000), quote_id nullable. Append-only, no edits |
 | quotes | conversation_id, seller_profile_id, title, description, price_santim, quantity, delivery_fee_santim nullable, production_days, valid_until, status pending/accepted/declined/withdrawn |
 
+### Added in milestone 3
+
+```mermaid
+erDiagram
+    users ||--o{ cart_items : has
+    products |o--o{ cart_items : "line (listing)"
+    quotes |o--o{ cart_items : "line (accepted quote)"
+    users ||--o{ checkouts : places
+    checkouts ||--|{ orders : "one per seller"
+    seller_profiles ||--o{ orders : fulfils
+    orders ||--|{ order_items : contains
+    orders ||--o{ order_status_history : logs
+```
+
+| Table | Key columns and constraints |
+|---|---|
+| settings | key (primary), value, updated_by. Holds `commission_rate_percent` and `cod_enabled`; config values are the fallback |
+| cart_items | user_id, product_id or quote_id (each unique per user), quantity. Max 30 lines, 99 per line |
+| checkouts | customer_id, idempotency_key (unique per customer), payment_method, address snapshot (recipient, phone, area, line, landmark), items, delivery and grand totals |
+| orders | number `ORD-000123`, checkout_id, customer_id, seller_profile_id, status, fulfillment (delivery/pickup), items_total, delivery_fee (null until the seller sets it), total, commission_rate_bp and commission_santim frozen at placement, payment_method, payment_status, paid_at, notes, cancel reason and actor, timestamps |
+| order_items | order_id, product_id or quote_id, snapshot of name, unit price, quantity, line total, stock type, production days, and reserved_quantity (stock still held) |
+| order_status_history | order_id, from, to, actor_id, actor_role, note, created_at. Append-only |
+
 Foreign keys use `restrict` where deleting the parent would destroy history (sellers, categories, cities) and `cascade` only for pure child rows (images, favorites).
 
 ## Business rules implemented
@@ -107,13 +130,36 @@ Foreign keys use `restrict` where deleting the parent would destroy history (sel
 - Accept, decline and withdraw run under row locks (conversation, then quote, the same order quote creation uses) and succeed exactly once. Verified with parallel requests against MariaDB.
 - Accepting needs an open thread and an active store. Declining and withdrawing always work.
 - Closing a thread ends any pending quote: declined when the customer closes, withdrawn when the seller closes.
-- An accepted quote is an agreement in the thread only. It becomes an order when checkout ships (milestone 3).
+- An accepted quote can be added to the cart and ordered at its agreed price and quantity until the later of its validity date and 7 days after acceptance (`marketplace.quotes.order_grace_days`). It can be ordered once; if that order is cancelled it can be ordered again.
 
 **Delivery fees.**
 - Admins group sub-cities into delivery zones with a default fee and day range.
 - The estimate for a listing and sub-city uses the listing's own fee first (0 means free), then the zone fee, else "the seller confirms the fee before you pay". Made-to-order production days are added to the day range.
 - Inactive zones are ignored. Deleting a zone leaves its sub-cities unassigned.
 - `DemoSeeder` creates three demo zones with made-up fees. Real fees are a business decision set in Admin > Delivery.
+
+**Cart and checkout (milestone 3).**
+- Only customer accounts have a cart. Adding the same listing twice merges the lines; quantities are capped at the stock left. Quote lines keep the seller's quantity.
+- The cart, the checkout preview and order placement share one calculator, so the numbers the customer sees are the numbers charged.
+- Lines are grouped by seller and each group becomes one order. Delivery is one trip per seller, priced at the highest fee among that seller's lines (quote fee, then listing fee, then the zone fee for the address's sub-city). If any line has no known fee, the seller sets it when confirming and the customer can still cancel.
+- Pickup is offered only when every line from that seller allows it.
+- Placement runs in one transaction: lock the customer row, replay an existing checkout for the same `Idempotency-Key`, lock products and quotes in id order, re-price, and refuse with 409 plus fresh numbers if anything is unavailable or the total differs from `expected_total_santim`. In-stock quantities are decremented at placement and recorded as `reserved_quantity`; made-to-order items never touch stock.
+- Verified against MariaDB with parallel requests: six customers racing for the last unit give exactly one order and five 409s; six parallel submits with one key give one checkout, one 201 and five 200 replays, and stock taken once.
+- Rate limit: 10 checkouts per minute per user.
+
+**Orders.**
+- States: pending_confirmation -> confirmed -> processing -> ready -> dispatched -> delivered, or cancelled. Delivered and cancelled are final.
+- Sellers confirm first (a suspended store cannot), entering the delivery fee if it was not known. After that they move forward and may skip steps; pickup orders never use dispatched.
+- Customers cancel while pending_confirmation or confirmed. Sellers cancel up to ready. Admins only cancel, from any non-final state. A reason is required and shown to the other side.
+- Cancelling returns reserved stock exactly once (the reserved quantity is zeroed in the same locked transaction).
+- Delivered marks a cash-on-delivery order paid.
+- Every change writes `order_status_history` and the audit log, under a row lock on the order.
+
+**Commission.**
+- Admins set the rate (0 to 50%, 2 decimals) in Admin > Settings. It is stored in basis points on each order at placement, so later changes never rewrite existing orders.
+- Commission is charged on item totals, not delivery fees, rounded half up to the santim with overflow-safe integer maths.
+- The admin overview reports gross sales, commission earned (delivered orders only) and open order value, labelled so that sales are never read as profit.
+- Collection from sellers on cash-on-delivery orders is an open business decision; the amounts are recorded per order so settlements can be built on them.
 
 **Ownership.** All seller endpoints look records up through the signed-in seller's own profile, so another seller's id returns 404 (no existence leak). Tests cover show, update, delete, submit, archive, image upload and image delete across sellers.
 
@@ -126,7 +172,8 @@ Foreign keys use `restrict` where deleting the parent would destroy history (sel
 - Uploads: content-checked images only (jpg, png, webp; no SVG), 5 MB, 200 to 8000 px, max 8 per listing enforced under a row lock, stored under random names.
 - API 404s never reveal model names; 500s never return server messages to the UI.
 - CORS limited to `CORS_ALLOWED_ORIGINS`. Bearer tokens mean CSRF does not apply to the API; there are no cookie-authenticated API routes.
-- Audit log for seller applications and reviews, listing create/update/submit/archive/delete/moderation, category changes, quotes (sent, accepted, declined, withdrawn), delivery zone changes and CLI admin creation.
+- Checkout requires an `Idempotency-Key` header; prices and totals are always recomputed on the server.
+- Audit log for checkouts, every order status change, settings changes, seller applications and reviews, listing create/update/submit/archive/delete/moderation, category changes, quotes (sent, accepted, declined, withdrawn), delivery zone changes and CLI admin creation.
 
 ## Decisions and defaults (change if the business decides otherwise)
 
@@ -136,24 +183,24 @@ Foreign keys use `restrict` where deleting the parent would destroy history (sel
 | One role per account | seller accounts are separate from customer accounts | Simplest correct permission model; sellers can still browse and save favorites |
 | Moderation on edit | content fields only | Avoids blocking sellers from updating price and stock while still catching bait-and-switch content |
 | Brand name | "Betoch Furniture" via `MARKETPLACE_NAME` | Placeholder; one env change |
-| Commission | 10% placeholder in config, unused yet | Real rate becomes an admin setting with the payments milestone |
+| Commission | 10% starting value, editable in Admin > Settings | Frozen on each order at placement |
+| Payment | cash on delivery only, switchable in Admin > Settings | No online provider is integrated yet; turning COD off pauses checkout |
+| Delivery for several items from one seller | one trip, highest line fee | Matches how sellers deliver; avoids charging per item |
 | Contact seller | in-app inquiries, plus the public store phone while `MARKETPLACE_SHOW_SELLER_PHONE=true` | Keeps today's behavior. Turning it off keeps deals in the app, where commission can be earned |
 | Admin access to conversations | none | Privacy by default. Needed later for disputes, with an audited read |
 | New-message alerts | in-app unread badge, polled every 60 seconds | No email or SMS provider is configured yet |
 
 ## Planned design for the next milestones
 
-**Multi-seller checkout (Stage 5).** One `checkouts` row per customer payment, containing one `orders` row per seller (each with its own status, delivery record and commission). `order_items` snapshot product name, unit price and delivery fee at purchase time. Amounts are recomputed server-side from current prices inside a DB transaction with `SELECT ... FOR UPDATE` on product rows.
+Checkout, orders and stock reservation shipped in milestone 3 (see Business rules). Still planned:
 
-**Stock.** In-stock quantity is reserved (decremented) when the order is placed, released on cancellation or payment failure/expiry, and never decremented for made-to-order items. Orders start `pending_confirmation`; the seller must confirm availability and final delivery terms before `confirmed`.
-
-**Order states.** pending_confirmation -> confirmed -> processing -> ready_for_delivery -> dispatched -> delivered; cancelled from pre-dispatch states; returned/disputed after delivery. Every transition is written to `order_status_history`.
+**Returns and disputes.** returned and disputed states after delivery, with an audited admin read of the conversation.
 
 **Payments.** `payment_transactions` with provider, provider reference (unique), amount_santim, currency, status (pending/succeeded/failed/refunded) and raw callback. Callbacks are verified server-side with the provider, amounts and currency are checked against the checkout, and the unique provider reference plus an idempotency check prevents double processing. A clearly labeled development driver exists only outside production. Cash on delivery is a config flag.
 
 **Commission and settlements.** `commission_records` per seller order store the rate and amount used at the time. `seller_settlements` group delivered, non-disputed orders into payouts. Reports separate GMV, platform revenue (commission + fees), seller payouts, operating costs and profit; total sales are never labeled profit.
 
-**Also planned:** turning accepted quotes into orders at checkout, email or SMS alerts for new messages, reviews for delivered orders, disputes, admin user management and reports.
+**Also planned:** email or SMS alerts for new messages, reviews for delivered orders, disputes, admin user management and reports.
 
 ## Roadmap
 
@@ -165,6 +212,6 @@ Foreign keys use `restrict` where deleting the parent would destroy history (sel
 | 4 | Seller: application, approval, dashboard, listings, photos, stock | Done. Orders and finance views come with stage 5 |
 | 6 (part) | Admin: seller approval, listing moderation, categories, audit log, counts | Done |
 | 2 (milestone 2) | Inquiries and custom quotes, customer addresses, delivery zones | Done |
-| 5 | Cart, checkout, multi-seller orders, stock reservation, COD and payment provider integration | Planned |
-| 6 rest | Orders, disputes, commission settings, settlements, reports, user management | Planned |
+| 5 | Cart, checkout, multi-seller orders, stock reservation, cash on delivery | Done (milestone 3). Online payment provider is planned |
+| 6 rest | Seller and admin order handling, commission settings | Done (milestone 3). Disputes, settlements, reports, user management are planned |
 | 7 | CI, end-to-end tests, deployment scripts, backups automation | Planned |
