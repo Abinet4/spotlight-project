@@ -7,6 +7,10 @@ import AdminCategories from './pages/admin/AdminCategories'
 import AdminDelivery from './pages/admin/AdminDelivery'
 import AdminLayout from './pages/admin/AdminLayout'
 import { AdminOrderDetail, AdminOrders } from './pages/admin/AdminOrders'
+import AdminReports from './pages/admin/AdminReports'
+import AdminReviews from './pages/admin/AdminReviews'
+import { AdminSettlementDetail, AdminSettlements } from './pages/admin/AdminSettlements'
+import { AdminUserDetail, AdminUsers } from './pages/admin/AdminUsers'
 import AdminListings from './pages/admin/AdminListings'
 import AdminOverview from './pages/admin/AdminOverview'
 import AdminSellers from './pages/admin/AdminSellers'
@@ -22,7 +26,9 @@ import { ConversationView, Inbox } from './pages/Messages'
 import { OrderDetail, Orders } from './pages/Orders'
 import ProductDetail from './pages/ProductDetail'
 import SellerDashboard from './pages/seller/SellerDashboard'
+import SellerBalance from './pages/seller/SellerBalance'
 import { SellerOrderDetail, SellerOrders } from './pages/seller/SellerOrders'
+import SellerReviews from './pages/seller/SellerReviews'
 import SellerProductForm from './pages/seller/SellerProductForm'
 import SellerProfile from './pages/seller/SellerProfile'
 import Storefront from './pages/Storefront'
@@ -54,6 +60,8 @@ export default function App() {
         <Route path="seller" element={<RequireRole roles={['seller']}><SellerDashboard /></RequireRole>} />
         <Route path="seller/orders" element={<RequireRole roles={['seller']}><SellerOrders /></RequireRole>} />
         <Route path="seller/orders/:id" element={<RequireRole roles={['seller']}><SellerOrderDetail /></RequireRole>} />
+        <Route path="seller/balance" element={<RequireRole roles={['seller']}><SellerBalance /></RequireRole>} />
+        <Route path="seller/reviews" element={<RequireRole roles={['seller']}><SellerReviews /></RequireRole>} />
         <Route path="seller/profile" element={<RequireRole roles={['seller']}><SellerProfile /></RequireRole>} />
         <Route path="seller/products/new" element={<RequireRole roles={['seller']}><SellerProductForm /></RequireRole>} />
         <Route path="seller/products/:id/edit" element={<RequireRole roles={['seller']}><SellerProductForm /></RequireRole>} />
@@ -62,6 +70,12 @@ export default function App() {
           <Route index element={<AdminOverview />} />
           <Route path="orders" element={<AdminOrders />} />
           <Route path="orders/:id" element={<AdminOrderDetail />} />
+          <Route path="settlements" element={<AdminSettlements />} />
+          <Route path="settlements/:id" element={<AdminSettlementDetail />} />
+          <Route path="reviews" element={<AdminReviews />} />
+          <Route path="users" element={<AdminUsers />} />
+          <Route path="users/:id" element={<AdminUserDetail />} />
+          <Route path="reports" element={<AdminReports />} />
           <Route path="sellers" element={<AdminSellers />} />
           <Route path="listings" element={<AdminListings />} />
           <Route path="categories" element={<AdminCategories />} />

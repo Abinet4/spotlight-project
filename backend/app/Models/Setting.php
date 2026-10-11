@@ -20,6 +20,8 @@ class Setting extends Model
     public const DEFAULTS = [
         'commission_rate_percent' => 'marketplace.commission.default_rate_percent',
         'cod_enabled' => 'marketplace.payments.cod_enabled',
+        'commission_credit_limit_birr' => 'marketplace.commission.credit_limit_birr',
+        'settlement_instructions' => 'marketplace.settlements.instructions',
     ];
 
     public static function value(string $key): mixed
@@ -35,6 +37,19 @@ class Setting extends Model
     public static function commissionRateBp(): int
     {
         return (int) round(((float) static::value('commission_rate_percent')) * 100);
+    }
+
+    /**
+     * Unpaid commission above which a store cannot confirm new orders, in santim. 0 means no limit.
+     */
+    public static function creditLimitSantim(): int
+    {
+        return max(0, (int) static::value('commission_credit_limit_birr')) * 100;
+    }
+
+    public static function settlementInstructions(): string
+    {
+        return (string) static::value('settlement_instructions');
     }
 
     public static function codEnabled(): bool

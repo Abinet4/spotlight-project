@@ -4,6 +4,7 @@ import ContactSeller from '../components/ContactSeller'
 import { ProductGrid } from '../components/ProductCard'
 import { EmptyState, ErrorState, Pagination, Spinner } from '../components/ui'
 import { BUSINESS_TYPES, toQuery } from '../lib/format'
+import { RatingSummary, ReviewList } from '../components/Reviews'
 import { useFetch } from '../lib/useFetch'
 
 export default function Storefront() {
@@ -23,6 +24,7 @@ export default function Storefront() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-stone-900">{s.store_name}</h1>
+            <RatingSummary rating={s.rating} />
             <p className="mt-1 text-sm text-stone-600">
               {BUSINESS_TYPES[s.business_type]}{s.area ? ` in ${s.area}, ${s.city}` : ''}. Selling since {new Date(s.member_since).getFullYear()}.
             </p>
@@ -52,6 +54,11 @@ export default function Storefront() {
       ) : (
         <EmptyState title="No listings right now">This seller has no published furniture at the moment.</EmptyState>
       ))}
+
+      <section className="mt-12">
+        <h2 className="mb-4 text-lg font-bold text-stone-900">Customer reviews</h2>
+        <ReviewList url={`/sellers/${s.slug}/reviews`} showProduct emptyText="No reviews yet." />
+      </section>
     </div>
   )
 }

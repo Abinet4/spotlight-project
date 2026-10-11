@@ -10,7 +10,7 @@ The brand name is configurable (`MARKETPLACE_NAME` in `backend/.env`). Nothing e
 
 ## Status
 
-Milestone 1 (foundation and catalog), milestone 2 (in-app inquiries, custom quotes, customer addresses, delivery zones) and milestone 3 (cart, checkout with one order per seller, stock reservation, cash on delivery, seller and admin order handling, commission settings) are implemented. See `docs/ARCHITECTURE.md` for what is done and what comes next. Online payments, seller settlements, reviews and disputes are **not built yet**.
+Milestone 1 (foundation and catalog), milestone 2 (in-app inquiries, custom quotes, customer addresses, delivery zones) milestone 3 (cart, checkout with one order per seller, stock reservation, cash on delivery, seller and admin order handling, commission settings) and milestone 4 (seller commission balances and settlements, reviews, admin user management, sales reports with CSV export) are implemented. See `docs/ARCHITECTURE.md` for what is done and what comes next. Online payments, disputes and email or SMS alerts are **not built yet**.
 
 ## Requirements
 

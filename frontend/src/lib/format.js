@@ -29,6 +29,7 @@ export const STATUS_LABELS = {
   pending: 'Pending approval',
   approved: 'Approved',
   suspended: 'Suspended',
+  active: 'Active',
 }
 
 export const BUSINESS_TYPES = {
@@ -139,3 +140,6 @@ export function newIdempotencyKey() {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID()
   return `k-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
 }
+
+export const ENTRY_LABELS = { commission: 'Commission', payment: 'Payment received', adjustment: 'Adjustment' }
+export const METHOD_LABELS = { cash: 'Cash', bank_transfer: 'Bank transfer', telebirr: 'telebirr', other: 'Other' }

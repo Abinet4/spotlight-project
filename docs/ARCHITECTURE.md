@@ -99,6 +99,14 @@ erDiagram
 | order_items | order_id, product_id or quote_id, snapshot of name, unit price, quantity, line total, stock type, production days, and reserved_quantity (stock still held) |
 | order_status_history | order_id, from, to, actor_id, actor_role, note, created_at. Append-only |
 
+### Added in milestone 4
+
+| Table | Key columns and constraints |
+|---|---|
+| seller_ledger_entries | seller_profile_id, type (commission/payment/adjustment), amount_santim (positive = seller owes more), order_id, method, reference, note, created_by, created_at. Append-only. Unique (order_id, type) so an order is charged once; unique (seller_profile_id, reference) so a transfer is recorded once |
+| reviews | order_item_id unique, order_id, product_id, seller_profile_id, customer_id, rating 1-5, body, seller_reply, is_hidden, hidden_reason. Unique (customer_id, product_id) |
+| products, seller_profiles | + rating_count, rating_sum, recomputed from visible reviews on every change |
+
 Foreign keys use `restrict` where deleting the parent would destroy history (sellers, categories, cities) and `cascade` only for pure child rows (images, favorites).
 
 ## Business rules implemented
@@ -159,7 +167,25 @@ Foreign keys use `restrict` where deleting the parent would destroy history (sel
 - Admins set the rate (0 to 50%, 2 decimals) in Admin > Settings. It is stored in basis points on each order at placement, so later changes never rewrite existing orders.
 - Commission is charged on item totals, not delivery fees, rounded half up to the santim with overflow-safe integer maths.
 - The admin overview reports gross sales, commission earned (delivered orders only) and open order value, labelled so that sales are never read as profit.
-- Collection from sellers on cash-on-delivery orders is an open business decision; the amounts are recorded per order so settlements can be built on them.
+- On cash-on-delivery orders the seller owes the commission (decided 2026-10-11); see Seller balances and settlements.
+
+**Seller balances and settlements (milestone 4).**
+- Customers pay sellers in cash, so the platform's commission becomes a balance the seller owes. When a cash order is marked delivered, its commission is added to the seller's ledger in the same transaction. Orders delivered before the ledger existed are back-filled by the migration.
+- Admins record payments (cash, bank transfer, telebirr, other). Bank and telebirr payments need a reference, stored upper-case, and the same reference cannot be recorded twice for a store. A payment cannot exceed the balance; credits go through adjustments, which need a written reason. Nothing is ever edited or deleted; mistakes are corrected with another adjustment.
+- Payments and adjustments lock the store row. Verified with parallel requests: one payment per reference, and payments that together exceed the balance are refused once the balance is used up.
+- Optional credit limit (Admin > Settings, 0 = off): a store owing more cannot confirm new orders until it pays. Customers can still cancel, so nobody is stuck.
+- Sellers see their balance, statement and the payment instructions from Admin > Settings.
+
+**Reviews.**
+- Only the customer of a delivered order can review its items, for 60 days after delivery (`marketplace.reviews.window_days`), and can edit the review in that window. One review per customer per listing, however many times they bought it.
+- Public reviews show the first name and last initial and a "verified purchase" label. Reviews of hidden listings and stores are not public.
+- Sellers can post one public reply per review (editable). Admins can hide a review with a reason (audited) and restore it.
+- Rating totals are recomputed from visible reviews after every change, under row locks on the listing and the store, so parallel reviews cannot leave totals short.
+
+**Admin users and reports.**
+- Admins search accounts by name, email or phone and suspend or reactivate customer and seller accounts with a reason. Suspending signs the account out everywhere; a suspended seller's listings disappear. Admin accounts are managed only from the command line.
+- Reports cover a date range of up to a year in Addis Ababa time: orders placed, delivered gross sales, item value, delivery fees, commission earned, commission collected, cancellations by side, top stores and a daily table. Gross sales, commission and collections are kept separate and none is called profit.
+- Orders in the range can be downloaded as CSV. Cells starting with = + - @ are prefixed so spreadsheets do not run them as formulas. Exports are audited.
 
 **Ownership.** All seller endpoints look records up through the signed-in seller's own profile, so another seller's id returns 404 (no existence leak). Tests cover show, update, delete, submit, archive, image upload and image delete across sellers.
 
@@ -172,8 +198,9 @@ Foreign keys use `restrict` where deleting the parent would destroy history (sel
 - Uploads: content-checked images only (jpg, png, webp; no SVG), 5 MB, 200 to 8000 px, max 8 per listing enforced under a row lock, stored under random names.
 - API 404s never reveal model names; 500s never return server messages to the UI.
 - CORS limited to `CORS_ALLOWED_ORIGINS`. Bearer tokens mean CSRF does not apply to the API; there are no cookie-authenticated API routes.
+- CSV exports escape formula-like cells.
 - Checkout requires an `Idempotency-Key` header; prices and totals are always recomputed on the server.
-- Audit log for checkouts, every order status change, settings changes, seller applications and reviews, listing create/update/submit/archive/delete/moderation, category changes, quotes (sent, accepted, declined, withdrawn), delivery zone changes and CLI admin creation.
+- Audit log for settlement payments and adjustments, review hiding, account suspension, report exports, checkouts, every order status change, settings changes, seller applications and reviews, listing create/update/submit/archive/delete/moderation, category changes, quotes (sent, accepted, declined, withdrawn), delivery zone changes and CLI admin creation.
 
 ## Decisions and defaults (change if the business decides otherwise)
 
@@ -198,9 +225,9 @@ Checkout, orders and stock reservation shipped in milestone 3 (see Business rule
 
 **Payments.** `payment_transactions` with provider, provider reference (unique), amount_santim, currency, status (pending/succeeded/failed/refunded) and raw callback. Callbacks are verified server-side with the provider, amounts and currency are checked against the checkout, and the unique provider reference plus an idempotency check prevents double processing. A clearly labeled development driver exists only outside production. Cash on delivery is a config flag.
 
-**Commission and settlements.** `commission_records` per seller order store the rate and amount used at the time. `seller_settlements` group delivered, non-disputed orders into payouts. Reports separate GMV, platform revenue (commission + fees), seller payouts, operating costs and profit; total sales are never labeled profit.
+**Payouts for prepaid orders.** Once online payments exist the platform will hold customer money, so the same ledger will also carry what the platform owes each seller (negative entries) and payouts.
 
-**Also planned:** email or SMS alerts for new messages, reviews for delivered orders, disputes, admin user management and reports.
+**Also planned:** email or SMS alerts for new messages and order changes, online payments (Telebirr, Chapa or bank), disputes and returns.
 
 ## Roadmap
 
@@ -213,5 +240,6 @@ Checkout, orders and stock reservation shipped in milestone 3 (see Business rule
 | 6 (part) | Admin: seller approval, listing moderation, categories, audit log, counts | Done |
 | 2 (milestone 2) | Inquiries and custom quotes, customer addresses, delivery zones | Done |
 | 5 | Cart, checkout, multi-seller orders, stock reservation, cash on delivery | Done (milestone 3). Online payment provider is planned |
-| 6 rest | Seller and admin order handling, commission settings | Done (milestone 3). Disputes, settlements, reports, user management are planned |
+| 6 rest | Seller and admin order handling, commission settings | Done (milestone 3) |
+| 6 (milestone 4) | Commission balances and settlements, reviews, admin users, reports and CSV export | Done. Disputes are planned |
 | 7 | CI, end-to-end tests, deployment scripts, backups automation | Planned |

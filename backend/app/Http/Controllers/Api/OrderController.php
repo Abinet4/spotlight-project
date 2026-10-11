@@ -82,7 +82,7 @@ class OrderController extends Controller
 
     public static function detail(Order $order, string $viewer): OrderResource
     {
-        $order->load(['seller.area', 'customer', 'checkout', 'items.product.primaryImage', 'history']);
+        $order->load(['seller.area', 'customer', 'checkout', 'items.product.primaryImage', 'items.review', 'history']);
 
         return (new OrderResource($order))->as($viewer);
     }

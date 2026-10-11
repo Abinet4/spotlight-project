@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { CONDITION_LABELS, formatETB } from '../lib/format'
+import { RatingSummary } from './Reviews'
 import FavoriteButton from './FavoriteButton'
 
 export function ProductImage({ src, alt, className = '' }) {
@@ -37,6 +38,7 @@ export default function ProductCard({ product }) {
           </Link>
         </h3>
         {product.seller && <p className="text-xs text-stone-500">{product.seller.store_name}{product.area ? `, ${product.area}` : ''}</p>}
+        <RatingSummary rating={product.rating} className="text-xs" />
         <div className="mt-auto flex flex-wrap items-baseline gap-x-2 pt-2">
           <span className="text-base font-bold whitespace-nowrap text-stone-900 sm:text-lg">{formatETB(product.price_santim)}</span>
           {product.price_negotiable && <span className="text-xs text-stone-500">Negotiable</span>}

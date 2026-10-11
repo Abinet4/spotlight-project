@@ -15,7 +15,7 @@ const BY = { customer: 'Customer', seller: 'Seller', admin: 'Marketplace team' }
 /**
  * Order detail shared by customer, seller and admin pages. `actions` renders the viewer's buttons.
  */
-export default function OrderView({ order, viewer, actions }) {
+export default function OrderView({ order, viewer, actions, itemExtra }) {
   const a = order.delivery_address
   const feeText = order.fulfillment === 'pickup'
     ? 'Pickup'
@@ -47,7 +47,8 @@ export default function OrderView({ order, viewer, actions }) {
         <section className="card px-4 py-2">
           <ul className="divide-y divide-stone-100">
             {order.items.map((i) => (
-              <li key={i.id} className="flex gap-3 py-3">
+              <li key={i.id} className="py-3">
+                <div className="flex gap-3">
                 <ProductImage src={i.image} alt="" className="size-14 shrink-0 rounded-lg" />
                 <div className="min-w-0 flex-1 text-sm">
                   <p className="font-medium text-stone-900">{i.product_slug && !i.quote_id ? <Link to={`/products/${i.product_slug}`} className="hover:underline">{i.name}</Link> : i.name}</p>
@@ -58,6 +59,8 @@ export default function OrderView({ order, viewer, actions }) {
                   </p>
                 </div>
                 <p className="shrink-0 text-sm font-semibold">{formatETB(i.line_total_santim)}</p>
+                </div>
+                {itemExtra && itemExtra(i)}
               </li>
             ))}
           </ul>

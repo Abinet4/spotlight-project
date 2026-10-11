@@ -10,11 +10,14 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\Review;
+use App\Models\SellerLedgerEntry;
 use App\Models\SellerProfile;
 use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
@@ -37,7 +40,13 @@ class DashboardController extends Controller
                 'commission_earned_santim' => (int) Order::where('status', OrderStatus::Delivered->value)->sum('commission_santim'),
                 'open_orders_value_santim' => (int) Order::whereNotIn('status', [OrderStatus::Delivered->value, OrderStatus::Cancelled->value])->sum('total_santim'),
                 'commission_rate_percent' => Setting::commissionRateBp() / 100,
+                // What sellers still owe on cash-on-delivery sales (credits on other stores do not offset it).
+                'commission_outstanding_santim' => (int) DB::query()
+                    ->fromSub(SellerLedgerEntry::query()->selectRaw('seller_profile_id, sum(amount_santim) as b')->groupBy('seller_profile_id'), 'x')
+                    ->where('b', '>', 0)->sum('b'),
             ],
+            'reviews_hidden' => Review::where('is_hidden', true)->count(),
+            'reviews_low' => Review::visible()->where('rating', '<=', 2)->where('created_at', '>=', now()->subDays(30))->count(),
         ]]);
     }
 

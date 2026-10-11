@@ -49,6 +49,21 @@ return [
     'commission' => [
         'default_rate_percent' => (float) env('MARKETPLACE_DEFAULT_COMMISSION_PERCENT', 10),
         'max_rate_percent' => 50,
+        // Unpaid commission (ETB) above which a store cannot confirm new orders. 0 turns the limit off.
+        'credit_limit_birr' => (int) env('MARKETPLACE_COMMISSION_CREDIT_LIMIT', 0),
+    ],
+
+    'settlements' => [
+        // Shown to sellers next to their balance: where and how to pay the platform.
+        'instructions' => env('MARKETPLACE_SETTLEMENT_INSTRUCTIONS', ''),
+    ],
+
+    // Business day boundaries for reports. Timestamps are stored in UTC.
+    'timezone' => 'Africa/Addis_Ababa',
+
+    'reviews' => [
+        // Customers can review (and edit their review) for this many days after delivery.
+        'window_days' => 60,
     ],
 
     'payments' => [

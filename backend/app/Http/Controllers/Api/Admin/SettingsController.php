@@ -22,12 +22,14 @@ class SettingsController extends Controller
         $data = $request->validate([
             'commission_rate_percent' => ['sometimes', 'numeric', 'min:0', "max:$max", 'regex:/^\d{1,2}(\.\d{1,2})?$/'],
             'cod_enabled' => ['sometimes', 'boolean'],
+            'commission_credit_limit_birr' => ['sometimes', 'integer', 'min:0', 'max:100000000'],
+            'settlement_instructions' => ['sometimes', 'nullable', 'string', 'max:1000'],
         ]);
 
         DB::transaction(function () use ($data, $request, $audit) {
             $before = $this->current();
             foreach ($data as $key => $value) {
-                $stored = is_bool($value) ? ($value ? '1' : '0') : (string) $value;
+                $stored = is_bool($value) ? ($value ? '1' : '0') : trim((string) $value);
                 Setting::updateOrCreate(['key' => $key], ['value' => $stored, 'updated_by' => $request->user()->id]);
             }
             $audit->log('settings.updated', null, ['before' => $before, 'after' => $this->current()]);
@@ -41,6 +43,8 @@ class SettingsController extends Controller
         return [
             'commission_rate_percent' => Setting::commissionRateBp() / 100,
             'cod_enabled' => Setting::codEnabled(),
+            'commission_credit_limit_birr' => intdiv(Setting::creditLimitSantim(), 100),
+            'settlement_instructions' => Setting::settlementInstructions(),
         ];
     }
 }

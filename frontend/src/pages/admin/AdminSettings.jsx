@@ -43,6 +43,14 @@ export default function AdminSettings() {
           <input type="checkbox" className="mt-1" checked={form.cod_enabled} onChange={(e) => setForm({ ...form, cod_enabled: e.target.checked })} />
           <span><span className="font-medium">Accept cash on delivery</span><br /><span className="text-stone-500">Turning this off pauses checkout until an online payment method is added.</span></span>
         </label>
+        <Field label="Commission credit limit (ETB)" name="credit-limit" error={errors.commission_credit_limit_birr} hint="A store that owes more than this cannot confirm new orders until it pays. 0 means no limit.">
+          <input id="credit-limit" className="input" inputMode="numeric" value={form.commission_credit_limit_birr}
+            onChange={(e) => setForm({ ...form, commission_credit_limit_birr: e.target.value })} />
+        </Field>
+        <Field label="How sellers pay their commission" name="instructions" error={errors.settlement_instructions} hint="Shown on every seller's balance page. For example the bank account and what to write as the reference.">
+          <textarea id="instructions" className="input min-h-24" maxLength={1000} value={form.settlement_instructions}
+            onChange={(e) => setForm({ ...form, settlement_instructions: e.target.value })} />
+        </Field>
         <button type="submit" className="btn-primary">Save settings</button>
       </form>
     </>

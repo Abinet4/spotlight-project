@@ -4,6 +4,7 @@ import OrderView, { OrderStatusBadge } from '../components/OrderView'
 import { Alert, EmptyState, ErrorState, PageHeader, Pagination, Spinner } from '../components/ui'
 import { api, parseError } from '../lib/api'
 import { formatDateTime, formatETB } from '../lib/format'
+import { ItemReview } from '../components/Reviews'
 import { useFetch } from '../lib/useFetch'
 
 export function OrderList({ url, viewer, base }) {
@@ -114,7 +115,7 @@ export function OrderDetail() {
         {error && <div className="mb-4"><Alert tone="error">{error}</Alert></div>}
         <OrderView order={o} viewer="customer" actions={canCancel && (
           <CancelForm onCancel={cancel} hint="You can cancel until the seller starts preparing your order." />
-        )} />
+        )} itemExtra={o.status === 'delivered' ? (item) => <ItemReview key={`${item.id}-${item.review?.id}`} order={o} item={item} onSaved={order.reload} /> : undefined} />
       </div>
     </div>
   )

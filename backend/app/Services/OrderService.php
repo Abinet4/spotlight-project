@@ -25,6 +25,7 @@ class OrderService
     public function __construct(
         private readonly CheckoutCalculator $calculator,
         private readonly AuditLogger $audit,
+        private readonly LedgerService $ledger,
     ) {}
 
     /**
@@ -174,6 +175,10 @@ class OrderService
             $this->authorize($order, $from, $to, $role);
 
             if ($to === OrderStatus::Confirmed) {
+                $limit = Setting::creditLimitSantim();
+                if ($limit > 0 && LedgerService::balance($order->seller_profile_id) > $limit) {
+                    throw ValidationException::withMessages(['status' => 'Your unpaid commission is over the limit. Pay your balance (see Balance) to confirm new orders.']);
+                }
                 if ($order->fulfillment === 'delivery' && $order->delivery_fee_santim === null) {
                     if ($deliveryFee === null) {
                         throw ValidationException::withMessages(['delivery_fee' => 'Set the delivery fee before confirming.']);
@@ -205,6 +210,11 @@ class OrderService
 
             $order->status = $to;
             $order->save();
+
+            // Cash stays with the seller, so the platform's commission becomes a balance the seller owes.
+            if ($to === OrderStatus::Delivered && $order->payment_method === 'cod') {
+                $this->ledger->chargeCommission($order);
+            }
             $this->record($order, $from, $to, $actor, $role, $note);
             $this->audit->log('order.'.$to->value, $order, ['from' => $from->value, 'by' => $role]);
 

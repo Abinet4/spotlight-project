@@ -7,6 +7,7 @@ import FavoriteButton from '../components/FavoriteButton'
 import { ProductImage } from '../components/ProductCard'
 import { ErrorState, Spinner } from '../components/ui'
 import { BUSINESS_TYPES, CONDITION_LABELS, formatDimensions, formatETB } from '../lib/format'
+import { RatingSummary, ReviewList } from '../components/Reviews'
 import { useFetch } from '../lib/useFetch'
 
 function Spec({ label, value }) {
@@ -69,6 +70,7 @@ export default function ProductDetail() {
           <p className="mt-1 text-sm text-stone-600">
             Sold by <Link to={`/sellers/${p.seller.slug}`} className="font-semibold text-brand-700 hover:underline">{p.seller.store_name}</Link>
           </p>
+          {p.rating?.count > 0 && <a href="#reviews" className="mt-1 inline-block"><RatingSummary rating={p.rating} /></a>}
 
           <div className="mt-4 flex items-baseline gap-3">
             <span className="text-3xl font-bold text-stone-900">{formatETB(p.price_santim)}</span>
@@ -130,6 +132,11 @@ export default function ProductDetail() {
           </dl>
         </section>
       </div>
+
+      <section id="reviews" className="mt-10 scroll-mt-20">
+        <h2 className="mb-4 text-lg font-bold text-stone-900">Reviews</h2>
+        <ReviewList url={`/products/${p.slug}/reviews`} emptyText="No reviews yet. Only customers who received this item can review it." />
+      </section>
     </div>
   )
 }

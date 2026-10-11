@@ -30,6 +30,10 @@ class ProductResource extends JsonResource
             'stock_type' => $this->stock_type->value,
             'stock_quantity' => $this->stock_quantity,
             'is_available' => $this->isAvailable(),
+            'rating' => [
+                'average' => $this->rating_count ? round($this->rating_sum / $this->rating_count, 1) : null,
+                'count' => $this->rating_count,
+            ],
             'production_days' => $this->production_days,
             'custom_order_available' => $this->custom_order_available,
             'dimensions' => [

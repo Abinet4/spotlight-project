@@ -18,12 +18,15 @@ export function SellerOrders() {
   return (
     <div className="container-page py-8">
       <PageHeader title="Orders" subtitle="Confirm new orders quickly: customers wait for your confirmation before anything happens."
-        actions={<Link to="/seller" className="btn-secondary">Listings</Link>} />
+        actions={<><Link to="/seller" className="btn-secondary">Listings</Link><Link to="/seller/balance" className="btn-secondary">Balance</Link></>} />
+      {summary.data?.data.balance.over_limit && (
+        <div className="mb-4"><Alert tone="error">Your unpaid commission is over the limit, so you cannot confirm new orders. <Link to="/seller/balance" className="font-semibold underline">See how to pay</Link></Alert></div>
+      )}
       {summary.data && (
         <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
           <div className="card p-4"><p className="text-sm text-stone-600">Waiting for you</p><p className="text-2xl font-bold">{counts.pending_confirmation || 0}</p></div>
           <div className="card p-4"><p className="text-sm text-stone-600">Delivered sales</p><p className="text-2xl font-bold">{formatETB(summary.data.data.delivered_sales_santim)}</p></div>
-          <div className="card p-4"><p className="text-sm text-stone-600">Commission on delivered orders</p><p className="text-2xl font-bold">{formatETB(summary.data.data.commission_on_delivered_santim)}</p></div>
+          <Link to="/seller/balance" className="card p-4 hover:border-brand-300"><p className="text-sm text-stone-600">Commission you owe</p><p className="text-2xl font-bold">{formatETB(Math.max(0, summary.data.data.balance.balance_santim)) || 'ETB 0'}</p></Link>
         </div>
       )}
       <div className="mb-4 flex gap-1 overflow-x-auto border-b border-stone-200" role="tablist">
@@ -62,7 +65,9 @@ function ConfirmForm({ order, onDone }) {
       onDone(res.data)
     } catch (err) {
       const p = parseError(err)
-      setErrors({ ...p.fields, _: Object.keys(p.fields).length ? null : p.message })
+      // Errors about the fee belong under the fee box; anything else (store over its limit, order changed) goes on top.
+      const { delivery_fee: fee, ...rest } = p.fields
+      setErrors({ delivery_fee: fee, _: Object.values(rest)[0] || (fee ? null : p.message) })
     } finally {
       setBusy(false)
     }
@@ -73,7 +78,7 @@ function ConfirmForm({ order, onDone }) {
       <p className="text-sm font-medium text-amber-900">Check stock and timing, then confirm. The customer is told right away.</p>
       {errors._ && <Alert tone="error">{errors._}</Alert>}
       {needsFee && (
-        <Field label="Delivery fee (ETB)" name="confirm-fee" error={errors.delivery_fee || errors.status} hint="No fee was set for this address. Enter 0 for free delivery.">
+        <Field label="Delivery fee (ETB)" name="confirm-fee" error={errors.delivery_fee} hint="No fee was set for this address. Enter 0 for free delivery.">
           <input id="confirm-fee" className="input" inputMode="decimal" value={fee} onChange={(e) => setFee(e.target.value)} />
         </Field>
       )}

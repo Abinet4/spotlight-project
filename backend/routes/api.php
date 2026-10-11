@@ -6,8 +6,12 @@ use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Admin\DeliveryZoneController;
 use App\Http\Controllers\Api\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Api\Admin\ProductModerationController;
+use App\Http\Controllers\Api\Admin\ReportController;
+use App\Http\Controllers\Api\Admin\ReviewController as AdminReviewController;
 use App\Http\Controllers\Api\Admin\SellerController as AdminSellerController;
 use App\Http\Controllers\Api\Admin\SettingsController;
+use App\Http\Controllers\Api\Admin\SettlementController;
+use App\Http\Controllers\Api\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CartController;
 use App\Http\Controllers\Api\CatalogController;
@@ -16,9 +20,12 @@ use App\Http\Controllers\Api\DeliveryController;
 use App\Http\Controllers\Api\FavoriteController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\QuoteController;
+use App\Http\Controllers\Api\ReviewController;
+use App\Http\Controllers\Api\Seller\BalanceController;
 use App\Http\Controllers\Api\Seller\OrderController as SellerOrderController;
 use App\Http\Controllers\Api\Seller\ProductController as SellerProductController;
 use App\Http\Controllers\Api\Seller\ProfileController as SellerProfileController;
+use App\Http\Controllers\Api\Seller\ReviewController as SellerReviewController;
 use App\Models\Setting;
 use Illuminate\Support\Facades\Route;
 
@@ -40,6 +47,8 @@ Route::middleware('throttle:catalog')->group(function () {
     Route::get('/sellers/{slug}', [CatalogController::class, 'seller']);
     Route::get('/delivery-zones', [DeliveryController::class, 'zones']);
     Route::get('/products/{slug}/delivery-estimate', [DeliveryController::class, 'estimate']);
+    Route::get('/products/{slug}/reviews', [ReviewController::class, 'forProduct']);
+    Route::get('/sellers/{slug}/reviews', [ReviewController::class, 'forSeller']);
 });
 
 // Authentication
@@ -86,6 +95,8 @@ Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
     Route::get('/orders', [OrderController::class, 'index']);
     Route::get('/orders/{id}', [OrderController::class, 'show'])->whereNumber('id');
     Route::post('/orders/{id}/cancel', [OrderController::class, 'cancel'])->whereNumber('id');
+    Route::post('/orders/{orderId}/items/{itemId}/review', [ReviewController::class, 'store'])->whereNumber(['orderId', 'itemId']);
+    Route::put('/reviews/{id}', [ReviewController::class, 'update'])->whereNumber('id');
 });
 
 // Inquiries: customers and sellers each see only their own side
@@ -121,6 +132,12 @@ Route::prefix('seller')->middleware(['auth:sanctum', 'role:seller'])->group(func
     Route::post('/orders/{id}/confirm', [SellerOrderController::class, 'confirm'])->whereNumber('id');
     Route::post('/orders/{id}/status', [SellerOrderController::class, 'advance'])->whereNumber('id');
     Route::post('/orders/{id}/cancel', [SellerOrderController::class, 'cancel'])->whereNumber('id');
+
+    Route::get('/balance', [BalanceController::class, 'show']);
+    Route::get('/balance/entries', [BalanceController::class, 'entries']);
+
+    Route::get('/reviews', [SellerReviewController::class, 'index']);
+    Route::post('/reviews/{id}/reply', [SellerReviewController::class, 'reply'])->whereNumber('id');
 });
 
 // Administration
@@ -151,6 +168,22 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
     Route::get('/orders', [AdminOrderController::class, 'index']);
     Route::get('/orders/{id}', [AdminOrderController::class, 'show'])->whereNumber('id');
     Route::post('/orders/{id}/cancel', [AdminOrderController::class, 'cancel'])->whereNumber('id');
+
+    Route::get('/settlements', [SettlementController::class, 'index']);
+    Route::get('/settlements/{seller}', [SettlementController::class, 'show']);
+    Route::post('/settlements/{seller}/payments', [SettlementController::class, 'payment']);
+    Route::post('/settlements/{seller}/adjustments', [SettlementController::class, 'adjust']);
+
+    Route::get('/reviews', [AdminReviewController::class, 'index']);
+    Route::post('/reviews/{id}/hide', [AdminReviewController::class, 'hide'])->whereNumber('id');
+    Route::post('/reviews/{id}/restore', [AdminReviewController::class, 'restore'])->whereNumber('id');
+
+    Route::get('/users', [AdminUserController::class, 'index']);
+    Route::get('/users/{id}', [AdminUserController::class, 'show'])->whereNumber('id');
+    Route::post('/users/{id}/{action}', [AdminUserController::class, 'setStatus'])->whereNumber('id')->whereIn('action', ['suspend', 'reactivate']);
+
+    Route::get('/reports/summary', [ReportController::class, 'summary']);
+    Route::get('/reports/orders.csv', [ReportController::class, 'export']);
 
     Route::get('/settings', [SettingsController::class, 'show']);
     Route::put('/settings', [SettingsController::class, 'update']);

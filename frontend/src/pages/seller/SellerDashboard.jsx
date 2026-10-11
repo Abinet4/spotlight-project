@@ -33,6 +33,7 @@ export default function SellerDashboard() {
   const orders = useFetch('/seller/orders/summary')
   const [notice, setNotice] = useState(null)
   const waiting = orders.data?.data.counts.pending_confirmation || 0
+  const overLimit = orders.data?.data.balance.over_limit
 
   async function act(product, action) {
     if (action === 'delete' && !window.confirm(`Delete "${product.name}"? This cannot be undone.`)) return
@@ -61,11 +62,18 @@ export default function SellerDashboard() {
         subtitle={p.status === 'approved' ? <>Your storefront: <Link className="text-brand-700 hover:underline" to={`/sellers/${p.slug}`}>view public page</Link></> : 'Seller dashboard'}
         actions={<>
           <Link to="/seller/orders" className="btn-secondary">Orders</Link>
+          <Link to="/seller/balance" className="btn-secondary">Balance</Link>
+          <Link to="/seller/reviews" className="btn-secondary">Reviews</Link>
           <Link to="/seller/profile" className="btn-secondary">Store profile</Link>
           {canWrite && <Link to="/seller/products/new" className="btn-primary">Add listing</Link>}
         </>}
       />
       <StoreStatus profile={p} />
+      {overLimit && (
+        <div className="mb-6"><Alert tone="error">
+          Your unpaid commission is over the limit, so new orders cannot be confirmed. <Link to="/seller/balance" className="font-semibold underline">See how to pay</Link>
+        </Alert></div>
+      )}
       {waiting > 0 && (
         <div className="mb-6"><Alert tone="warning">
           {waiting === 1 ? '1 order is' : `${waiting} orders are`} waiting for your confirmation. <Link to="/seller/orders?status=pending_confirmation" className="font-semibold underline">Review orders</Link>

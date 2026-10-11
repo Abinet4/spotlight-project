@@ -27,6 +27,10 @@ class PublicSellerResource extends JsonResource
             'offers_custom_orders' => $this->offers_custom_orders,
             'offers_delivery' => $this->offers_delivery,
             'products_count' => $this->whenCounted('products'),
+            'rating' => [
+                'average' => $this->rating_count ? round($this->rating_sum / $this->rating_count, 1) : null,
+                'count' => $this->rating_count,
+            ],
             'member_since' => $this->created_at?->toDateString(),
         ];
     }

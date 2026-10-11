@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\OrderStatus;
 use App\Models\Checkout;
 use App\Models\Order;
 use App\Support\Money;
@@ -79,7 +80,18 @@ class OrderResource extends JsonResource
                 'line_total_santim' => $i->line_total_santim,
                 'stock_type' => $i->stock_type,
                 'production_days' => $i->production_days,
+                'review' => $i->relationLoaded('review') && $i->review ? [
+                    'id' => $i->review->id,
+                    'rating' => $i->review->rating,
+                    'body' => $i->review->body,
+                    'seller_reply' => $i->review->seller_reply,
+                    'is_hidden' => $i->review->is_hidden,
+                ] : null,
             ])->values()),
+            // Customers can review delivered items for a limited time after delivery.
+            'reviews_open' => $this->viewer === 'customer' && $this->status === OrderStatus::Delivered && $this->delivered_at
+                && $this->delivered_at->copy()->addDays(config('marketplace.reviews.window_days'))->isFuture(),
+            'review_until' => $this->when($this->viewer === 'customer' && $this->status === OrderStatus::Delivered && $this->delivered_at, fn () => $this->delivered_at->copy()->addDays(config('marketplace.reviews.window_days'))->toIso8601String()),
             'history' => $this->whenLoaded('history', fn () => $this->history->map(fn ($h) => [
                 'from' => $h->from_status,
                 'to' => $h->to_status,

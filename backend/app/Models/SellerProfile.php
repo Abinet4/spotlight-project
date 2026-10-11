@@ -55,6 +55,16 @@ class SellerProfile extends Model
         return $this->hasMany(Product::class);
     }
 
+    public function ledgerEntries(): HasMany
+    {
+        return $this->hasMany(SellerLedgerEntry::class);
+    }
+
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class);
+    }
+
     public function isApproved(): bool
     {
         return $this->status === SellerStatus::Approved;

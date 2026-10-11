@@ -44,6 +44,7 @@ class OrderController extends Controller
             'counts' => $counts,
             'delivered_sales_santim' => (int) (clone $delivered)->sum('total_santim'),
             'commission_on_delivered_santim' => (int) (clone $delivered)->sum('commission_santim'),
+            'balance' => BalanceController::summary($request->user()->sellerProfile()->firstOrFail()->id),
         ]]);
     }
 
