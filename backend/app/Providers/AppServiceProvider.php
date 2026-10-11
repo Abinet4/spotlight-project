@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Sms\AfroMessageGateway;
+use App\Sms\LogSmsGateway;
+use App\Sms\SmsGateway;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -12,7 +15,10 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        $this->app->singleton(SmsGateway::class, fn () => match (config('marketplace.alerts.sms_driver')) {
+            'afromessage' => new AfroMessageGateway(config('services.afromessage')),
+            default => new LogSmsGateway,
+        });
     }
 
     public function boot(): void

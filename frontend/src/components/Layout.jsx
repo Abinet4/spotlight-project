@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { useAlerts } from '../context/AlertsContext'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { useConfig } from '../context/ConfigContext'
@@ -40,7 +41,34 @@ function SearchBox({ className = '', id = 'site-search' }) {
   )
 }
 
-function AccountLinks({ onNavigate }) {
+/**
+ * Bell with the unread alert count. Icon only, because the header is crowded; it sits in the top bar on
+ * every screen size so a new alert is visible without opening the menu.
+ */
+function AlertsLink({ onNavigate }) {
+  const { unread } = useAlerts()
+  return (
+    <NavLink
+      to="/notifications"
+      onClick={onNavigate}
+      aria-label={`Alerts${unread > 0 ? `, ${unread} unread` : ''}`}
+      title="Alerts"
+      className={({ isActive }) => `relative inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium ${isActive ? 'bg-brand-50 text-brand-800' : 'text-stone-700 hover:bg-stone-100'}`}
+    >
+      <svg viewBox="0 0 24 24" className="size-5 stroke-current" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+        <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+      </svg>
+      {unread > 0 && (
+        <span aria-hidden="true" className="absolute -right-0.5 -top-0.5 inline-flex min-w-5 justify-center rounded-full bg-red-600 px-1.5 text-xs font-semibold text-white">
+          {unread > 99 ? '99+' : unread}
+        </span>
+      )}
+    </NavLink>
+  )
+}
+
+function AccountLinks({ onNavigate, mobile = false }) {
   const { user, signOut } = useAuth()
   const { unread } = useInbox()
   const { count: cartCount } = useCart()
@@ -82,6 +110,7 @@ function AccountLinks({ onNavigate }) {
           {cartCount > 0 && <span className="ml-1.5 inline-flex min-w-5 justify-center rounded-full bg-stone-800 px-1.5 text-xs font-semibold text-white">{cartCount}<span className="sr-only"> items</span></span>}
         </NavLink>
       )}
+      {!mobile && <AlertsLink onNavigate={onNavigate} />}
       <button
         type="button"
         className="rounded-md px-3 py-2 text-left text-sm font-medium text-stone-700 hover:bg-stone-100"
@@ -99,6 +128,7 @@ function AccountLinks({ onNavigate }) {
 
 export default function Layout() {
   const { name } = useConfig()
+  const { user } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
   const location = useLocation()
 
@@ -117,9 +147,10 @@ export default function Layout() {
           <nav className="ml-auto hidden items-center gap-1 lg:flex" aria-label="Account">
             <AccountLinks />
           </nav>
+          {user && <div className="ml-auto lg:hidden"><AlertsLink /></div>}
           <button
             type="button"
-            className="ml-auto rounded-md p-2 text-stone-700 hover:bg-stone-100 lg:hidden"
+            className={`${user ? '' : 'ml-auto'} rounded-md p-2 text-stone-700 hover:bg-stone-100 lg:hidden`}
             aria-expanded={menuOpen}
             aria-controls="mobile-menu"
             aria-label="Menu"
@@ -135,7 +166,7 @@ export default function Layout() {
         </div>
         {menuOpen && (
           <nav id="mobile-menu" className="container-page flex flex-col gap-1 border-t border-stone-200 py-3 lg:hidden" aria-label="Account">
-            <AccountLinks onNavigate={() => setMenuOpen(false)} />
+            <AccountLinks onNavigate={() => setMenuOpen(false)} mobile />
           </nav>
         )}
       </header>

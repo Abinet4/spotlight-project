@@ -22,6 +22,7 @@ class Setting extends Model
         'cod_enabled' => 'marketplace.payments.cod_enabled',
         'commission_credit_limit_birr' => 'marketplace.commission.credit_limit_birr',
         'settlement_instructions' => 'marketplace.settlements.instructions',
+        'sms_enabled' => 'marketplace.alerts.sms_enabled',
     ];
 
     public static function value(string $key): mixed
@@ -55,5 +56,11 @@ class Setting extends Model
     public static function codEnabled(): bool
     {
         return filter_var(static::value('cod_enabled'), FILTER_VALIDATE_BOOL);
+    }
+
+    /** Admin switch that pauses every SMS alert (in-app and email alerts continue). */
+    public static function smsEnabled(): bool
+    {
+        return filter_var(static::value('sms_enabled'), FILTER_VALIDATE_BOOL);
     }
 }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Account\AlertSettingsController;
 use App\Http\Controllers\Api\AddressController;
 use App\Http\Controllers\Api\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Api\Admin\DashboardController;
@@ -11,6 +12,7 @@ use App\Http\Controllers\Api\Admin\ReviewController as AdminReviewController;
 use App\Http\Controllers\Api\Admin\SellerController as AdminSellerController;
 use App\Http\Controllers\Api\Admin\SettingsController;
 use App\Http\Controllers\Api\Admin\SettlementController;
+use App\Http\Controllers\Api\Admin\SmsLogController;
 use App\Http\Controllers\Api\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CartController;
@@ -18,6 +20,7 @@ use App\Http\Controllers\Api\CatalogController;
 use App\Http\Controllers\Api\ConversationController;
 use App\Http\Controllers\Api\DeliveryController;
 use App\Http\Controllers\Api\FavoriteController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\QuoteController;
 use App\Http\Controllers\Api\ReviewController;
@@ -70,6 +73,14 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     Route::get('/favorites', [FavoriteController::class, 'index']);
     Route::post('/favorites/{product}', [FavoriteController::class, 'store']);
     Route::delete('/favorites/{product}', [FavoriteController::class, 'destroy']);
+
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead'])->whereUuid('id');
+
+    Route::get('/account/alerts', [AlertSettingsController::class, 'show']);
+    Route::put('/account/alerts', [AlertSettingsController::class, 'update']);
 });
 
 // Customers only
@@ -187,4 +198,5 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
 
     Route::get('/settings', [SettingsController::class, 'show']);
     Route::put('/settings', [SettingsController::class, 'update']);
+    Route::get('/sms', [SmsLogController::class, 'index']);
 });

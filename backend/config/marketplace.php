@@ -71,6 +71,19 @@ return [
         'cod_enabled' => (bool) env('MARKETPLACE_COD_ENABLED', true),
     ],
 
+    // Order and account alerts. In-app alerts are always on; email uses the normal mail settings.
+    'alerts' => [
+        // 'log' writes each SMS to the log and the admin SMS log without sending it (local use).
+        // 'afromessage' sends through AfroMessage (set AFROMESSAGE_* in .env).
+        'sms_driver' => env('MARKETPLACE_SMS_DRIVER', 'log'),
+        // Starting value for the Admin > Settings switch that pauses all SMS.
+        'sms_enabled' => (bool) env('MARKETPLACE_SMS_ENABLED', true),
+        // At most one "new message" email per conversation and recipient in this many minutes.
+        'message_email_cooldown_minutes' => 30,
+        // At most one "new inquiry" SMS per customer and store in this many hours.
+        'inquiry_sms_cooldown_hours' => 24,
+    ],
+
     'cart' => [
         'max_lines' => 30,
         'max_quantity' => 99,

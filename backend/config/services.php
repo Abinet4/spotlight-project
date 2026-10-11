@@ -18,6 +18,14 @@ return [
         'key' => env('POSTMARK_API_KEY'),
     ],
 
+    // SMS provider for order alerts (MARKETPLACE_SMS_DRIVER=afromessage). Keep the token out of git.
+    'afromessage' => [
+        'base_url' => env('AFROMESSAGE_BASE_URL', 'https://api.afromessage.com/api'),
+        'token' => env('AFROMESSAGE_TOKEN'),
+        'identifier_id' => env('AFROMESSAGE_IDENTIFIER_ID'),
+        'sender' => env('AFROMESSAGE_SENDER'),
+    ],
+
     'resend' => [
         'key' => env('RESEND_API_KEY'),
     ],

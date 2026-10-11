@@ -15,7 +15,10 @@ use Illuminate\Validation\ValidationException;
  */
 class LedgerService
 {
-    public function __construct(private readonly AuditLogger $audit) {}
+    public function __construct(
+        private readonly AuditLogger $audit,
+        private readonly Alerts $alerts,
+    ) {}
 
     public static function balance(int $sellerProfileId): int
     {
@@ -71,6 +74,7 @@ class LedgerService
                 $entry->save();
 
                 $this->audit->log('settlement.payment_recorded', $seller, ['amount_santim' => $amountSantim, 'method' => $method, 'reference' => $reference, 'entry_id' => $entry->id]);
+                $this->alerts->paymentRecorded($entry, $balance - $amountSantim);
 
                 return $entry;
             });

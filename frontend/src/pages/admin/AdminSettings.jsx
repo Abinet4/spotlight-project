@@ -47,6 +47,17 @@ export default function AdminSettings() {
           <input id="credit-limit" className="input" inputMode="numeric" value={form.commission_credit_limit_birr}
             onChange={(e) => setForm({ ...form, commission_credit_limit_birr: e.target.value })} />
         </Field>
+        <label className="flex items-start gap-2 text-sm">
+          <input type="checkbox" className="mt-1" checked={form.sms_enabled} onChange={(e) => setForm({ ...form, sms_enabled: e.target.checked })} />
+          <span>
+            <span className="font-medium">Send text message (SMS) alerts</span><br />
+            <span className="text-stone-500">
+              {settings.data.meta?.sms_delivers
+                ? `Sent through ${settings.data.meta.sms_driver}. Turn off to pause all texts; in-app and email alerts continue.`
+                : 'No SMS provider is set up yet, so texts are only logged in Text messages. In-app and email alerts work either way.'}
+            </span>
+          </span>
+        </label>
         <Field label="How sellers pay their commission" name="instructions" error={errors.settlement_instructions} hint="Shown on every seller's balance page. For example the bank account and what to write as the reference.">
           <textarea id="instructions" className="input min-h-24" maxLength={1000} value={form.settlement_instructions}
             onChange={(e) => setForm({ ...form, settlement_instructions: e.target.value })} />

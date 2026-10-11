@@ -12,6 +12,7 @@ const LINKS = [
   ['/admin/reports', 'Reports'],
   ['/admin/delivery', 'Delivery'],
   ['/admin/settings', 'Settings'],
+  ['/admin/sms', 'Text messages'],
   ['/admin/audit', 'Audit log'],
 ]
 

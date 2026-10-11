@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
+import { AlertsProvider } from './context/AlertsContext'
 import { AuthProvider } from './context/AuthContext'
 import { CartProvider } from './context/CartContext'
 import { ConfigProvider } from './context/ConfigContext'
@@ -14,9 +15,11 @@ createRoot(document.getElementById('root')).render(
       <ConfigProvider>
         <AuthProvider>
           <InboxProvider>
-            <CartProvider>
-              <App />
-            </CartProvider>
+            <AlertsProvider>
+              <CartProvider>
+                <App />
+              </CartProvider>
+            </AlertsProvider>
           </InboxProvider>
         </AuthProvider>
       </ConfigProvider>

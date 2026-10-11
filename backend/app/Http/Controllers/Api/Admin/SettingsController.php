@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Setting;
 use App\Services\AuditLogger;
+use App\Sms\SmsGateway;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,7 +14,7 @@ class SettingsController extends Controller
 {
     public function show(): JsonResponse
     {
-        return response()->json(['data' => $this->current()]);
+        return response()->json(['data' => $this->current(), 'meta' => $this->meta()]);
     }
 
     public function update(Request $request, AuditLogger $audit): JsonResponse
@@ -24,6 +25,7 @@ class SettingsController extends Controller
             'cod_enabled' => ['sometimes', 'boolean'],
             'commission_credit_limit_birr' => ['sometimes', 'integer', 'min:0', 'max:100000000'],
             'settlement_instructions' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'sms_enabled' => ['sometimes', 'boolean'],
         ]);
 
         DB::transaction(function () use ($data, $request, $audit) {
@@ -35,7 +37,15 @@ class SettingsController extends Controller
             $audit->log('settings.updated', null, ['before' => $before, 'after' => $this->current()]);
         });
 
-        return response()->json(['data' => $this->current()]);
+        return response()->json(['data' => $this->current(), 'meta' => $this->meta()]);
+    }
+
+    /** Read-only facts shown next to the settings. */
+    private function meta(): array
+    {
+        $gateway = app(SmsGateway::class);
+
+        return ['sms_driver' => $gateway->name(), 'sms_delivers' => $gateway->delivers()];
     }
 
     private function current(): array
@@ -45,6 +55,7 @@ class SettingsController extends Controller
             'cod_enabled' => Setting::codEnabled(),
             'commission_credit_limit_birr' => intdiv(Setting::creditLimitSantim(), 100),
             'settlement_instructions' => Setting::settlementInstructions(),
+            'sms_enabled' => Setting::smsEnabled(),
         ];
     }
 }

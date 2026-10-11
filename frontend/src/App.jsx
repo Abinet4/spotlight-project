@@ -15,6 +15,7 @@ import AdminListings from './pages/admin/AdminListings'
 import AdminOverview from './pages/admin/AdminOverview'
 import AdminSellers from './pages/admin/AdminSellers'
 import AdminSettings from './pages/admin/AdminSettings'
+import AdminSms from './pages/admin/AdminSms'
 import Addresses from './pages/Addresses'
 import { Login, Register, SellerApply } from './pages/Auth'
 import Cart from './pages/Cart'
@@ -23,6 +24,7 @@ import Catalog from './pages/Catalog'
 import Help from './pages/Help'
 import Home from './pages/Home'
 import { ConversationView, Inbox } from './pages/Messages'
+import { AlertSettings, Notifications } from './pages/Notifications'
 import { OrderDetail, Orders } from './pages/Orders'
 import ProductDetail from './pages/ProductDetail'
 import SellerDashboard from './pages/seller/SellerDashboard'
@@ -51,6 +53,8 @@ export default function App() {
         <Route path="wishlist" element={<RequireRole><Wishlist /></RequireRole>} />
         <Route path="messages" element={<RequireRole roles={['customer', 'seller']}><Inbox /></RequireRole>} />
         <Route path="messages/:id" element={<RequireRole roles={['customer', 'seller']}><ConversationView /></RequireRole>} />
+        <Route path="notifications" element={<RequireRole><Notifications /></RequireRole>} />
+        <Route path="account/alerts" element={<RequireRole><AlertSettings /></RequireRole>} />
         <Route path="account/addresses" element={<RequireRole roles={['customer']}><Addresses /></RequireRole>} />
         <Route path="cart" element={<RequireRole roles={['customer']}><Cart /></RequireRole>} />
         <Route path="checkout" element={<RequireRole roles={['customer']}><Checkout /></RequireRole>} />
@@ -81,6 +85,7 @@ export default function App() {
           <Route path="categories" element={<AdminCategories />} />
           <Route path="delivery" element={<AdminDelivery />} />
           <Route path="settings" element={<AdminSettings />} />
+          <Route path="sms" element={<AdminSms />} />
           <Route path="audit" element={<AdminAudit />} />
         </Route>
 

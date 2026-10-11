@@ -107,6 +107,14 @@ erDiagram
 | reviews | order_item_id unique, order_id, product_id, seller_profile_id, customer_id, rating 1-5, body, seller_reply, is_hidden, hidden_reason. Unique (customer_id, product_id) |
 | products, seller_profiles | + rating_count, rating_sum, recomputed from visible reviews on every change |
 
+### Added in milestone 5
+
+| Table | Key columns and constraints |
+|---|---|
+| notifications | Laravel's database notifications: uuid id (time-ordered), type (the alert kind, for example `order.new`), notifiable, data {title, body, url}, read_at. Index (notifiable_type, notifiable_id, read_at) |
+| sms_messages | notification_id unique (one text per alert, so a retried job never texts twice), user_id, kind, to (+251...), body (max 480), driver, status (pending/sent/logged/failed), provider_message_id, error, attempts, sent_at |
+| users | + alert_sms, alert_email (both default on) |
+
 Foreign keys use `restrict` where deleting the parent would destroy history (sellers, categories, cities) and `cascade` only for pure child rows (images, favorites).
 
 ## Business rules implemented
@@ -187,6 +195,15 @@ Foreign keys use `restrict` where deleting the parent would destroy history (sel
 - Reports cover a date range of up to a year in Addis Ababa time: orders placed, delivered gross sales, item value, delivery fees, commission earned, commission collected, cancellations by side, top stores and a daily table. Gross sales, commission and collections are kept separate and none is called profit.
 - Orders in the range can be downloaded as CSV. Cells starting with = + - @ are prefixed so spreadsheets do not run them as formulas. Exports are audited.
 
+**Alerts (milestone 5).**
+- Every alert is an in-app alert (the bell in the header, `/notifications`), and some also go by email or SMS. Who gets what is in `app/Services/Alerts.php`. Texts are kept for things that need action soon: a new order and a cancelled order for the store, a confirmed, dispatched, ready-for-pickup or cancelled order for the customer, a new inquiry, and a store being approved, suspended or reinstated.
+- Alerts are sent only after the database transaction commits, so a rolled-back checkout or status change alerts nobody. A failing mail server or SMS provider is logged and never turns the action itself into an error.
+- In-app alerts are written straight away; email and SMS go through the queue, retried 3 times (after 1 and 5 minutes). Provider errors that a retry cannot fix (bad number, rejected request, missing token) are not retried.
+- Users choose email and SMS on or off in Alert settings, and set their mobile number there. Suspended accounts get nothing. Admins can pause every text in Admin > Settings, and see each text and its status in Admin > Text messages.
+- Texts go only to Ethiopian mobile numbers (09 and 07), stored as +2519... or +2517... A store's texts go to the store phone. A customer without a mobile number on the account gets order texts at the phone given at checkout.
+- Messages already have their own unread badge, so they make no in-app alert. They email at most once per conversation and person every 30 minutes. A new inquiry also texts the store, at most once per customer and store a day. Both limits use atomic cache adds, verified with 6 parallel requests: exactly one email and one text.
+- Quotes alert through the quote (sent, accepted, declined), not as a message.
+
 **Ownership.** All seller endpoints look records up through the signed-in seller's own profile, so another seller's id returns 404 (no existence leak). Tests cover show, update, delete, submit, archive, image upload and image delete across sellers.
 
 ## Security measures in place
@@ -200,7 +217,8 @@ Foreign keys use `restrict` where deleting the parent would destroy history (sel
 - CORS limited to `CORS_ALLOWED_ORIGINS`. Bearer tokens mean CSRF does not apply to the API; there are no cookie-authenticated API routes.
 - CSV exports escape formula-like cells.
 - Checkout requires an `Idempotency-Key` header; prices and totals are always recomputed on the server.
-- Audit log for settlement payments and adjustments, review hiding, account suspension, report exports, checkouts, every order status change, settings changes, seller applications and reviews, listing create/update/submit/archive/delete/moderation, category changes, quotes (sent, accepted, declined, withdrawn), delivery zone changes and CLI admin creation.
+- Audit log for settlement payments and adjustments, review hiding, account suspension, report exports, checkouts, every order status change, settings changes, seller applications and reviews, listing create/update/submit/archive/delete/moderation, category changes, quotes (sent, accepted, declined, withdrawn), delivery zone changes, alert setting changes and CLI admin creation.
+- SMS provider credentials come only from `.env`. Logs mask phone numbers; the full number is visible only to admins in Admin > Text messages.
 
 ## Decisions and defaults (change if the business decides otherwise)
 
@@ -215,7 +233,9 @@ Foreign keys use `restrict` where deleting the parent would destroy history (sel
 | Delivery for several items from one seller | one trip, highest line fee | Matches how sellers deliver; avoids charging per item |
 | Contact seller | in-app inquiries, plus the public store phone while `MARKETPLACE_SHOW_SELLER_PHONE=true` | Keeps today's behavior. Turning it off keeps deals in the app, where commission can be earned |
 | Admin access to conversations | none | Privacy by default. Needed later for disputes, with an audited read |
-| New-message alerts | in-app unread badge, polled every 60 seconds | No email or SMS provider is configured yet |
+| New-message alerts | in-app unread badge, plus at most one email per conversation every 30 minutes | Avoids an email per chat line |
+| SMS provider | AfroMessage behind a driver setting; `log` (send nothing) by default | Common Ethiopian provider with a simple HTTP API. Untested against a live account until the business opens one |
+| Which alerts are texts | only alerts that need action within hours | Texts cost money per message |
 
 ## Planned design for the next milestones
 
@@ -227,7 +247,7 @@ Checkout, orders and stock reservation shipped in milestone 3 (see Business rule
 
 **Payouts for prepaid orders.** Once online payments exist the platform will hold customer money, so the same ledger will also carry what the platform owes each seller (negative entries) and payouts.
 
-**Also planned:** email or SMS alerts for new messages and order changes, online payments (Telebirr, Chapa or bank), disputes and returns.
+**Also planned:** online payments (Telebirr, Chapa or bank), disputes and returns.
 
 ## Roadmap
 
@@ -242,4 +262,5 @@ Checkout, orders and stock reservation shipped in milestone 3 (see Business rule
 | 5 | Cart, checkout, multi-seller orders, stock reservation, cash on delivery | Done (milestone 3). Online payment provider is planned |
 | 6 rest | Seller and admin order handling, commission settings | Done (milestone 3) |
 | 6 (milestone 4) | Commission balances and settlements, reviews, admin users, reports and CSV export | Done. Disputes are planned |
+| Milestone 5 | In-app, email and SMS alerts, alert settings, admin text message log | Done. Live SMS needs an AfroMessage account |
 | 7 | CI, end-to-end tests, deployment scripts, backups automation | Planned |

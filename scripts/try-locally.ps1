@@ -153,6 +153,10 @@ $apiLog = Join-Path $Backend 'storage\logs\serve.log'
 $api = Start-Process -FilePath 'php' -ArgumentList @('artisan', 'serve', '--no-reload', "--port=$ApiPort") `
     -WorkingDirectory $Backend -NoNewWindow -PassThru `
     -RedirectStandardOutput $apiLog -RedirectStandardError (Join-Path $Backend 'storage\logs\serve-error.log')
+# Sends queued email and SMS alerts (both only logged locally).
+$queue = Start-Process -FilePath 'php' -ArgumentList @('artisan', 'queue:work', '--sleep=1', '--tries=3') `
+    -WorkingDirectory $Backend -NoNewWindow -PassThru `
+    -RedirectStandardOutput (Join-Path $Backend 'storage\logs\queue.log') -RedirectStandardError (Join-Path $Backend 'storage\logs\queue-error.log')
 try {
     Write-Host ''
     Write-Host "  Open http://localhost:$WebPort" -ForegroundColor Green
@@ -161,6 +165,7 @@ try {
     Write-Host "  Sellers    seller1@demo.local to seller4@demo.local   $DemoPassword"
     Write-Host "  Admin      $AdminEmail        $AdminPassword"
     Write-Host ''
+    Write-Host '  Emails are written to backend\storage\logs\laravel.log; text messages show in Admin > Text messages.'
     Write-Host '  API log: backend\storage\logs\serve.log. Press Ctrl+C to stop.'
     Write-Host ''
     & npm.cmd run dev -- --port $WebPort --strictPort
@@ -168,5 +173,8 @@ try {
     if ($api -and -not $api.HasExited) {
         # artisan serve starts php -S as a child process; stop the whole tree.
         try { & taskkill.exe /PID $api.Id /T /F *> $null } catch { }
+    }
+    if ($queue -and -not $queue.HasExited) {
+        try { & taskkill.exe /PID $queue.Id /T /F *> $null } catch { }
     }
 }

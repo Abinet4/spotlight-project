@@ -26,6 +26,7 @@ class OrderService
         private readonly CheckoutCalculator $calculator,
         private readonly AuditLogger $audit,
         private readonly LedgerService $ledger,
+        private readonly Alerts $alerts,
     ) {}
 
     /**
@@ -147,6 +148,7 @@ class OrderService
             }
 
             CartItem::whereIn('id', $lines->pluck('id'))->delete();
+            $this->alerts->orderPlaced($checkout);
             $this->audit->log('checkout.placed', $checkout, [
                 'orders' => $checkout->orders()->pluck('number'),
                 'grand_total_santim' => $checkout->grand_total_santim,
@@ -217,6 +219,7 @@ class OrderService
             }
             $this->record($order, $from, $to, $actor, $role, $note);
             $this->audit->log('order.'.$to->value, $order, ['from' => $from->value, 'by' => $role]);
+            $this->alerts->orderStatusChanged($order, $from, $to, $role);
 
             return $order;
         });

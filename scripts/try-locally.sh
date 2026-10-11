@@ -99,7 +99,10 @@ step "Starting"
 cd "$BACKEND"
 php artisan serve --port="$API_PORT" >"$BACKEND/storage/logs/serve.log" 2>&1 &
 API_PID=$!
-trap 'kill "$API_PID" 2>/dev/null || true' EXIT INT TERM
+# Sends queued email and SMS alerts (both only logged locally: MAIL_MAILER and the SMS driver are "log").
+php artisan queue:work --sleep=1 --tries=3 >"$BACKEND/storage/logs/queue.log" 2>&1 &
+QUEUE_PID=$!
+trap 'kill "$API_PID" "$QUEUE_PID" 2>/dev/null || true' EXIT INT TERM
 
 cat <<EOF
 
@@ -109,6 +112,7 @@ cat <<EOF
   Sellers    seller1@demo.local to seller4@demo.local   $DEMO_PASSWORD
   Admin      $ADMIN_EMAIL         $ADMIN_PASSWORD
 
+  Emails are written to backend/storage/logs/laravel.log; text messages show in Admin > Text messages.
   API log: backend/storage/logs/serve.log. Press Ctrl+C to stop.
 
 EOF
