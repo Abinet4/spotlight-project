@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Account\AlertSettingsController;
+use App\Http\Controllers\Api\Account\ProfileController;
 use App\Http\Controllers\Api\AddressController;
 use App\Http\Controllers\Api\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Api\Admin\DashboardController;
@@ -78,6 +79,11 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
     Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead'])->whereUuid('id');
+
+    Route::get('/account/profile', [ProfileController::class, 'show']);
+    Route::put('/account/profile', [ProfileController::class, 'update']);
+    Route::put('/account/password', [ProfileController::class, 'password']);
+    Route::post('/account/sign-out-others', [ProfileController::class, 'signOutOthers']);
 
     Route::get('/account/alerts', [AlertSettingsController::class, 'show']);
     Route::put('/account/alerts', [AlertSettingsController::class, 'update']);

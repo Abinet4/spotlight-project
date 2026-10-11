@@ -103,13 +103,13 @@ function AccountLinks({ onNavigate, mobile = false }) {
       )}
       {user.role !== 'admin' && <NavLink to="/wishlist" className={linkClass} onClick={onNavigate}>Wishlist</NavLink>}
       {user.role === 'customer' && <NavLink to="/orders" className={linkClass} onClick={onNavigate}>Orders</NavLink>}
-      {user.role === 'customer' && <NavLink to="/account/addresses" className={linkClass} onClick={onNavigate}>Addresses</NavLink>}
       {user.role === 'customer' && (
         <NavLink to="/cart" className={linkClass} onClick={onNavigate}>
           Cart
           {cartCount > 0 && <span className="ml-1.5 inline-flex min-w-5 justify-center rounded-full bg-stone-800 px-1.5 text-xs font-semibold text-white">{cartCount}<span className="sr-only"> items</span></span>}
         </NavLink>
       )}
+      <NavLink to="/account" end className={linkClass} onClick={onNavigate}>Account</NavLink>
       {!mobile && <AlertsLink onNavigate={onNavigate} />}
       <button
         type="button"

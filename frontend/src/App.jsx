@@ -17,6 +17,7 @@ import AdminSellers from './pages/admin/AdminSellers'
 import AdminSettings from './pages/admin/AdminSettings'
 import AdminSms from './pages/admin/AdminSms'
 import Addresses from './pages/Addresses'
+import Account from './pages/Account'
 import { Login, Register, SellerApply } from './pages/Auth'
 import Cart from './pages/Cart'
 import Checkout from './pages/Checkout'
@@ -54,6 +55,7 @@ export default function App() {
         <Route path="messages" element={<RequireRole roles={['customer', 'seller']}><Inbox /></RequireRole>} />
         <Route path="messages/:id" element={<RequireRole roles={['customer', 'seller']}><ConversationView /></RequireRole>} />
         <Route path="notifications" element={<RequireRole><Notifications /></RequireRole>} />
+        <Route path="account" element={<RequireRole><Account /></RequireRole>} />
         <Route path="account/alerts" element={<RequireRole><AlertSettings /></RequireRole>} />
         <Route path="account/addresses" element={<RequireRole roles={['customer']}><Addresses /></RequireRole>} />
         <Route path="cart" element={<RequireRole roles={['customer']}><Cart /></RequireRole>} />

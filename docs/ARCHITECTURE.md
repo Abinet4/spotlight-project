@@ -204,6 +204,13 @@ Foreign keys use `restrict` where deleting the parent would destroy history (sel
 - Messages already have their own unread badge, so they make no in-app alert. They email at most once per conversation and person every 30 minutes. A new inquiry also texts the store, at most once per customer and store a day. Both limits use atomic cache adds, verified with 6 parallel requests: exactly one email and one text.
 - Quotes alert through the quote (sent, accepted, declined), not as a message.
 
+**My account.**
+- Every account has a My account page (`/account`) to change its name, email, phone and password, and to sign out other devices. Role and status cannot be changed there.
+- Changing the email or the password needs the current password. The old email address gets a notice when the email changes, and the account gets one when the password changes. These security emails ignore the alert settings.
+- A password change signs out every other device and keeps this one. Admins need 12 characters with a symbol, as when created from the command line.
+- Wrong current passwords are limited to 5 per account every 15 minutes. Each attempt is counted before it is checked, so parallel guesses cannot get past the limit; a correct password resets the count. Typos in other fields are not counted.
+- The customer header shows Account instead of Addresses; addresses are linked from My account and used at checkout.
+
 **Ownership.** All seller endpoints look records up through the signed-in seller's own profile, so another seller's id returns 404 (no existence leak). Tests cover show, update, delete, submit, archive, image upload and image delete across sellers.
 
 ## Security measures in place
@@ -217,7 +224,7 @@ Foreign keys use `restrict` where deleting the parent would destroy history (sel
 - CORS limited to `CORS_ALLOWED_ORIGINS`. Bearer tokens mean CSRF does not apply to the API; there are no cookie-authenticated API routes.
 - CSV exports escape formula-like cells.
 - Checkout requires an `Idempotency-Key` header; prices and totals are always recomputed on the server.
-- Audit log for settlement payments and adjustments, review hiding, account suspension, report exports, checkouts, every order status change, settings changes, seller applications and reviews, listing create/update/submit/archive/delete/moderation, category changes, quotes (sent, accepted, declined, withdrawn), delivery zone changes, alert setting changes and CLI admin creation.
+- Audit log for settlement payments and adjustments, review hiding, account suspension, report exports, checkouts, every order status change, settings changes, seller applications and reviews, listing create/update/submit/archive/delete/moderation, category changes, quotes (sent, accepted, declined, withdrawn), delivery zone changes, alert setting changes, profile and password changes, signing out other devices and CLI admin creation.
 - SMS provider credentials come only from `.env`. Logs mask phone numbers; the full number is visible only to admins in Admin > Text messages.
 
 ## Decisions and defaults (change if the business decides otherwise)
