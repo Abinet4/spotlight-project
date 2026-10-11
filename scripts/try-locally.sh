@@ -91,7 +91,7 @@ fi
 step "Frontend: installing packages"
 cd "$FRONTEND"
 if [ ! -f .env ]; then
-  perl -pe 's{^VITE_DEV_API_TARGET=.*}{VITE_DEV_API_TARGET=http://localhost:'"$API_PORT"'}' .env.example > .env
+  perl -pe 's{^VITE_DEV_API_TARGET=.*}{VITE_DEV_API_TARGET=http://127.0.0.1:'"$API_PORT"'}' .env.example > .env
 fi
 npm install --no-fund --no-audit
 
