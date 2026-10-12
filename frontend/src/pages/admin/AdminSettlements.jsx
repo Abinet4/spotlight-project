@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { Alert, EmptyState, ErrorState, Field, PageHeader, Pagination, Spinner, StatusBadge } from '../../components/ui'
+import { Alert, EmptyState, ErrorState, Field, PageHeader, Pagination, Spinner, Stats, StatusBadge } from '../../components/ui'
 import { api, parseError } from '../../lib/api'
 import { METHOD_LABELS, formatETB, toQuery } from '../../lib/format'
 import { useFetch } from '../../lib/useFetch'
@@ -17,14 +17,14 @@ export function AdminSettlements() {
 
   return (
     <>
-      <PageHeader title="Settlements" subtitle="Cash orders: stores owe the marketplace its commission; record their payments here. Online orders: the marketplace holds the money and owes stores the sale minus commission; record payouts here." />
+      <PageHeader title="Settlements" subtitle="Cash orders: stores owe us commission. Online orders: we owe stores the sale minus commission." />
       {list.data && (
-        <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <div className="card p-4"><p className="text-sm text-stone-600">Outstanding</p><p className="text-2xl font-bold">{formatETB(list.data.meta.outstanding_santim)}</p></div>
-          <div className="card p-4"><p className="text-sm text-stone-600">Collected so far</p><p className="text-2xl font-bold">{formatETB(list.data.meta.collected_santim)}</p></div>
-          <div className="card p-4"><p className="text-sm text-stone-600">Owed to stores</p><p className="text-2xl font-bold">{formatETB(list.data.meta.payable_santim || 0) || 'ETB 0'}</p><p className="text-xs text-stone-500">Paid out {formatETB(list.data.meta.paid_out_santim || 0) || 'ETB 0'}</p></div>
-          <div className="card p-4"><p className="text-sm text-stone-600">Credit limit</p><p className="text-2xl font-bold">{list.data.meta.credit_limit_santim ? formatETB(list.data.meta.credit_limit_santim) : 'Off'}</p><Link to="/admin/settings" className="text-xs text-brand-700 hover:underline">Change</Link></div>
-        </div>
+        <Stats className="mb-4" items={[
+          { label: 'Stores owe us', value: formatETB(list.data.meta.outstanding_santim) || 'ETB 0', tone: list.data.meta.outstanding_santim > 0 ? 'warn' : undefined },
+          { label: 'Collected so far', value: formatETB(list.data.meta.collected_santim) || 'ETB 0' },
+          { label: 'We owe stores', value: formatETB(list.data.meta.payable_santim || 0) || 'ETB 0', hint: `Paid out ${formatETB(list.data.meta.paid_out_santim || 0) || 'ETB 0'}` },
+          { label: 'Credit limit', value: list.data.meta.credit_limit_santim ? formatETB(list.data.meta.credit_limit_santim) : 'Off', to: '/admin/settings' },
+        ]} />
       )}
       <form className="mb-4 flex flex-wrap items-center gap-3" onSubmit={(e) => { e.preventDefault(); setParams(query({ q: term.trim() })) }}>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={owing} onChange={(e) => setParams(query({ owing: e.target.checked ? '1' : '', owed: '' }))} /> Only stores that owe</label>
@@ -40,7 +40,7 @@ export function AdminSettlements() {
           <ul className="card divide-y divide-stone-100">
             {list.data.data.map((s) => (
               <li key={s.id}>
-                <Link to={`/admin/settlements/${s.id}`} className="flex items-center justify-between gap-3 p-4 hover:bg-stone-50">
+                <Link to={`/admin/settlements/${s.id}`} className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-stone-50">
                   <span className="min-w-0">
                     <span className="block truncate font-medium text-stone-900">{s.store_name}</span>
                     <span className="text-xs text-stone-500">{s.phone}</span>
@@ -149,13 +149,14 @@ export function AdminSettlementDetail() {
       <PageHeader title={d.seller.store_name} subtitle={<>Phone {d.seller.phone} · <Link to={`/sellers/${d.seller.slug}`} className="text-brand-700 hover:underline">storefront</Link></>} />
       {notice && <div className="mb-4"><Alert tone="success">{notice}</Alert></div>}
       <BalanceCards b={d} admin />
-      <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_320px]">
+      <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_320px]">
         <section className="card min-w-0 p-4">
           <h2 className="mb-2 font-semibold text-stone-900">Statement</h2>
           <LedgerTable entries={entries.data} admin />
           <Pagination meta={entries.meta} onPage={setPage} />
         </section>
-        <div className="space-y-4">
+        {/* On phones the forms come first, above a long statement. */}
+        <div className="order-first space-y-4 lg:order-none">
           {d.owed_to_seller_santim > 0 && <MoneyForm kind="payout" sellerId={d.seller.id} onDone={done} />}
           {d.balance_santim > 0 && <MoneyForm kind="payment" sellerId={d.seller.id} onDone={done} />}
           <MoneyForm kind="adjustment" sellerId={d.seller.id} onDone={done} />

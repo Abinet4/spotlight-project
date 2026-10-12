@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Alert, EmptyState, ErrorState, PageHeader, Pagination, Spinner } from '../../components/ui'
+import { Alert, EmptyState, ErrorState, PageHeader, Pagination, Spinner, Stats } from '../../components/ui'
 import { formatDateTime, toQuery } from '../../lib/format'
 import { useFetch } from '../../lib/useFetch'
 
@@ -21,20 +21,15 @@ export default function AdminSms() {
 
   return (
     <>
-      <PageHeader title="Text messages" subtitle="Every SMS alert the marketplace tried to send, newest first." />
+      <PageHeader title="Text messages" />
       {meta && !meta.delivers && (
-        <div className="mb-4"><Alert tone="warning">No SMS provider is set up, so text messages are only logged here and not sent. To send them, set MARKETPLACE_SMS_DRIVER=afromessage and the AFROMESSAGE_ values in the server settings.</Alert></div>
+        <div className="mb-4"><Alert tone="warning">No SMS provider is set up, so texts are only logged here, not sent. The README says how to connect AfroMessage.</Alert></div>
       )}
       {meta && !meta.sms_enabled && <div className="mb-4"><Alert tone="warning">Text messages are paused in Settings.</Alert></div>}
       {meta && (
-        <dl className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {Object.entries(STATUS).map(([key, [label]]) => (
-            <div key={key} className="card p-3">
-              <dt className="text-xs text-stone-500">{label}, last 30 days</dt>
-              <dd className="text-xl font-semibold text-stone-900">{meta.last_30_days[key]}</dd>
-            </div>
-          ))}
-        </dl>
+        <Stats className="mb-4" items={Object.entries(STATUS).map(([key, [label]]) => ({
+          label: `${label}, 30 days`, value: meta.last_30_days[key], tone: key === 'failed' && meta.last_30_days[key] > 0 ? 'bad' : undefined,
+        }))} />
       )}
 
       <div className="mb-4 flex flex-col gap-2 sm:flex-row">
@@ -52,19 +47,19 @@ export default function AdminSms() {
         <EmptyState title="No text messages">Nothing matches these filters.</EmptyState>
       ) : (
         <>
-          <ul className="space-y-3">
+          <ul className="card divide-y divide-stone-100">
             {list.data.data.map((m) => {
               const [label, tone] = STATUS[m.status] || [m.status, 'bg-stone-100 text-stone-700']
               return (
-                <li key={m.id} className="card min-w-0 p-4">
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${tone}`}>{label}</span>
+                <li key={m.id} className="min-w-0 px-4 py-2.5">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
+                    <span className={`inline-flex rounded-full px-2 py-0.5 font-semibold ${tone}`}>{label}</span>
                     <span className="font-medium text-stone-900">{m.to}</span>
-                    {m.user && <span className="min-w-0 break-all text-stone-600">{m.user.name} ({m.user.email})</span>}
+                    {m.user && <span className="min-w-0 break-all text-stone-600" title={m.user.email}>{m.user.name}</span>}
                     <span className="text-stone-500">{formatDateTime(m.created_at)}</span>
+                    {m.attempts > 1 && <span className="text-stone-500">{m.attempts} attempts</span>}
                   </div>
-                  <p className="mt-2 break-words text-sm text-stone-800">{m.body}</p>
-                  <p className="mt-1 text-xs text-stone-500">{m.kind} · {m.driver}{m.attempts > 1 ? ` · ${m.attempts} attempts` : ''}</p>
+                  <p className="mt-1 break-words text-sm text-stone-800">{m.body}</p>
                   {m.error && <p className="mt-1 break-words text-xs font-medium text-red-700">{m.error}</p>}
                 </li>
               )

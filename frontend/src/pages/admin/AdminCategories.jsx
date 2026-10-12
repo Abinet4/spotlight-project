@@ -41,7 +41,7 @@ export default function AdminCategories() {
 
   return (
     <>
-      <PageHeader title="Categories" subtitle="Inactive categories and their listings are hidden from customers." />
+      <PageHeader title="Categories" subtitle="Hiding a category hides its listings too." />
       {notice && <div className="mb-4"><Alert tone={notice.tone}>{notice.text}</Alert></div>}
       <form onSubmit={create} className="card mb-6 grid gap-3 p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end" noValidate>
         <Field label="New category name" name="cat-name" error={errors.name}>

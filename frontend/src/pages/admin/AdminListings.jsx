@@ -33,7 +33,7 @@ export default function AdminListings() {
 
   return (
     <>
-      <PageHeader title="Listings" subtitle="Oldest submissions first." />
+      <PageHeader title="Listings" />
       <select className="input mb-4 sm:w-56" value={status} onChange={(e) => setParams({ status: e.target.value })} aria-label="Status">
         <option value="pending_review">Waiting for review</option>
         <option value="published">Published</option>

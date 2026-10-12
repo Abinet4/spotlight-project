@@ -31,7 +31,7 @@ export default function AdminReviews() {
 
   return (
     <>
-      <PageHeader title="Reviews" subtitle="Hide reviews that break the rules (abuse, personal data, spam). Do not hide honest negative reviews." />
+      <PageHeader title="Reviews" subtitle="Hide abuse, personal data or spam only, never honest bad reviews." />
       <div className="mb-4 flex gap-1 border-b border-stone-200" role="tablist">
         {[['', 'All'], ['low', '1 or 2 stars'], ['hidden', 'Hidden']].map(([k, label]) => (
           <button key={k} type="button" role="tab" aria-selected={filter === k} onClick={() => setParams(k ? { filter: k } : {})}

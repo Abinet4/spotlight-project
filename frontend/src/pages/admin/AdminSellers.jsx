@@ -56,20 +56,20 @@ export default function AdminSellers() {
       {list.error && <ErrorState error={list.error} onRetry={list.reload} />}
       {list.data && (list.data.data.length ? (
         <>
-          <ul className="space-y-3">
+          <ul className="card divide-y divide-stone-100">
             {list.data.data.map((s) => (
-              <li key={s.id} className="card flex flex-col gap-3 p-4 md:flex-row md:items-start">
+              <li key={s.id} className="flex flex-col gap-3 px-4 py-3 md:flex-row md:items-start">
                 <div className="min-w-0 flex-1 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-base font-semibold text-stone-900">{s.store_name}</p>
+                    <p className="font-semibold text-stone-900">{s.store_name}</p>
                     <StatusBadge status={s.status} />
                   </div>
                   <p className="text-stone-600">{BUSINESS_TYPES[s.business_type]} in {s.area || 'unknown area'} · {s.phone} · {s.products_count} listings</p>
-                  <p className="text-stone-600">Owner: {s.owner?.name} ({s.owner?.email}){s.tin_number ? ` · TIN ${s.tin_number}` : ''}</p>
-                  {s.address_line && <p className="text-stone-600">Address: {s.address_line}</p>}
-                  {s.description && <p className="mt-1 text-stone-700">{s.description}</p>}
+                  <p className="text-stone-600">Owner: {s.owner?.name} ({s.owner?.email}){s.tin_number ? ` · TIN ${s.tin_number}` : ''} · applied {new Date(s.created_at).toLocaleDateString()}</p>
+                  {/* Address and description help decide an application; approved stores show them on their page. */}
+                  {s.status === 'pending' && s.address_line && <p className="text-stone-600">Address: {s.address_line}</p>}
+                  {s.status === 'pending' && s.description && <p className="mt-1 text-stone-700">{s.description}</p>}
                   {s.status_reason && <p className="mt-1 text-red-700">Reason: {s.status_reason}</p>}
-                  <p className="mt-1 text-xs text-stone-500">Applied {new Date(s.created_at).toLocaleDateString()}</p>
                 </div>
                 <div className="flex shrink-0 gap-2">
                   {(ACTIONS[s.status] || []).map(([action, label, needsReason]) => (

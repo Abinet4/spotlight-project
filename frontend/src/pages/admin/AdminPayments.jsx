@@ -144,7 +144,7 @@ export default function AdminPayments() {
 
   return (
     <>
-      <PageHeader title="Online payments" subtitle="Customer payments through Chapa, and money to send back." />
+      <PageHeader title="Online payments" />
       {m && !m.online_available && (
         <div className="mb-4"><Alert tone="warning">Online payment is off. {m.gateway_ready ? 'Turn it on in Settings.' : 'Add the Chapa keys on the server (see the README), then turn it on in Settings.'}</Alert></div>
       )}

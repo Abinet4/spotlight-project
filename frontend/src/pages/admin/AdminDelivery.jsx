@@ -112,7 +112,7 @@ export default function AdminDelivery() {
   return (
     <>
       <PageHeader title="Delivery zones"
-        subtitle="Default delivery fee and time by sub-city. A listing's own delivery fee always wins over the zone fee."
+        subtitle="Fee and time by sub-city. A listing's own fee wins."
         actions={!editing && <button type="button" className="btn-primary" onClick={() => setEditing(EMPTY)}>Add zone</button>} />
       {notice && <div className="mb-4"><Alert tone={notice.tone}>{notice.text}</Alert></div>}
       {editing && (

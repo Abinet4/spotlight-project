@@ -367,6 +367,7 @@ class OnlinePaymentTest extends TestCase
 
         $admin = $this->admin();
         $this->as($admin)->getJson('/api/admin/refunds')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.order.number', $order->number);
+        $this->getJson('/api/admin/summary')->assertJsonPath('data.refunds_due', 1);
         $this->postJson("/api/admin/refunds/{$refund->id}/complete", ['method' => 'telebirr'])->assertUnprocessable()->assertJsonValidationErrors('reference');
         $this->postJson("/api/admin/refunds/{$refund->id}/complete", ['method' => 'chapa', 'reference' => 'RF-123'])->assertOk()
             ->assertJsonPath('data.status', 'refunded')
@@ -375,6 +376,7 @@ class OnlinePaymentTest extends TestCase
         $this->assertSame('refunded', $order->fresh()->payment_status);
         $this->assertContains('refund.sent', $this->kinds($this->buyer->id));
         $this->getJson('/api/admin/refunds')->assertJsonCount(0, 'data');
+        $this->getJson('/api/admin/summary')->assertJsonPath('data.refunds_due', 0);
         $this->getJson('/api/admin/refunds?status=refunded')->assertJsonCount(1, 'data');
 
         // Not for other roles.

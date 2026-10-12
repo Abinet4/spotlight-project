@@ -105,12 +105,39 @@ export function Pagination({ meta, onPage }) {
 
 export function PageHeader({ title, subtitle, actions }) {
   return (
-    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-stone-900 sm:text-3xl">{title}</h1>
         {subtitle && <p className="mt-1 text-sm text-stone-600">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+    </div>
+  )
+}
+
+/**
+ * Several figures in one compact box (instead of a card per number). Each item:
+ * { label, value, hint?, to?, tone?: 'warn' | 'bad' }. Cells wrap to the next row on narrow screens.
+ */
+export function Stats({ items, className = '' }) {
+  const tones = { warn: 'bg-amber-50', bad: 'bg-red-50' }
+  return (
+    <div className={`card overflow-hidden ${className}`}>
+      <div className="-mt-px -ml-px flex flex-wrap">
+        {items.filter(Boolean).map((it) => {
+          const body = (
+            <>
+              <p className="text-xs text-stone-500">{it.label}</p>
+              <p className="mt-0.5 text-base font-bold whitespace-nowrap text-stone-900 tabular-nums sm:text-lg">{it.value}</p>
+              {it.hint && <p className="text-xs text-stone-500">{it.hint}</p>}
+            </>
+          )
+          const cell = `min-w-[9.5rem] flex-1 border-t border-l border-stone-100 px-4 py-3 ${tones[it.tone] || ''}`
+          return it.to
+            ? <Link key={it.label} to={it.to} className={`${cell} block hover:bg-stone-50`}>{body}</Link>
+            : <div key={it.label} className={cell}>{body}</div>
+        })}
+      </div>
     </div>
   )
 }

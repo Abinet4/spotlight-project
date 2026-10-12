@@ -17,7 +17,7 @@ export function AdminUsers() {
 
   return (
     <>
-      <PageHeader title="Users" subtitle="Find any account by name, email or phone. Suspended accounts are signed out and cannot log in." />
+      <PageHeader title="Users" />
       <form className="mb-4 flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); setParams(toQuery({ role, status, q: term.trim() })) }}>
         <label htmlFor="user-role" className="sr-only">Role</label>
         <select id="user-role" className="input w-auto" value={role} onChange={(e) => setParams(toQuery({ role: e.target.value, status, q }))}>
@@ -39,7 +39,7 @@ export function AdminUsers() {
           <ul className="card divide-y divide-stone-100">
             {list.data.data.map((u) => (
               <li key={u.id}>
-                <Link to={`/admin/users/${u.id}`} className="flex flex-wrap items-center justify-between gap-2 p-4 hover:bg-stone-50">
+                <Link to={`/admin/users/${u.id}`} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 hover:bg-stone-50">
                   <span className="min-w-0">
                     <span className="block truncate font-medium text-stone-900">{u.name}</span>
                     <span className="block truncate text-xs text-stone-500">{u.email}{u.store && ` · ${u.store.store_name}`}</span>

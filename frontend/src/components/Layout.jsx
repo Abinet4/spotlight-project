@@ -132,7 +132,7 @@ function AccountMenu({ user, onSignOut }) {
   )
 }
 
-function DesktopActions({ onSignOut }) {
+function DesktopActions({ onSignOut, inAdmin }) {
   const { user } = useAuth()
   const { unread } = useInbox()
   const linkClass = ({ isActive }) => `rounded-full px-3.5 py-2 text-sm font-medium ${isActive ? 'bg-brand-50 text-brand-800' : 'text-stone-700 hover:bg-stone-100'}`
@@ -154,7 +154,9 @@ function DesktopActions({ onSignOut }) {
           <span className="inline-flex items-center gap-1.5"><LayoutDashboard className="size-4" aria-hidden="true" />Seller dashboard</span>
         </NavLink>
       )}
-      {user.role === 'admin' && <NavLink to="/admin" className={linkClass}>Admin</NavLink>}
+      {user.role === 'admin' && (inAdmin
+        ? <Link to="/" className={linkClass({ isActive: false })}>View shop</Link>
+        : <NavLink to="/admin" className={linkClass}>Admin</NavLink>)}
       {user.role !== 'admin' && <IconLink to="/messages" label="Messages" icon={MessageCircle} count={unread} />}
       {user.role !== 'admin' && <IconLink to="/wishlist" label="Wishlist" icon={Heart} />}
       {user.role === 'customer' && <CartLink />}
@@ -322,6 +324,8 @@ export default function Layout() {
   const location = useLocation()
 
   useEffect(() => setMenuOpen(false), [location.pathname])
+  // The admin area is a work tool: no shop search, category bar or shop footer.
+  const inAdmin = location.pathname === '/admin' || location.pathname.startsWith('/admin/')
 
   async function handleSignOut() {
     await signOut()
@@ -337,9 +341,11 @@ export default function Layout() {
             <img src="/favicon.svg" alt="" className="size-8" />
             <span className="font-display text-lg font-semibold tracking-tight sm:text-xl">{name}</span>
           </Link>
-          <SearchBox className="hidden flex-1 md:block md:max-w-xl" />
+          {inAdmin
+            ? <span className="rounded-full bg-stone-100 px-2.5 py-1 text-xs font-semibold text-stone-600">Admin</span>
+            : <SearchBox className="hidden flex-1 md:block md:max-w-xl" />}
           <nav className="ml-auto hidden items-center gap-1 lg:flex" aria-label="Account">
-            <DesktopActions onSignOut={handleSignOut} />
+            <DesktopActions onSignOut={handleSignOut} inAdmin={inAdmin} />
           </nav>
           <div className="ml-auto flex items-center gap-0.5 lg:hidden">
             {user?.role === 'customer' && <CartLink />}
@@ -357,11 +363,13 @@ export default function Layout() {
             </button>
           </div>
         </div>
-        <div className="container-page pb-3 md:hidden">
-          <SearchBox id="site-search-mobile" />
-        </div>
+        {!inAdmin && (
+          <div className="container-page pb-3 md:hidden">
+            <SearchBox id="site-search-mobile" />
+          </div>
+        )}
       </header>
-      <CategoryBar />
+      {!inAdmin && <CategoryBar />}
       <MobileDrawer open={menuOpen} onClose={() => setMenuOpen(false)} onSignOut={handleSignOut} />
 
       <main id="main" className="flex-1">
@@ -371,7 +379,7 @@ export default function Layout() {
       </main>
 
       <CompareTray />
-      <Footer name={name} />
+      {!inAdmin && <Footer name={name} />}
       <Toaster position="top-center" richColors closeButton toastOptions={{ className: 'font-sans' }} />
     </div>
   )

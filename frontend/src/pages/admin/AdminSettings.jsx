@@ -32,7 +32,7 @@ export default function AdminSettings() {
 
   return (
     <>
-      <PageHeader title="Settings" subtitle="Changes apply to orders placed after saving. Existing orders keep the rate they were placed with." />
+      <PageHeader title="Settings" subtitle="Changes apply to new orders only." />
       {notice && <div className="mb-4"><Alert tone={notice.tone}>{notice.text}</Alert></div>}
       <form onSubmit={save} className="card max-w-lg space-y-4 p-4" noValidate>
         <Field label="Commission rate (%)" name="commission" error={errors.commission_rate_percent} hint="Charged on item prices, not on delivery fees. Up to 2 decimals, maximum 50.">

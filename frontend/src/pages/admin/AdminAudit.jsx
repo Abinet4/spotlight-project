@@ -9,7 +9,7 @@ export default function AdminAudit() {
 
   return (
     <>
-      <PageHeader title="Audit log" subtitle="Sensitive actions: approvals, moderation and listing changes." />
+      <PageHeader title="Audit log" />
       <select className="input mb-4 sm:w-56" value={params.get('action') || ''} onChange={(e) => setParams(toQuery({ action: e.target.value }))} aria-label="Filter">
         <option value="">All actions</option>
         <option value="seller.">Seller actions</option>

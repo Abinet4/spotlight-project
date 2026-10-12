@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\Refund;
 use App\Models\Review;
 use App\Models\SellerLedgerEntry;
 use App\Models\SellerProfile;
@@ -45,6 +46,8 @@ class DashboardController extends Controller
                     ->fromSub(SellerLedgerEntry::query()->selectRaw('seller_profile_id, sum(amount_santim) as b')->groupBy('seller_profile_id'), 'x')
                     ->where('b', '>', 0)->sum('b'),
             ],
+            // Refunds an admin still has to send (online orders cancelled after payment).
+            'refunds_due' => Refund::where('status', 'due')->count(),
             'reviews_hidden' => Review::where('is_hidden', true)->count(),
             'reviews_low' => Review::visible()->where('rating', '<=', 2)->where('created_at', '>=', now()->subDays(30))->count(),
         ]]);

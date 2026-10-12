@@ -15,7 +15,7 @@ export function AdminOrders() {
 
   return (
     <>
-      <PageHeader title="Orders" subtitle="Sellers run fulfilment. Admins can look up any order and cancel it with a reason." />
+      <PageHeader title="Orders" />
       <form className="mb-4 flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); setParams(toQuery({ status, q: term.trim() })) }}>
         <label htmlFor="order-status" className="sr-only">Status</label>
         <select id="order-status" className="input w-auto" value={status} onChange={(e) => setParams(toQuery({ status: e.target.value, q }))}>
