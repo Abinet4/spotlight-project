@@ -32,6 +32,7 @@ use App\Http\Controllers\Api\Seller\OrderController as SellerOrderController;
 use App\Http\Controllers\Api\Seller\ProductController as SellerProductController;
 use App\Http\Controllers\Api\Seller\ProfileController as SellerProfileController;
 use App\Http\Controllers\Api\Seller\ReviewController as SellerReviewController;
+use App\Http\Controllers\Api\Seller\SummaryController as SellerSummaryController;
 use App\Models\Setting;
 use App\Payments\ChapaGateway;
 use App\Payments\FakeGateway;
@@ -150,6 +151,7 @@ Route::middleware(['auth:sanctum', 'role:customer,seller'])->group(function () {
 
 // Seller area
 Route::prefix('seller')->middleware(['auth:sanctum', 'role:seller'])->group(function () {
+    Route::get('/summary', SellerSummaryController::class);
     Route::get('/profile', [SellerProfileController::class, 'show']);
     Route::put('/profile', [SellerProfileController::class, 'update']);
 

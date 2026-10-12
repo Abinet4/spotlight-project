@@ -4,7 +4,6 @@ import { Alert, ErrorState, PageHeader, Pagination, Spinner, Stats } from '../..
 import { ENTRY_LABELS, METHOD_LABELS, formatDateTime, formatETB } from '../../lib/format'
 import { useFetch } from '../../lib/useFetch'
 
-
 /**
  * Statement rows shared by the seller and admin views. Positive amounts are owed to the platform.
  */
@@ -61,21 +60,22 @@ export default function SellerBalance() {
   const entries = useFetch(`/seller/balance/entries?page=${page}`)
 
   if (balance.loading && !balance.data) return <Spinner />
-  if (balance.error) return <div className="container-page py-10"><ErrorState error={balance.error} /></div>
+  if (balance.error) return <ErrorState error={balance.error} />
   const b = balance.data.data
 
   return (
-    <div className="container-page py-8">
-      <PageHeader title="Balance" subtitle="Cash orders: you collect the money and owe the marketplace its commission. Online orders: the marketplace holds the payment and owes you the sale minus commission once delivered." actions={<Link to="/seller/orders" className="btn-secondary">Orders</Link>} />
+    <>
+      <PageHeader title="Balance" subtitle="Cash orders: you owe the commission. Online orders: the marketplace owes you the sale minus commission." />
       {b.over_limit && <div className="mb-4"><Alert tone="error">Your unpaid commission is over the limit, so you cannot confirm new cash orders. Orders paid online still go ahead. Pay your balance and the marketplace team will record it.</Alert></div>}
       {b.owed_to_seller_santim > 0 && <div className="mb-4"><Alert tone="success">The marketplace owes you {formatETB(b.owed_to_seller_santim)} from online sales. The team sends it to you and records each payout here.</Alert></div>}
       <BalanceCards b={b} />
-      <div className="card mt-4 p-4 text-sm">
-        <h2 className="font-semibold text-stone-900">How to pay commission</h2>
-        <p className="mt-1 whitespace-pre-line text-stone-700">{b.instructions || 'Contact the marketplace team to arrange payment.'}</p>
+      {/* Payment details matter when the store owes something; otherwise they fold away. */}
+      <details className="card mt-4 p-4 text-sm" open={b.balance_santim > 0}>
+        <summary className="cursor-pointer font-semibold text-stone-900">How to pay commission</summary>
+        <p className="mt-2 whitespace-pre-line text-stone-700">{b.instructions || 'Contact the marketplace team to arrange payment.'}</p>
         <p className="mt-2 text-xs text-stone-500">Payments show here once the team records them. Keep your transfer reference.</p>
-      </div>
-      <section className="card mt-6 p-4">
+      </details>
+      <section className="card mt-4 p-4">
         <h2 className="mb-2 font-semibold text-stone-900">Statement</h2>
         {entries.loading && !entries.data ? <Spinner /> : entries.error ? <ErrorState error={entries.error} /> : (
           <>
@@ -84,6 +84,6 @@ export default function SellerBalance() {
           </>
         )}
       </section>
-    </div>
+    </>
   )
 }

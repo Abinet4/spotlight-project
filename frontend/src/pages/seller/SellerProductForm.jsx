@@ -113,7 +113,7 @@ export default function SellerProductForm() {
         }
         if (action === 'submit') await api.post(`/seller/products/${id}/submit`)
       }
-      navigate('/seller', { replace: true })
+      navigate('/seller/listings', { replace: true })
     } catch (err) {
       const parsed = parseError(err)
       setErrors(parsed.fields)
@@ -135,17 +135,17 @@ export default function SellerProductForm() {
   }
 
   if (existing.loading) return <Spinner />
-  if (existing.error) return <div className="container-page py-10"><ErrorState error={existing.error} /></div>
+  if (existing.error) return <ErrorState error={existing.error} />
 
   const madeToOrder = values.stock_type === 'made_to_order'
   const canSubmit = !product || ['draft', 'rejected'].includes(product.status)
 
   return (
-    <div className="container-page max-w-3xl py-8">
+    <div className="max-w-3xl">
       <PageHeader
         title={editing ? 'Edit listing' : 'Add a listing'}
         subtitle={product ? <span className="inline-flex items-center gap-2">Status: <StatusBadge status={product.status} /></span> : 'Listings are reviewed before they appear on the marketplace.'}
-        actions={<Link to="/seller" className="btn-ghost">Cancel</Link>}
+        actions={<Link to="/seller/listings" className="btn-ghost">Cancel</Link>}
       />
       {product?.status === 'published' && (
         <div className="mb-4"><Alert tone="info">Price and stock changes go live immediately. Changing the name, description, category, material or condition sends the listing back for review.</Alert></div>

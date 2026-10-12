@@ -29,7 +29,7 @@ export function OrderList({ url, viewer, base }) {
           <li key={o.id}>
             <Link to={`${base}/${o.id}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 p-4 hover:bg-stone-50">
               <span className="font-semibold text-stone-900">{o.number}</span>
-              <OrderStatusBadge order={o} />
+              <OrderStatusBadge order={o} viewer={viewer} />
               <span className="text-sm text-stone-600">
                 {viewer === 'seller' ? o.customer?.name : o.seller?.store_name}
                 {viewer === 'admin' && o.customer && ` · ${o.customer.name}`}

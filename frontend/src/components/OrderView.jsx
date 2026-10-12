@@ -2,10 +2,10 @@ import { Link } from 'react-router-dom'
 import { ProductImage } from './ProductCard'
 import { ORDER_STATUS_TONES, formatDateTime, formatETB, orderStatusLabel, paymentSummary } from '../lib/format'
 
-export function OrderStatusBadge({ order }) {
+export function OrderStatusBadge({ order, viewer }) {
   return (
     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${ORDER_STATUS_TONES[order.status] || 'bg-stone-100 text-stone-700'}`}>
-      {orderStatusLabel(order.status, order.fulfillment)}
+      {orderStatusLabel(order.status, order.fulfillment, viewer)}
     </span>
   )
 }
@@ -27,7 +27,7 @@ export default function OrderView({ order, viewer, actions, itemExtra }) {
         <section className="card p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg font-bold text-stone-900">{order.number}</h2>
-            <OrderStatusBadge order={order} />
+            <OrderStatusBadge order={order} viewer={viewer} />
           </div>
           <p className="mt-1 text-sm text-stone-600">
             Placed {formatDateTime(order.created_at)}

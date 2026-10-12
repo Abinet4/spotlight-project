@@ -91,7 +91,8 @@ function initials(name = '') {
 /** Links for the account menu and the mobile drawer, by role. */
 function accountLinks(role) {
   if (role === 'seller') {
-    return [['/account', 'My account'], ['/seller', 'Seller dashboard'], ['/seller/orders', 'Orders'], ['/seller/balance', 'Balance'], ['/seller/reviews', 'Reviews'], ['/seller/profile', 'Store profile'], ['/account/alerts', 'Alert settings']]
+    // The seller area has its own menu for orders, listings, balance and the rest.
+    return [['/account', 'My account'], ['/seller', 'Seller dashboard'], ['/account/alerts', 'Alert settings']]
   }
   if (role === 'admin') {
     return [['/account', 'My account'], ['/admin', 'Admin'], ['/account/alerts', 'Alert settings']]
@@ -132,7 +133,7 @@ function AccountMenu({ user, onSignOut }) {
   )
 }
 
-function DesktopActions({ onSignOut, inAdmin }) {
+function DesktopActions({ onSignOut, workArea }) {
   const { user } = useAuth()
   const { unread } = useInbox()
   const linkClass = ({ isActive }) => `rounded-full px-3.5 py-2 text-sm font-medium ${isActive ? 'bg-brand-50 text-brand-800' : 'text-stone-700 hover:bg-stone-100'}`
@@ -149,16 +150,15 @@ function DesktopActions({ onSignOut, inAdmin }) {
 
   return (
     <>
-      {user.role === 'seller' && (
-        <NavLink to="/seller" end className={linkClass}>
+      {workArea && <Link to="/" className={linkClass({ isActive: false })}>View shop</Link>}
+      {user.role === 'seller' && !workArea && (
+        <NavLink to="/seller" className={linkClass}>
           <span className="inline-flex items-center gap-1.5"><LayoutDashboard className="size-4" aria-hidden="true" />Seller dashboard</span>
         </NavLink>
       )}
-      {user.role === 'admin' && (inAdmin
-        ? <Link to="/" className={linkClass({ isActive: false })}>View shop</Link>
-        : <NavLink to="/admin" className={linkClass}>Admin</NavLink>)}
+      {user.role === 'admin' && !workArea && <NavLink to="/admin" className={linkClass}>Admin</NavLink>}
       {user.role !== 'admin' && <IconLink to="/messages" label="Messages" icon={MessageCircle} count={unread} />}
-      {user.role !== 'admin' && <IconLink to="/wishlist" label="Wishlist" icon={Heart} />}
+      {user.role !== 'admin' && !workArea && <IconLink to="/wishlist" label="Wishlist" icon={Heart} />}
       {user.role === 'customer' && <CartLink />}
       <AlertsLink />
       <AccountMenu user={user} onSignOut={onSignOut} />
@@ -259,7 +259,8 @@ function CategoryBar() {
 function CompareTray() {
   const { slugs, clear } = useCompare()
   const location = useLocation()
-  if (slugs.length === 0 || location.pathname === '/compare' || location.pathname.startsWith('/admin') || location.pathname.startsWith('/seller')) return null
+  // Not in the admin or seller areas; the public store pages under /sellers/ still get it.
+  if (slugs.length === 0 || location.pathname === '/compare' || /^\/(admin|seller)(\/|$)/.test(location.pathname)) return null
   return (
     <div className={`pointer-events-none fixed inset-x-0 bottom-4 z-30 justify-center px-4 lg:bottom-6 ${location.pathname.startsWith('/products/') ? 'hidden lg:flex' : 'flex'}`}>
       <div className="pointer-events-auto flex items-center gap-1 rounded-full bg-stone-900 py-1.5 pr-1.5 pl-4 text-sm text-white shadow-lift">
@@ -324,8 +325,12 @@ export default function Layout() {
   const location = useLocation()
 
   useEffect(() => setMenuOpen(false), [location.pathname])
-  // The admin area is a work tool: no shop search, category bar or shop footer.
-  const inAdmin = location.pathname === '/admin' || location.pathname.startsWith('/admin/')
+  // The admin and seller areas are work tools: no shop search, category bar or shop footer.
+  // Exact prefixes, so the public store pages under /sellers/ keep the shop look.
+  const inArea = (base) => location.pathname === base || location.pathname.startsWith(`${base}/`)
+  // Sellers read their messages inside the seller area too.
+  const workArea = inArea('/admin') && user?.role === 'admin' ? 'Admin'
+    : (inArea('/seller') || inArea('/messages')) && user?.role === 'seller' ? 'Seller' : null
 
   async function handleSignOut() {
     await signOut()
@@ -341,11 +346,11 @@ export default function Layout() {
             <img src="/favicon.svg" alt="" className="size-8" />
             <span className="font-display text-lg font-semibold tracking-tight sm:text-xl">{name}</span>
           </Link>
-          {inAdmin
-            ? <span className="rounded-full bg-stone-100 px-2.5 py-1 text-xs font-semibold text-stone-600">Admin</span>
+          {workArea
+            ? <span className="rounded-full bg-stone-100 px-2.5 py-1 text-xs font-semibold text-stone-600">{workArea}</span>
             : <SearchBox className="hidden flex-1 md:block md:max-w-xl" />}
           <nav className="ml-auto hidden items-center gap-1 lg:flex" aria-label="Account">
-            <DesktopActions onSignOut={handleSignOut} inAdmin={inAdmin} />
+            <DesktopActions onSignOut={handleSignOut} workArea={workArea} />
           </nav>
           <div className="ml-auto flex items-center gap-0.5 lg:hidden">
             {user?.role === 'customer' && <CartLink />}
@@ -363,13 +368,13 @@ export default function Layout() {
             </button>
           </div>
         </div>
-        {!inAdmin && (
+        {!workArea && (
           <div className="container-page pb-3 md:hidden">
             <SearchBox id="site-search-mobile" />
           </div>
         )}
       </header>
-      {!inAdmin && <CategoryBar />}
+      {!workArea && <CategoryBar />}
       <MobileDrawer open={menuOpen} onClose={() => setMenuOpen(false)} onSignOut={handleSignOut} />
 
       <main id="main" className="flex-1">
@@ -379,7 +384,7 @@ export default function Layout() {
       </main>
 
       <CompareTray />
-      {!inAdmin && <Footer name={name} />}
+      {!workArea && <Footer name={name} />}
       <Toaster position="top-center" richColors closeButton toastOptions={{ className: 'font-sans' }} />
     </div>
   )

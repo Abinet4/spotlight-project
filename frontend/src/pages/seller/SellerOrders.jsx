@@ -1,44 +1,41 @@
 import { useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import OrderView from '../../components/OrderView'
-import { Alert, ErrorState, Field, PageHeader, Spinner } from '../../components/ui'
+import { Alert, ErrorState, Field, Spinner } from '../../components/ui'
 import { api, parseError } from '../../lib/api'
-import { ORDER_STATUS_LABELS, formatETB, orderActionLabel, toQuery } from '../../lib/format'
+import { orderActionLabel, toQuery } from '../../lib/format'
 import { useFetch } from '../../lib/useFetch'
 import { CancelForm, OrderList } from '../Orders'
+import { SELLER_ORDER_LABELS, useSellerSummary } from './shared'
 
 const TABS = ['', 'pending_confirmation', 'confirmed', 'processing', 'ready', 'dispatched', 'delivered', 'cancelled']
 
 export function SellerOrders() {
   const [params, setParams] = useSearchParams()
   const status = params.get('status') || ''
-  const summary = useFetch('/seller/orders/summary')
-  const counts = summary.data?.data.counts || {}
+  const summary = useSellerSummary().data?.data
+  const counts = summary?.orders || {}
+  // Statuses with no orders are left out (the one being viewed always shows).
+  const tabs = TABS.filter((t) => !t || t === status || counts[t] > 0)
 
   return (
-    <div className="container-page py-8">
-      <PageHeader title="Orders" subtitle="Confirm new orders quickly: customers wait for your confirmation before anything happens."
-        actions={<><Link to="/seller" className="btn-secondary">Listings</Link><Link to="/seller/balance" className="btn-secondary">Balance</Link></>} />
-      {summary.data?.data.balance.over_limit && (
+    <>
+      <h1 className="mb-4 text-2xl font-bold tracking-tight text-stone-900">Orders</h1>
+      {summary?.balance.over_limit && (
         <div className="mb-4"><Alert tone="error">Your unpaid commission is over the limit, so you cannot confirm new cash orders. <Link to="/seller/balance" className="font-semibold underline">See how to pay</Link></Alert></div>
       )}
-      {summary.data && (
-        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <div className="card p-4"><p className="text-sm text-stone-600">Waiting for you</p><p className="text-2xl font-bold">{counts.pending_confirmation || 0}</p></div>
-          <div className="card p-4"><p className="text-sm text-stone-600">Delivered sales</p><p className="text-2xl font-bold">{formatETB(summary.data.data.delivered_sales_santim)}</p></div>
-          <Link to="/seller/balance" className="card p-4 hover:border-brand-300"><p className="text-sm text-stone-600">Commission you owe</p><p className="text-2xl font-bold">{formatETB(Math.max(0, summary.data.data.balance.balance_santim)) || 'ETB 0'}</p></Link>
+      {tabs.length > 1 && (
+        <div className="no-scrollbar mb-4 flex gap-1 overflow-x-auto border-b border-stone-200" role="tablist">
+          {tabs.map((t) => (
+            <button key={t} type="button" role="tab" aria-selected={status === t} onClick={() => setParams(t ? { status: t } : {})}
+              className={`shrink-0 border-b-2 px-3 py-2 text-sm font-medium ${status === t ? 'border-brand-700 text-brand-800' : 'border-transparent text-stone-600 hover:text-stone-900'}`}>
+              {t ? SELLER_ORDER_LABELS[t] : 'All'}{t && counts[t] ? <span className={`ml-1 ${t === 'pending_confirmation' ? 'rounded-full bg-amber-100 px-1.5 text-xs font-semibold text-amber-800' : 'text-stone-400'}`}>{counts[t]}</span> : null}
+            </button>
+          ))}
         </div>
       )}
-      <div className="mb-4 flex gap-1 relative overflow-x-auto border-b border-stone-200" role="tablist">
-        {TABS.map((t) => (
-          <button key={t} type="button" role="tab" aria-selected={status === t} onClick={() => setParams(t ? { status: t } : {})}
-            className={`shrink-0 border-b-2 px-3 py-2 text-sm font-medium ${status === t ? 'border-brand-700 text-brand-800' : 'border-transparent text-stone-600 hover:text-stone-900'}`}>
-            {t ? ORDER_STATUS_LABELS[t] : 'All'}{t && counts[t] ? ` (${counts[t]})` : ''}
-          </button>
-        ))}
-      </div>
       <OrderList key={status} url={`/seller/orders?${toQuery({ status })}`} viewer="seller" base="/seller/orders" />
-    </div>
+    </>
   )
 }
 
@@ -93,17 +90,24 @@ function ConfirmForm({ order, onDone }) {
 export function SellerOrderDetail() {
   const { id } = useParams()
   const order = useFetch(`/seller/orders/${id}`)
+  const summary = useSellerSummary()
   const [error, setError] = useState(null)
 
+  // Each step changes the menu counts (orders to confirm, balance), so refresh them too.
+  function updated(res) {
+    order.setData(res)
+    summary.reload()
+  }
+
   if (order.loading && !order.data) return <Spinner />
-  if (order.error) return <div className="container-page py-10"><ErrorState error={order.error} /></div>
+  if (order.error) return <ErrorState error={order.error} />
   const o = order.data.data
 
   async function call(request) {
     setError(null)
     try {
       const res = await request
-      order.setData(res.data)
+      updated(res.data)
     } catch (err) {
       const p = parseError(err)
       setError(Object.values(p.fields)[0] || p.message)
@@ -117,7 +121,7 @@ export function SellerOrderDetail() {
   const actions = (
     <div className="space-y-3">
       {error && <Alert tone="error">{error}</Alert>}
-      {o.status === 'pending_confirmation' && <ConfirmForm order={o} onDone={order.setData} />}
+      {o.status === 'pending_confirmation' && <ConfirmForm order={o} onDone={updated} />}
       {steps.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {steps.map((s, i) => (
@@ -140,9 +144,9 @@ export function SellerOrderDetail() {
   )
 
   return (
-    <div className="container-page max-w-5xl py-8">
+    <>
       <Link to="/seller/orders" className="text-sm text-brand-700 hover:underline">Back to orders</Link>
       <div className="mt-3"><OrderView order={o} viewer="seller" actions={actions} /></div>
-    </div>
+    </>
   )
 }

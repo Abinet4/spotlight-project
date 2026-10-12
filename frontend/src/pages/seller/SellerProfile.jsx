@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { Alert, ErrorState, Field, PageHeader, Spinner, StatusBadge } from '../../components/ui'
 import { api, parseError } from '../../lib/api'
 import { useFetch } from '../../lib/useFetch'
@@ -23,7 +22,7 @@ export default function SellerProfile() {
     }
   }, [profile.data])
 
-  if (profile.loading || !values) return profile.error ? <div className="container-page py-10"><ErrorState error={profile.error} /></div> : <Spinner />
+  if (profile.loading || !values) return profile.error ? <ErrorState error={profile.error} /> : <Spinner />
 
   const bind = (name, type = 'text') => ({
     id: name, name, type,
@@ -54,8 +53,8 @@ export default function SellerProfile() {
 
   const p = profile.data.data
   return (
-    <div className="container-page max-w-2xl py-8">
-      <PageHeader title="Store profile" subtitle={<span className="inline-flex items-center gap-2">Status: <StatusBadge status={p.status} /></span>} actions={<Link to="/seller" className="btn-ghost">Back to dashboard</Link>} />
+    <div className="max-w-2xl">
+      <PageHeader title="Store profile" subtitle={<span className="inline-flex items-center gap-2">Status: <StatusBadge status={p.status} /></span>} />
       {notice && <div className="mb-4"><Alert tone={notice.tone}>{notice.text}</Alert></div>}
       <form onSubmit={save} className="card space-y-4 p-5" noValidate>
         <Field label="Store name" name="store_name" error={errors.store_name}><input className="input" {...bind('store_name')} /></Field>

@@ -111,7 +111,9 @@ export const ORDER_STATUS_TONES = {
 /**
  * Wording for the "ready" step depends on whether the customer collects.
  */
-export function orderStatusLabel(status, fulfillment) {
+export function orderStatusLabel(status, fulfillment, viewer) {
+  // The store itself is the one being waited for.
+  if (status === 'pending_confirmation' && viewer === 'seller') return 'To confirm'
   if (status === 'ready') return fulfillment === 'pickup' ? 'Ready for pickup' : 'Ready for delivery'
   if (status === 'delivered' && fulfillment === 'pickup') return 'Picked up'
   return ORDER_STATUS_LABELS[status] || status

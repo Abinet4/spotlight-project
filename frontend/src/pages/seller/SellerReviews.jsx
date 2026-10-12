@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ReviewItem, Stars } from '../../components/Reviews'
-import { EmptyState, ErrorState, PageHeader, Pagination, Spinner } from '../../components/ui'
+import { EmptyState, ErrorState, Pagination, Spinner } from '../../components/ui'
 import { api, parseError } from '../../lib/api'
 import { toQuery } from '../../lib/format'
 import { useFetch } from '../../lib/useFetch'
+import { useSellerSummary } from './shared'
 
 function ReplyForm({ review, onSaved }) {
   const [open, setOpen] = useState(false)
@@ -47,24 +48,34 @@ export default function SellerReviews() {
   const unanswered = params.get('unanswered') === '1'
   const page = params.get('page') || ''
   const res = useFetch(`/seller/reviews?${toQuery({ unanswered: unanswered ? 1 : '', page })}`)
+  const summary = useSellerSummary()
+
+  const total = summary.data?.data.reviews
+  const filters = [['', 'All', total?.count], ['1', 'Without a reply', total?.unanswered]]
 
   return (
-    <div className="container-page max-w-3xl py-8">
-      <PageHeader title="Reviews" subtitle="Customers review items after delivery. A short, polite reply helps future buyers trust you." />
+    <div className="max-w-3xl">
+      <h1 className="mb-3 text-2xl font-bold tracking-tight text-stone-900">Reviews</h1>
       {res.data?.summary.count > 0 && (
-        <p className="mb-4 flex items-center gap-2 text-sm"><Stars value={res.data.summary.average} /> <span className="font-semibold">{res.data.summary.average}</span> from {res.data.summary.count} reviews</p>
+        <p className="mb-3 flex items-center gap-2 text-sm"><Stars value={res.data.summary.average} /> <span className="font-semibold">{res.data.summary.average}</span> from {res.data.summary.count} {res.data.summary.count === 1 ? 'review' : 'reviews'}</p>
       )}
-      <label className="mb-4 flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={unanswered} onChange={(e) => setParams(e.target.checked ? { unanswered: '1' } : {})} /> Only reviews without a reply
-      </label>
+      <div className="mb-4 flex gap-1 border-b border-stone-200" role="tablist">
+        {filters.map(([value, label, n]) => (
+          <button key={label} type="button" role="tab" aria-selected={(unanswered ? '1' : '') === value} onClick={() => setParams(value ? { unanswered: value } : {})}
+            className={`shrink-0 border-b-2 px-3 py-2 text-sm font-medium ${(unanswered ? '1' : '') === value ? 'border-brand-700 text-brand-800' : 'border-transparent text-stone-600 hover:text-stone-900'}`}>
+            {label}{n ? <span className="ml-1 text-stone-400">{n}</span> : null}
+          </button>
+        ))}
+      </div>
       {res.loading && !res.data ? <Spinner /> : res.error ? <ErrorState error={res.error} /> : res.data.data.length === 0 ? (
         <EmptyState title={unanswered ? 'All caught up' : 'No reviews yet'}>{unanswered ? 'Every review has a reply.' : 'Reviews appear here after customers receive their orders.'}</EmptyState>
       ) : (
         <>
+          <p className="mb-2 text-xs text-stone-500">Everyone can read your replies. A short, polite one helps future buyers trust you.</p>
           <ul className="card divide-y divide-stone-100 px-4">
             {res.data.data.map((r) => (
               <ReviewItem key={r.id} review={r} showProduct>
-                <ReplyForm review={r} onSaved={() => res.reload()} />
+                <ReplyForm review={r} onSaved={() => { res.reload(); summary.reload() }} />
               </ReviewItem>
             ))}
           </ul>

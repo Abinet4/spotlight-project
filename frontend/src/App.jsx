@@ -2,6 +2,7 @@ import { lazy } from 'react'
 import { Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import RequireRole from './components/RequireRole'
+import { useAuth } from './context/AuthContext'
 import { NotFound } from './components/ui'
 import Compare from './pages/Compare'
 import { Login, Register, SellerApply } from './pages/Auth'
@@ -43,13 +44,21 @@ const OrderDetail = lazy(() => import('./pages/Orders').then((m) => ({ default: 
 const Orders = lazy(() => import('./pages/Orders').then((m) => ({ default: m.Orders })))
 const PaymentReturn = lazy(() => import('./pages/Payment').then((m) => ({ default: m.PaymentReturn })))
 const TestPay = lazy(() => import('./pages/Payment').then((m) => ({ default: m.TestPay })))
-const SellerDashboard = lazy(() => import('./pages/seller/SellerDashboard'))
+const SellerLayout = lazy(() => import('./pages/seller/SellerLayout'))
+const SellerOverview = lazy(() => import('./pages/seller/SellerOverview'))
+const SellerListings = lazy(() => import('./pages/seller/SellerListings'))
 const SellerBalance = lazy(() => import('./pages/seller/SellerBalance'))
 const SellerOrderDetail = lazy(() => import('./pages/seller/SellerOrders').then((m) => ({ default: m.SellerOrderDetail })))
 const SellerOrders = lazy(() => import('./pages/seller/SellerOrders').then((m) => ({ default: m.SellerOrders })))
 const SellerReviews = lazy(() => import('./pages/seller/SellerReviews'))
 const SellerProductForm = lazy(() => import('./pages/seller/SellerProductForm'))
 const SellerProfile = lazy(() => import('./pages/seller/SellerProfile'))
+
+/** Messages are shared with customers: sellers see them inside the seller area, customers in the shop. */
+function SellerShellFor({ children }) {
+  const { user } = useAuth()
+  return user?.role === 'seller' ? <SellerLayout>{children}</SellerLayout> : children
+}
 
 export default function App() {
   return (
@@ -67,8 +76,8 @@ export default function App() {
         <Route path="compare" element={<Compare />} />
 
         <Route path="wishlist" element={<RequireRole><Wishlist /></RequireRole>} />
-        <Route path="messages" element={<RequireRole roles={['customer', 'seller']}><Inbox /></RequireRole>} />
-        <Route path="messages/:id" element={<RequireRole roles={['customer', 'seller']}><ConversationView /></RequireRole>} />
+        <Route path="messages" element={<RequireRole roles={['customer', 'seller']}><SellerShellFor><Inbox /></SellerShellFor></RequireRole>} />
+        <Route path="messages/:id" element={<RequireRole roles={['customer', 'seller']}><SellerShellFor><ConversationView /></SellerShellFor></RequireRole>} />
         <Route path="notifications" element={<RequireRole><Notifications /></RequireRole>} />
         <Route path="account" element={<RequireRole><Account /></RequireRole>} />
         <Route path="account/alerts" element={<RequireRole><AlertSettings /></RequireRole>} />
@@ -80,14 +89,17 @@ export default function App() {
         <Route path="payments/return" element={<RequireRole roles={['customer']}><PaymentReturn /></RequireRole>} />
         <Route path="pay/test" element={<RequireRole roles={['customer']}><TestPay /></RequireRole>} />
 
-        <Route path="seller" element={<RequireRole roles={['seller']}><SellerDashboard /></RequireRole>} />
-        <Route path="seller/orders" element={<RequireRole roles={['seller']}><SellerOrders /></RequireRole>} />
-        <Route path="seller/orders/:id" element={<RequireRole roles={['seller']}><SellerOrderDetail /></RequireRole>} />
-        <Route path="seller/balance" element={<RequireRole roles={['seller']}><SellerBalance /></RequireRole>} />
-        <Route path="seller/reviews" element={<RequireRole roles={['seller']}><SellerReviews /></RequireRole>} />
-        <Route path="seller/profile" element={<RequireRole roles={['seller']}><SellerProfile /></RequireRole>} />
-        <Route path="seller/products/new" element={<RequireRole roles={['seller']}><SellerProductForm /></RequireRole>} />
-        <Route path="seller/products/:id/edit" element={<RequireRole roles={['seller']}><SellerProductForm /></RequireRole>} />
+        <Route path="seller" element={<RequireRole roles={['seller']}><SellerLayout /></RequireRole>}>
+          <Route index element={<SellerOverview />} />
+          <Route path="listings" element={<SellerListings />} />
+          <Route path="orders" element={<SellerOrders />} />
+          <Route path="orders/:id" element={<SellerOrderDetail />} />
+          <Route path="balance" element={<SellerBalance />} />
+          <Route path="reviews" element={<SellerReviews />} />
+          <Route path="profile" element={<SellerProfile />} />
+          <Route path="products/new" element={<SellerProductForm />} />
+          <Route path="products/:id/edit" element={<SellerProductForm />} />
+        </Route>
 
         <Route path="admin" element={<RequireRole roles={['admin']}><AdminLayout /></RequireRole>}>
           <Route index element={<AdminOverview />} />

@@ -1,3 +1,4 @@
+import { CheckCircle2, ChevronRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { STATUS_LABELS } from '../lib/format'
 
@@ -138,6 +139,46 @@ export function Stats({ items, className = '' }) {
             : <div key={it.label} className={cell}>{body}</div>
         })}
       </div>
+    </div>
+  )
+}
+
+/**
+ * Only what needs someone now. Each item: [count, singular, plural, link, tone?]; zero counts are left out.
+ */
+export function TodoList({ items, done = 'Nothing needs you right now.' }) {
+  const shown = items.filter(Boolean).filter(([n]) => n > 0)
+  if (shown.length === 0) {
+    return <p className="card flex items-center gap-2 px-4 py-3 text-sm text-stone-700"><CheckCircle2 className="size-4 text-emerald-600" aria-hidden="true" />{done}</p>
+  }
+  return (
+    <ul className="card divide-y divide-stone-100">
+      {shown.map(([n, one, many, to, tone]) => (
+        <li key={to + one}>
+          <Link to={to} className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-stone-50">
+            <span className={`min-w-8 rounded-full px-2 py-0.5 text-center font-semibold ${tone === 'bad' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>{n}</span>
+            <span className="flex-1 text-stone-800">{n === 1 ? one : many}</span>
+            <ChevronRight className="size-4 text-stone-400" aria-hidden="true" />
+          </Link>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/** One line of counts in the order of `labels`, leaving out the zeros: "Waiting for seller 10 · Delivered 25". */
+export function CountLine({ label, counts, labels = {}, link, children }) {
+  const order = Object.keys(labels)
+  const rank = (k) => (order.includes(k) ? order.indexOf(k) : order.length)
+  const shown = Object.entries(counts || {}).filter(([, n]) => n > 0).sort(([a], [b]) => rank(a) - rank(b))
+  return (
+    <div className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:gap-4">
+      <p className="w-20 shrink-0 text-sm font-medium text-stone-900">{label}</p>
+      <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-stone-600">
+        {children ?? (shown.length === 0 ? <span>None yet</span> : shown.map(([k, n]) => (
+          <Link key={k} to={link(k)} className="hover:text-brand-800 hover:underline">{labels[k] ?? k} <span className="font-semibold text-stone-900">{n}</span></Link>
+        )))}
+      </p>
     </div>
   )
 }
