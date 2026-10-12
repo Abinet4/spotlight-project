@@ -4,10 +4,12 @@ namespace App\Services;
 
 use App\Enums\QuoteStatus;
 use App\Enums\StockType;
+use App\Models\Address;
 use App\Models\Area;
 use App\Models\CartItem;
 use App\Models\Product;
 use App\Models\SellerProfile;
+use App\Models\Setting;
 use Illuminate\Support\Collection;
 
 /**
@@ -16,17 +18,28 @@ use Illuminate\Support\Collection;
  *
  * Lines are grouped by seller; each group becomes one order. Delivery is one trip per seller:
  * the group fee is the highest line fee. A line's fee comes from its quote, else the listing,
- * else the delivery zone of the chosen sub-city. If any line has no fee, the seller confirms
- * the group fee before the order goes ahead.
+ * else the distance from the store's map pin to the customer's (when both are set), else the
+ * delivery zone of the chosen sub-city. If any line has no fee, the seller confirms the group
+ * fee before the order goes ahead. A trip longer than the distance limit always needs the
+ * seller to confirm; the zone fee would undercharge it.
+ *
+ * Carrying up stairs (an address above the ground floor with no lift) adds a fee per floor to
+ * every delivery, whatever set the transport fee. When the transport fee is still to be
+ * confirmed, the carrying part is known now and added when the store confirms.
  */
 class CheckoutCalculator
 {
+    public function __construct(private readonly DistancePricing $distance) {}
+
     /**
      * @param  Collection<int, CartItem>  $items  with product.seller and quote.seller/product loaded
      * @param  array<int|string, string>  $fulfillment  seller_profile_id => 'delivery'|'pickup'
+     * @param  Address|null  $address  the delivery address (map pin, floor, lift), when one is chosen
      */
-    public function calculate(Collection $items, ?Area $area = null, array $fulfillment = []): array
+    public function calculate(Collection $items, ?Area $area = null, array $fulfillment = [], ?Address $address = null): array
     {
+        $pin = $address?->pin();
+        $carry = self::carryFee($address);
         $visibleProductIds = Product::visible()->whereIn('products.id', $items->pluck('product_id')->filter()->all())->pluck('products.id')->flip();
         $activeSellerIds = SellerProfile::publiclyVisible()
             ->whereIn('id', $items->map(fn (CartItem $i) => $i->product?->seller_profile_id ?? $i->quote?->seller_profile_id)->filter()->unique()->all())
@@ -34,9 +47,12 @@ class CheckoutCalculator
         $zone = $area?->deliveryZone?->is_active ? $area->deliveryZone : null;
 
         $groups = $items->groupBy(fn (CartItem $i) => $i->product?->seller_profile_id ?? $i->quote?->seller_profile_id)
-            ->map(function (Collection $lines, $sellerId) use ($visibleProductIds, $activeSellerIds, $zone, $area, $fulfillment) {
+            ->map(function (Collection $lines, $sellerId) use ($visibleProductIds, $activeSellerIds, $zone, $area, $fulfillment, $pin, $carry) {
                 $seller = $lines->first()->product?->seller ?? $lines->first()->quote?->seller;
-                $rows = $lines->map(fn (CartItem $i) => $this->line($i, $visibleProductIds, $activeSellerIds, $zone));
+                // One trip per store, so one distance; it stands in for the zone fee on every line.
+                $trip = $this->distance->quote($seller, $pin);
+                $defaultFee = $trip ? $trip['fee_santim'] : $zone?->fee_santim;
+                $rows = $lines->map(fn (CartItem $i) => $this->line($i, $visibleProductIds, $activeSellerIds, $defaultFee));
 
                 $deliveryAvailable = $rows->every(fn ($r) => $r['offers_delivery']);
                 $pickupAvailable = $rows->every(fn ($r) => $r['pickup_available']);
@@ -54,7 +70,7 @@ class CheckoutCalculator
                 if ($mode === 'delivery') {
                     $fees = $rows->pluck('delivery_fee_santim');
                     $feeConfirmed = $area !== null && $fees->every(fn ($f) => $f !== null);
-                    $fee = $feeConfirmed ? (int) $fees->max() : null;
+                    $fee = $feeConfirmed ? (int) $fees->max() + $carry : null;
                 }
 
                 return [
@@ -66,6 +82,14 @@ class CheckoutCalculator
                     'items_total_santim' => $itemsTotal,
                     'delivery_fee_santim' => $fee,
                     'delivery_fee_confirmed' => $feeConfirmed,
+                    // Included in delivery_fee_santim when that is known.
+                    'carry_fee_santim' => $mode === 'delivery' && $carry > 0 ? $carry : null,
+                    'delivery_distance' => $mode === 'delivery' && $trip ? [
+                        'km' => round($trip['meters'] / 1000, 1),
+                        'meters' => $trip['meters'],
+                        'estimated' => $trip['estimated'],
+                        'too_far' => $trip['too_far'],
+                    ] : null,
                     'total_santim' => $itemsTotal + (int) $fee,
                     'problem' => $problem,
                 ];
@@ -83,14 +107,27 @@ class CheckoutCalculator
             'grand_total_santim' => $itemsTotal + $deliveryTotal,
             'delivery_to_confirm' => $groups->contains(fn ($g) => ! $g['delivery_fee_confirmed']),
             'area' => $area ? ['id' => $area->id, 'name' => $area->name] : null,
+            'has_pin' => $pin !== null,
+            'carry' => $carry > 0 ? ['floor' => (int) $address->floor, 'fee_santim' => $carry] : null,
             'has_problems' => $hasProblems,
         ];
     }
 
-    private function line(CartItem $item, Collection $visibleProductIds, Collection $activeSellerIds, $zone): array
+    /** Carrying fee for an address above the ground floor without a lift. */
+    public static function carryFee(?Address $address): int
+    {
+        if (! $address || $address->has_lift !== false || (int) $address->floor < 1) {
+            return 0;
+        }
+
+        return (int) $address->floor * Setting::deliveryPerFloorSantim();
+    }
+
+    /** @param  int|null  $defaultFee  from the distance, or the zone when distance does not apply */
+    private function line(CartItem $item, Collection $visibleProductIds, Collection $activeSellerIds, ?int $defaultFee): array
     {
         if ($item->quote_id) {
-            return $this->quoteLine($item, $activeSellerIds, $zone);
+            return $this->quoteLine($item, $activeSellerIds, $defaultFee);
         }
 
         $p = $item->product;
@@ -104,7 +141,7 @@ class CheckoutCalculator
             $problem = "Only {$max} left. Lower the quantity.";
         }
 
-        $fee = $p->delivery_fee_santim ?? $zone?->fee_santim;
+        $fee = $p->delivery_fee_santim ?? $defaultFee;
 
         return [
             'id' => $item->id,
@@ -113,6 +150,8 @@ class CheckoutCalculator
                 'id' => $p->id, 'slug' => $p->slug, 'name' => $p->name,
                 'image' => $p->relationLoaded('primaryImage') ? $p->primaryImage?->thumbUrl() : null,
                 'stock_type' => $p->stock_type->value, 'production_days' => $p->production_days,
+                // For the "will it fit" check at checkout.
+                'dimensions' => ['width_cm' => $p->width_cm, 'depth_cm' => $p->depth_cm, 'height_cm' => $p->height_cm],
             ],
             'quote' => null,
             'name' => $p->name,
@@ -127,7 +166,7 @@ class CheckoutCalculator
         ];
     }
 
-    private function quoteLine(CartItem $item, Collection $activeSellerIds, $zone): array
+    private function quoteLine(CartItem $item, Collection $activeSellerIds, ?int $defaultFee): array
     {
         $q = $item->quote;
         $p = $q->product;
@@ -143,7 +182,7 @@ class CheckoutCalculator
         }
 
         // A custom quote is one line for its full quantity; its own delivery fee wins.
-        $fee = $q->delivery_fee_santim ?? ($p?->delivery_fee_santim ?? $zone?->fee_santim);
+        $fee = $q->delivery_fee_santim ?? ($p?->delivery_fee_santim ?? $defaultFee);
 
         return [
             'id' => $item->id,

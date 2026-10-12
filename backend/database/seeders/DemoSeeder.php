@@ -29,6 +29,14 @@ class DemoSeeder extends Seeder
         ['Kazanchis Office Supply', 'shop', 'kirkos', false],
     ];
 
+    /** Rough map pins per sub-city for demo stores, so delivery by distance can be tried. */
+    private const PINS = [
+        'addis-ketema' => [9.0336, 38.7383],
+        'bole' => [8.9963, 38.7889],
+        'gulele' => [9.0625, 38.7356],
+        'kirkos' => [9.0137, 38.7656],
+    ];
+
     // [category slug, name, price birr, material, color, condition, stock type, qty/days, w, d, h]
     private const PRODUCTS = [
         ['sofas-living-room', 'Three-Seater Fabric Sofa', 38500, 'Fabric, Eucalyptus', 'Grey', 'new', 'in_stock', 4, 210, 90, 85],
@@ -88,7 +96,7 @@ class DemoSeeder extends Seeder
 
             $area = Area::where('slug', $areaSlug)->firstOrFail();
 
-            return SellerProfile::firstOrCreate(['user_id' => $user->id], [
+            $profile = SellerProfile::firstOrCreate(['user_id' => $user->id], [
                 'store_name' => $store,
                 'slug' => Slug::unique(SellerProfile::class, $store),
                 'description' => "{$store} builds and sells quality furniture in Addis Ababa.",
@@ -101,6 +109,12 @@ class DemoSeeder extends Seeder
                 'status' => 'approved',
                 'reviewed_at' => now(),
             ]);
+            // Older demo installs get a pin too; a pin the store set itself is kept.
+            if ($profile->latitude === null && isset(self::PINS[$areaSlug])) {
+                $profile->forceFill(['latitude' => self::PINS[$areaSlug][0], 'longitude' => self::PINS[$areaSlug][1]])->save();
+            }
+
+            return $profile;
         });
 
         $customer = User::firstOrNew(['email' => 'customer@demo.local']);

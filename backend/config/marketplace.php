@@ -104,4 +104,23 @@ return [
         'order_grace_days' => 7,
     ],
 
+    // Delivery priced by distance from the store's map pin to the customer's. Defaults only:
+    // administrators change base fee, price per km and the longest trip in Admin > Delivery.
+    // Without both pins (or with the price per km at 0) the sub-city zone fees apply as before.
+    'distance' => [
+        'base_fee_birr' => (int) env('MARKETPLACE_DELIVERY_BASE_FEE', 150),
+        'per_km_birr' => (int) env('MARKETPLACE_DELIVERY_PER_KM', 25),
+        // Longer trips are not priced automatically: the store confirms the fee.
+        'max_km' => (int) env('MARKETPLACE_DELIVERY_MAX_KM', 40),
+        // Carrying up stairs: this much per floor above the ground floor when there is no lift.
+        'per_floor_birr' => (int) env('MARKETPLACE_DELIVERY_PER_FLOOR', 100),
+        // Fees are rounded up to this many birr.
+        'round_to_birr' => 10,
+        // Roads are longer than a straight line. Used when Google cannot be asked.
+        'road_factor' => (float) env('MARKETPLACE_DELIVERY_ROAD_FACTOR', 1.3),
+        // Pins must be within this many km of the service centre (Addis Ababa).
+        'service_center' => [9.0108, 38.7613],
+        'service_radius_km' => (int) env('MARKETPLACE_SERVICE_RADIUS_KM', 60),
+    ],
+
 ];

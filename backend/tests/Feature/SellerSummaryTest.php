@@ -45,6 +45,7 @@ class SellerSummaryTest extends TestCase
         $this->as($this->seller->user)->getJson('/api/seller/summary')->assertOk()
             ->assertJsonPath('data.store.slug', $this->seller->slug)
             ->assertJsonPath('data.store.status', 'approved')
+            ->assertJsonPath('data.store.has_pin', false)
             ->assertJsonPath('data.orders.pending_confirmation', 2)
             ->assertJsonPath('data.orders.delivered', 1)
             ->assertJsonPath('data.products.published', 1)

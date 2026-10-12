@@ -37,12 +37,14 @@ class CartController extends Controller
 
         $user = $request->user();
         $areaId = $data['area_id'] ?? null;
+        $address = null;
         if (! empty($data['address_id'])) {
-            $areaId = $user->addresses()->findOrFail($data['address_id'])->area_id;
+            $address = $user->addresses()->findOrFail($data['address_id']);
+            $areaId = $address->area_id;
         }
         $area = $areaId ? Area::with('deliveryZone')->find($areaId) : null;
 
-        return response()->json(['data' => $this->calculator->calculate(self::lines($user), $area, $data['fulfillment'] ?? [])]);
+        return response()->json(['data' => $this->calculator->calculate(self::lines($user), $area, $data['fulfillment'] ?? [], $address)]);
     }
 
     public function count(Request $request): JsonResponse

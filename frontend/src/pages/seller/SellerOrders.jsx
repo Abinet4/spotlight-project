@@ -3,7 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import OrderView from '../../components/OrderView'
 import { Alert, ErrorState, Field, Spinner } from '../../components/ui'
 import { api, parseError } from '../../lib/api'
-import { orderActionLabel, toQuery } from '../../lib/format'
+import { formatETB, orderActionLabel, toQuery } from '../../lib/format'
 import { useFetch } from '../../lib/useFetch'
 import { CancelForm, OrderList } from '../Orders'
 import { SELLER_ORDER_LABELS, useSellerSummary } from './shared'
@@ -46,6 +46,15 @@ function nextSteps(order) {
   return at === -1 ? [] : flow.filter((s) => order_.indexOf(s) > at)
 }
 
+/** What the store should know before typing a delivery fee: trip length and the carrying fee added on top. */
+function feeHint(order) {
+  const parts = [order.delivery_distance_km != null
+    ? `The trip is about ${order.delivery_distance_km} km, longer than the marketplace prices by itself.`
+    : 'No fee was set for this address.', 'Enter 0 for free delivery.']
+  if (order.carry_fee_santim > 0) parts.push(`${formatETB(order.carry_fee_santim)} for carrying up the stairs is added on top.`)
+  return parts.join(' ')
+}
+
 function ConfirmForm({ order, onDone }) {
   const needsFee = order.fulfillment === 'delivery' && order.delivery_fee_santim === null
   const [fee, setFee] = useState('')
@@ -75,7 +84,7 @@ function ConfirmForm({ order, onDone }) {
       <p className="text-sm font-medium text-amber-900">Check stock and timing, then confirm. The customer is told right away.</p>
       {errors._ && <Alert tone="error">{errors._}</Alert>}
       {needsFee && (
-        <Field label="Delivery fee (ETB)" name="confirm-fee" error={errors.delivery_fee} hint="No fee was set for this address. Enter 0 for free delivery.">
+        <Field label="Delivery fee (ETB)" name="confirm-fee" error={errors.delivery_fee} hint={feeHint(order)}>
           <input id="confirm-fee" className="input" inputMode="decimal" value={fee} onChange={(e) => setFee(e.target.value)} />
         </Field>
       )}

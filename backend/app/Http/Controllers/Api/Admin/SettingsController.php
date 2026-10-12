@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\SellerProfile;
 use App\Models\Setting;
 use App\Payments\ChapaGateway;
 use App\Payments\FakeGateway;
@@ -30,6 +31,15 @@ class SettingsController extends Controller
             'commission_credit_limit_birr' => ['sometimes', 'integer', 'min:0', 'max:100000000'],
             'settlement_instructions' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'sms_enabled' => ['sometimes', 'boolean'],
+            'delivery_base_fee_birr' => ['sometimes', 'integer', 'min:0', 'max:100000'],
+            'delivery_per_km_birr' => ['sometimes', 'integer', 'min:0', 'max:10000'],
+            'delivery_max_km' => ['sometimes', 'integer', 'min:0', 'max:1000'],
+            'delivery_per_floor_birr' => ['sometimes', 'integer', 'min:0', 'max:10000'],
+        ], [], [
+            'delivery_base_fee_birr' => 'base fee',
+            'delivery_per_km_birr' => 'per km fee',
+            'delivery_max_km' => 'longest trip',
+            'delivery_per_floor_birr' => 'per floor fee',
         ]);
 
         DB::transaction(function () use ($data, $request, $audit) {
@@ -57,6 +67,9 @@ class SettingsController extends Controller
             'payment_gateway_ready' => $payments->ready(),
             'payment_test_mode' => $payments instanceof FakeGateway || ($payments instanceof ChapaGateway && $payments->testMode()),
             'payment_window_minutes' => max(5, (int) config('marketplace.payments.window_minutes')),
+            'maps_browser_key_set' => (bool) config('services.google_maps.browser_key'),
+            'maps_server_key_set' => (bool) config('services.google_maps.server_key'),
+            'stores_without_pin' => SellerProfile::where('status', 'approved')->where('offers_delivery', true)->whereNull('latitude')->count(),
         ];
     }
 
@@ -69,6 +82,10 @@ class SettingsController extends Controller
             'commission_credit_limit_birr' => intdiv(Setting::creditLimitSantim(), 100),
             'settlement_instructions' => Setting::settlementInstructions(),
             'sms_enabled' => Setting::smsEnabled(),
+            'delivery_base_fee_birr' => intdiv(Setting::deliveryBaseFeeSantim(), 100),
+            'delivery_per_km_birr' => intdiv(Setting::deliveryPerKmSantim(), 100),
+            'delivery_max_km' => Setting::deliveryMaxKm(),
+            'delivery_per_floor_birr' => intdiv(Setting::deliveryPerFloorSantim(), 100),
         ];
     }
 }

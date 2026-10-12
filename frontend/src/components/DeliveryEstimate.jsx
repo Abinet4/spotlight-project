@@ -11,36 +11,40 @@ function days(min, max) {
 }
 
 /**
- * "Deliver to [sub-city]" estimate on the product page. Signed-in customers start
- * with the sub-city of their default address.
+ * "Deliver to" estimate on the product page. Signed-in customers can pick a saved address
+ * (its map pin prices delivery by distance, its floor adds carrying) and start with their
+ * default one; anyone can pick a sub-city.
  */
 export default function DeliveryEstimate({ slug }) {
   const { user } = useAuth()
   const areas = useFetch('/areas')
   const addresses = useFetch(user?.role === 'customer' ? '/addresses' : null)
-  const [areaId, setAreaId] = useState('')
+  // "a:<address id>" or "s:<sub-city id>"
+  const [choice, setChoice] = useState('')
   const [touched, setTouched] = useState(false)
   const [result, setResult] = useState({ data: null, error: null, loading: false })
 
-  const defaultArea = addresses.data?.data?.find((a) => a.is_default)?.area_id
+  const saved = addresses.data?.data || []
+  const defaultId = saved.find((a) => a.is_default)?.id
   useEffect(() => {
-    if (defaultArea && !touched) setAreaId(String(defaultArea))
-  }, [defaultArea, touched])
+    if (defaultId && !touched) setChoice(`a:${defaultId}`)
+  }, [defaultId, touched])
 
   useEffect(() => {
-    if (!areaId) {
+    if (!choice) {
       setResult({ data: null, error: null, loading: false })
       return undefined
     }
     let current = true
     setResult({ data: null, error: null, loading: true })
-    api.get(`/products/${encodeURIComponent(slug)}/delivery-estimate`, { params: { area_id: areaId } })
+    const [kind, id] = choice.split(':')
+    api.get(`/products/${encodeURIComponent(slug)}/delivery-estimate`, { params: kind === 'a' ? { address_id: id } : { area_id: id } })
       .then((res) => current && setResult({ data: res.data.data, error: null, loading: false }))
       .catch((err) => current && setResult({ data: null, error: parseError(err), loading: false }))
     return () => {
       current = false
     }
-  }, [slug, areaId])
+  }, [slug, choice])
 
   const list = areas.data?.data || []
   const e = result.data
@@ -49,9 +53,16 @@ export default function DeliveryEstimate({ slug }) {
   return (
     <div className="space-y-2">
       <label htmlFor="delivery-area" className="text-sm font-medium text-stone-700">Deliver to</label>
-      <select id="delivery-area" className="input" value={areaId} onChange={(ev) => { setTouched(true); setAreaId(ev.target.value) }}>
+      <select id="delivery-area" className="input" value={choice} onChange={(ev) => { setTouched(true); setChoice(ev.target.value) }}>
         <option value="">Choose your sub-city</option>
-        {list.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+        {saved.length > 0 && (
+          <optgroup label="Your addresses">
+            {saved.map((a) => <option key={a.id} value={`a:${a.id}`}>{a.label || 'Address'}, {a.area}</option>)}
+          </optgroup>
+        )}
+        <optgroup label="Sub-cities">
+          {list.map((a) => <option key={a.id} value={`s:${a.id}`}>{a.name}</option>)}
+        </optgroup>
       </select>
       <div aria-live="polite" className="text-sm">
         {result.loading && <p className="text-stone-500">Checking delivery...</p>}
@@ -61,10 +72,12 @@ export default function DeliveryEstimate({ slug }) {
           <p className="text-stone-800">
             {e.fee_source === 'seller_quote'
               ? `The seller confirms the delivery fee to ${e.area} before you pay.`
-              : `Delivery to ${e.area}: ${e.fee_santim === 0 ? 'free' : formatETB(e.fee_santim)}.`}
+              : `Delivery to ${e.area}${e.distance_km !== null ? ` (${e.distance_km} km)` : ''}: ${e.fee_santim === 0 ? 'free' : formatETB(e.fee_santim)}.`}
             {when && ` Estimated ${when}${e.fee_source === 'seller_quote' ? ' plus delivery' : ''}.`}
           </p>
         )}
+        {e?.delivery_available && e.too_far && <p className="text-xs text-stone-500">That is further than distance pricing covers, so the seller sets the fee.</p>}
+        {e?.delivery_available && e.carry_fee_santim > 0 && <p className="text-xs text-stone-500">{e.fee_santim === null ? "Plus" : "Includes"} {formatETB(e.carry_fee_santim)} for carrying up the stairs (no lift).</p>}
       </div>
     </div>
   )

@@ -20,6 +20,13 @@ class AddressResource extends JsonResource
             'area' => $this->whenLoaded('area', fn () => $this->area->name),
             'address_line' => $this->address_line,
             'landmark' => $this->landmark,
+            'latitude' => $this->latitude === null ? null : (float) $this->latitude,
+            'longitude' => $this->longitude === null ? null : (float) $this->longitude,
+            'floor' => $this->floor,
+            'has_lift' => $this->has_lift,
+            'door_width_cm' => $this->door_width_cm,
+            'stair_width_cm' => $this->stair_width_cm,
+            'lift_door_width_cm' => $this->lift_door_width_cm,
             'is_default' => $this->is_default,
         ];
     }

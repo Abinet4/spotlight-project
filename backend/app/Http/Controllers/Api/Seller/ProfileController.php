@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Seller;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\SellerProfileResource;
 use App\Models\Area;
+use App\Support\MapPin;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -21,7 +22,8 @@ class ProfileController extends Controller
     {
         $profile = $request->user()->sellerProfile()->firstOrFail();
 
-        $data = $request->validate([
+        $data = validator($request->all(), [
+            ...MapPin::rules(),
             'store_name' => ['sometimes', 'string', 'min:2', 'max:120'],
             'description' => ['nullable', 'string', 'max:2000'],
             'phone' => ['sometimes', 'string', 'regex:/^\+?[0-9 ]{9,16}$/'],
@@ -30,7 +32,7 @@ class ProfileController extends Controller
             'address_line' => ['nullable', 'string', 'max:255'],
             'offers_custom_orders' => ['sometimes', 'boolean'],
             'offers_delivery' => ['sometimes', 'boolean'],
-        ]);
+        ], [], MapPin::attributes())->after(MapPin::checkArea(...))->validate();
 
         if (isset($data['area_id'])) {
             $data['city_id'] = Area::findOrFail($data['area_id'])->city_id;

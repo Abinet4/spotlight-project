@@ -38,12 +38,22 @@ class DeliveryController extends Controller
     public function estimate(Request $request, string $slug, DeliveryEstimator $estimator): JsonResponse
     {
         $data = $request->validate([
-            'area_id' => ['required', 'integer', Rule::exists('areas', 'id')->where('is_active', true)],
+            'area_id' => ['required_without:address_id', 'nullable', 'integer', Rule::exists('areas', 'id')->where('is_active', true)],
+            // A saved address of the signed-in customer: its pin prices delivery by distance.
+            'address_id' => ['nullable', 'integer'],
         ]);
 
-        $product = Product::visible()->where('slug', $slug)->firstOrFail();
-        $area = Area::with('deliveryZone')->findOrFail($data['area_id']);
+        $product = Product::visible()->where('slug', $slug)->with('seller')->firstOrFail();
+        $address = null;
+        $areaId = $data['area_id'] ?? null;
+        if (! empty($data['address_id'])) {
+            $user = $request->user('sanctum');
+            abort_unless($user, 401);
+            $address = $user->addresses()->findOrFail($data['address_id']);
+            $areaId = $address->area_id;
+        }
+        $area = Area::with('deliveryZone')->findOrFail($areaId);
 
-        return response()->json(['data' => $estimator->estimate($product, $area)]);
+        return response()->json(['data' => $estimator->estimate($product, $area, $address)]);
     }
 }

@@ -5,8 +5,28 @@ import { Alert, EmptyState, ErrorState, Field, PageHeader, Spinner } from '../co
 import { useCart } from '../context/CartContext'
 import { useConfig } from '../context/ConfigContext'
 import { api, parseError } from '../lib/api'
+import { checkFit } from '../lib/fit'
 import { formatETB, newIdempotencyKey, toQuery } from '../lib/format'
 import { useFetch } from '../lib/useFetch'
+
+/** "Will it fit" warnings for this address, only for pieces that may not get in. */
+function FitWarnings({ lines, space }) {
+  const warnings = lines
+    .map((l) => ({ l, fit: checkFit(l.product?.dimensions, space) }))
+    .filter(({ fit }) => fit.status === 'no' || fit.status === 'tight')
+  if (!warnings.length) return null
+  return (
+    <ul className="mt-1 space-y-1">
+      {warnings.map(({ l, fit }) => (
+        <li key={l.id} className={`text-xs ${fit.status === 'no' ? 'text-red-700' : 'text-amber-800'}`}>
+          {l.name}: {fit.status === 'no'
+            ? `may not fit through your ${fit.checks.find((c) => c.status === 'no')?.label.toLowerCase() || 'door'}. Ask the seller whether it comes apart.`
+            : 'fits through your door, but only just.'}
+        </li>
+      ))}
+    </ul>
+  )
+}
 
 export default function Checkout() {
   const navigate = useNavigate()
@@ -26,6 +46,7 @@ export default function Checkout() {
   const list = addresses.data?.data || []
   // Until the customer picks one, use the default address (or the first).
   const selectedAddress = addressId || (list.length ? String((list.find((a) => a.is_default) || list[0]).id) : '')
+  const address = list.find((a) => String(a.id) === selectedAddress)
 
   // A different address or delivery choice is a different order: never reuse the old key for it.
   function changeAddress(id) {
@@ -127,6 +148,9 @@ export default function Checkout() {
                     {list.map((a) => <option key={a.id} value={a.id}>{a.label ? `${a.label}: ` : ''}{a.address_line}, {a.area} ({a.recipient_name})</option>)}
                   </select>
                 </Field>
+                {config.delivery?.by_distance && address && address.latitude == null && (
+                  <p className="text-xs text-stone-600">This address has no map pin, so delivery is priced by sub-city. <Link to="/account/addresses" className="font-semibold text-brand-700 hover:underline">Add a pin</Link> for a fee by distance.</p>
+                )}
                 <Link to="/account/addresses" className="text-sm text-brand-700 hover:underline">Manage addresses</Link>
               </>
             )}
@@ -150,12 +174,20 @@ export default function Checkout() {
                   ))}
                 </fieldset>
               )}
+              {g.fulfillment === 'delivery' && <FitWarnings lines={g.lines} space={address} />}
               <div className="mt-2 flex justify-between border-t border-stone-100 pt-2 text-sm">
-                <span>{g.fulfillment === 'pickup' ? 'Pickup' : 'Delivery'}</span>
+                <span>
+                  {g.fulfillment === 'pickup' ? 'Pickup' : 'Delivery'}
+                  {g.fulfillment === 'delivery' && g.delivery_distance && <span className="text-stone-500"> ({g.delivery_distance.km} km{g.delivery_distance.estimated ? ', estimated' : ''})</span>}
+                </span>
                 <span className="font-medium">
                   {g.fulfillment === 'pickup' ? 'Free' : g.delivery_fee_confirmed ? (g.delivery_fee_santim === 0 ? 'Free' : formatETB(g.delivery_fee_santim)) : 'Seller confirms the fee'}
                 </span>
               </div>
+              {g.fulfillment === 'delivery' && g.carry_fee_santim > 0 && (
+                <p className="text-xs text-stone-500">{g.delivery_fee_confirmed ? 'Includes' : 'Plus'} {formatETB(g.carry_fee_santim)} for carrying to floor {p.carry?.floor} (no lift).</p>
+              )}
+              {g.fulfillment === 'delivery' && g.delivery_distance?.too_far && <p className="text-xs text-stone-500">Further than distance pricing covers, so the seller sets the fee.</p>}
               {g.problem && <p className="mt-1 text-sm font-medium text-red-700">{g.problem}</p>}
             </section>
           ))}

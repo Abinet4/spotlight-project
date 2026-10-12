@@ -1,11 +1,20 @@
 import { useState } from 'react'
+import MapPinPicker from '../components/MapPinPicker'
 import { Alert, EmptyState, ErrorState, Field, PageHeader, Spinner } from '../components/ui'
+import { useConfig } from '../context/ConfigContext'
 import { api, parseError } from '../lib/api'
+import { formatETB } from '../lib/format'
+import { mapsLink } from '../lib/maps'
 import { useFetch } from '../lib/useFetch'
 
-const EMPTY = { label: '', recipient_name: '', phone: '', area_id: '', address_line: '', landmark: '', is_default: false }
+const EMPTY = {
+  label: '', recipient_name: '', phone: '', area_id: '', address_line: '', landmark: '', is_default: false,
+  latitude: null, longitude: null, floor: '', has_lift: null, door_width_cm: '', stair_width_cm: '', lift_door_width_cm: '',
+}
+const NUMBERS = ['floor', 'door_width_cm', 'stair_width_cm', 'lift_door_width_cm']
 
 function AddressForm({ initial, areas, onSaved, onCancel }) {
+  const config = useConfig()
   const [form, setForm] = useState(initial)
   const [errors, setErrors] = useState({})
   const [error, setError] = useState(null)
@@ -18,6 +27,10 @@ function AddressForm({ initial, areas, onSaved, onCancel }) {
     setErrors({})
     setError(null)
     const payload = { ...form, area_id: form.area_id ? Number(form.area_id) : null }
+    for (const k of NUMBERS) payload[k] = form[k] === '' || form[k] === null ? null : Number(form[k])
+    // The lift only matters above the ground floor; its door only when there is one.
+    if (!(payload.floor > 0)) payload.has_lift = null
+    if (!payload.has_lift) payload.lift_door_width_cm = null
     try {
       if (form.id) await api.put(`/addresses/${form.id}`, payload)
       else await api.post('/addresses', payload)
@@ -57,6 +70,46 @@ function AddressForm({ initial, areas, onSaved, onCancel }) {
       <Field label="Landmark (optional)" name="a-landmark" error={errors.landmark} hint="Most deliveries in Addis are found by landmark. Be specific.">
         <input id="a-landmark" className="input" maxLength={255} value={form.landmark || ''} onChange={set('landmark')} />
       </Field>
+      <MapPinPicker id="a-pin" label="Pin on the map (recommended)" error={errors.latitude || errors.longitude}
+        hint={config.delivery?.by_distance ? 'Delivery is priced by distance from the store to this pin. Use your location only when you are at this address.' : 'Helps the driver find you. Use your location only when you are at this address.'}
+        value={{ latitude: form.latitude, longitude: form.longitude }} onChange={(pin) => setForm((f) => ({ ...f, ...pin }))} />
+      <fieldset className="space-y-3 rounded-xl border border-stone-200 p-3">
+        <legend className="px-1 text-sm font-medium text-stone-700">Building</legend>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Floor" name="a-floor" error={errors.floor} hint="0 is the ground floor.">
+            <input id="a-floor" className="input" type="number" inputMode="numeric" min={0} max={60} value={form.floor ?? ''} onChange={set('floor')} />
+          </Field>
+          {Number(form.floor) > 0 && (
+            <div>
+              <p className="mb-1 text-sm font-medium text-stone-700">Is there a lift?</p>
+              <div className="flex gap-4 pt-2 text-sm">
+                <label className="flex items-center gap-1.5"><input type="radio" name="a-lift" checked={form.has_lift === true} onChange={() => setForm((f) => ({ ...f, has_lift: true }))} />Yes</label>
+                <label className="flex items-center gap-1.5"><input type="radio" name="a-lift" checked={form.has_lift === false} onChange={() => setForm((f) => ({ ...f, has_lift: false }))} />No</label>
+              </div>
+              {errors.has_lift && <p className="mt-1 text-xs font-medium text-red-700">{errors.has_lift}</p>}
+              {form.has_lift === false && config.delivery?.per_floor_santim > 0 && (
+                <p className="mt-1 text-xs text-stone-500">Carrying up the stairs adds {formatETB(config.delivery.per_floor_santim)} per floor to delivery.</p>
+              )}
+            </div>
+          )}
+        </div>
+        <p className="text-xs text-stone-500">Optional: measure the narrowest point in cm so listings can tell you whether a piece will fit.</p>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <Field label="Front door width" name="a-door" error={errors.door_width_cm}>
+            <input id="a-door" className="input" type="number" inputMode="numeric" min={40} max={400} value={form.door_width_cm ?? ''} onChange={set('door_width_cm')} />
+          </Field>
+          {Number(form.floor) > 0 && (
+            <Field label="Stair width" name="a-stairs" error={errors.stair_width_cm}>
+              <input id="a-stairs" className="input" type="number" inputMode="numeric" min={40} max={400} value={form.stair_width_cm ?? ''} onChange={set('stair_width_cm')} />
+            </Field>
+          )}
+          {Number(form.floor) > 0 && form.has_lift && (
+            <Field label="Lift door width" name="a-liftdoor" error={errors.lift_door_width_cm}>
+              <input id="a-liftdoor" className="input" type="number" inputMode="numeric" min={40} max={400} value={form.lift_door_width_cm ?? ''} onChange={set('lift_door_width_cm')} />
+            </Field>
+          )}
+        </div>
+      </fieldset>
       {!initial.is_default && (
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={form.is_default} onChange={set('is_default')} /> Use as my default address
@@ -115,10 +168,15 @@ export default function Addresses() {
                 <p className="text-stone-700">{a.recipient_name}, {a.phone}</p>
                 <p className="text-stone-700">{a.address_line}, {a.area}</p>
                 {a.landmark && <p className="text-stone-500">Landmark: {a.landmark}</p>}
+                <p className="mt-1 flex flex-wrap gap-x-3 text-xs text-stone-500">
+                  {a.latitude != null ? <a href={mapsLink(a.latitude, a.longitude)} target="_blank" rel="noreferrer" className="text-brand-700 hover:underline">Map pin set</a> : <span>No map pin</span>}
+                  {a.floor > 0 && <span>Floor {a.floor}, {a.has_lift ? 'with lift' : 'no lift'}</span>}
+                  {a.door_width_cm && <span>Door {a.door_width_cm} cm</span>}
+                </p>
               </div>
               <div className="flex shrink-0 flex-wrap gap-1">
                 {!a.is_default && <button type="button" className="btn-ghost" onClick={() => run(() => api.post(`/addresses/${a.id}/default`), 'Default address changed.')}>Make default</button>}
-                <button type="button" className="btn-ghost" onClick={() => setEditing({ ...EMPTY, ...a, area_id: String(a.area_id), is_default: a.is_default })}>Edit</button>
+                <button type="button" className="btn-ghost" onClick={() => setEditing({ ...EMPTY, ...Object.fromEntries(Object.entries(a).map(([k, v]) => [k, v ?? EMPTY[k] ?? v])), area_id: String(a.area_id), is_default: a.is_default })}>Edit</button>
                 <button type="button" className="btn-ghost text-red-700" onClick={() => window.confirm('Remove this address?') && run(() => api.delete(`/addresses/${a.id}`), 'Address removed.')}>Remove</button>
               </div>
             </li>

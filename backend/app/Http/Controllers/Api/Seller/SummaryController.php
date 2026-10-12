@@ -22,7 +22,7 @@ class SummaryController extends Controller
         $reviews = Review::visible()->where('seller_profile_id', $seller->id);
 
         return response()->json(['data' => [
-            'store' => $seller->only(['store_name', 'slug', 'status', 'status_reason']),
+            'store' => $seller->only(['store_name', 'slug', 'status', 'status_reason', 'offers_delivery']) + ['has_pin' => $seller->pin() !== null],
             'orders' => (clone $orders)->selectRaw('status, count(*) as c')->groupBy('status')->pluck('c', 'status'),
             'products' => $seller->products()->selectRaw('status, count(*) as c')->groupBy('status')->pluck('c', 'status'),
             'delivered_sales_santim' => (int) (clone $orders)->where('status', OrderStatus::Delivered->value)->sum('total_santim'),

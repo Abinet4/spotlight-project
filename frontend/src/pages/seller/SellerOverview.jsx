@@ -39,6 +39,7 @@ export default function SellerOverview() {
           [s.products.rejected, 'listing needs changes', 'listings need changes', '/seller/listings?status=rejected'],
           approved && [s.products.draft, 'draft not sent for review yet', 'drafts not sent for review yet', '/seller/listings?status=draft'],
           [s.reviews.low_unanswered, 'low rating without your reply', 'low ratings without your reply', '/seller/reviews?unanswered=1'],
+          approved && store.offers_delivery && !store.has_pin && [true, 'Set your store on the map so delivery is priced by distance', '', '/seller/profile'],
         ]} />
       </section>
 

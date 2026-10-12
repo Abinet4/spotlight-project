@@ -52,4 +52,16 @@ return [
         'timeout' => (int) env('CHAPA_TIMEOUT', 15),
     ],
 
+    // Google Maps. The browser key shows the map (restrict it to your site's address and the
+    // Maps JavaScript API); the server key measures road distance (restrict it to the Routes API).
+    // Without a server key, distance is a straight-line estimate; without a browser key the
+    // address form offers "Use my location" instead of a map.
+    'google_maps' => [
+        'browser_key' => env('GOOGLE_MAPS_BROWSER_KEY'),
+        'server_key' => env('GOOGLE_MAPS_SERVER_KEY'),
+        'map_id' => env('GOOGLE_MAPS_MAP_ID', 'DEMO_MAP_ID'),
+        'routes_url' => env('GOOGLE_ROUTES_URL', 'https://routes.googleapis.com/directions/v2:computeRoutes'),
+        'timeout' => (int) env('GOOGLE_MAPS_TIMEOUT', 5),
+    ],
+
 ];

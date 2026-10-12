@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\BusinessType;
 use App\Enums\SellerStatus;
+use App\Support\MapPin;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -14,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 // status, reviewed_at and reviewed_by are set only by admin review actions.
 #[Fillable([
     'store_name', 'description', 'business_type', 'phone', 'tin_number',
-    'city_id', 'area_id', 'address_line', 'offers_custom_orders', 'offers_delivery',
+    'city_id', 'area_id', 'address_line', 'offers_custom_orders', 'offers_delivery', 'latitude', 'longitude',
 ])]
 class SellerProfile extends Model
 {
@@ -77,5 +78,11 @@ class SellerProfile extends Model
     {
         $query->where('status', SellerStatus::Approved->value)
             ->whereHas('user', fn (Builder $q) => $q->where('status', 'active'));
+    }
+
+    /** The map pin as [latitude, longitude], or null when none is set. */
+    public function pin(): ?array
+    {
+        return MapPin::from($this->latitude, $this->longitude);
     }
 }

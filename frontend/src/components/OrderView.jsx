@@ -1,6 +1,8 @@
+import { MapPin } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { ProductImage } from './ProductCard'
 import { ORDER_STATUS_TONES, formatDateTime, formatETB, orderStatusLabel, paymentSummary } from '../lib/format'
+import { directionsLink, mapsLink } from '../lib/maps'
 
 export function OrderStatusBadge({ order, viewer }) {
   return (
@@ -86,6 +88,13 @@ export default function OrderView({ order, viewer, actions, itemExtra }) {
         <section className="card space-y-1 p-4 text-sm">
           <div className="flex justify-between"><span>Items</span><span>{formatETB(order.items_total_santim)}</span></div>
           <div className="flex justify-between gap-2"><span>{order.fulfillment === 'pickup' ? 'Fulfilment' : 'Delivery'}</span><span className="text-right">{feeText}</span></div>
+          {order.fulfillment === 'delivery' && (order.delivery_distance_km !== null || order.carry_fee_santim > 0) && (
+            <p className="text-xs text-stone-500">
+              {order.delivery_distance_km !== null && `${order.delivery_distance_km} km${order.delivery_distance_estimated ? ' (estimated)' : ''}`}
+              {order.delivery_distance_km !== null && order.carry_fee_santim > 0 && ' · '}
+              {order.carry_fee_santim > 0 && `${order.delivery_fee_santim === null ? 'plus' : 'includes'} ${formatETB(order.carry_fee_santim)} carrying up stairs`}
+            </p>
+          )}
           <div className="flex justify-between border-t border-stone-100 pt-2 text-base font-bold"><span>Total</span><span>{formatETB(order.total_santim)}</span></div>
           <p className="pt-1 text-xs text-stone-500">{paymentSummary(order)}</p>
           {order.refund && (
@@ -105,6 +114,13 @@ export default function OrderView({ order, viewer, actions, itemExtra }) {
             <p>{a.recipient_name}, {a.phone}</p>
             {order.fulfillment === 'delivery' && <p>{a.address_line}, {a.area}</p>}
             {order.fulfillment === 'delivery' && a.landmark && <p className="text-stone-500">Landmark: {a.landmark}</p>}
+            {order.fulfillment === 'delivery' && a.floor > 0 && <p className="text-stone-500">Floor {a.floor}, {a.has_lift ? 'with a lift' : a.has_lift === false ? 'no lift' : 'lift not known'}</p>}
+            {order.fulfillment === 'delivery' && a.latitude != null && (
+              <a href={viewer === 'customer' ? mapsLink(a.latitude, a.longitude) : directionsLink(a.latitude, a.longitude)} target="_blank" rel="noreferrer"
+                className="mt-1 inline-flex items-center gap-1 font-medium text-brand-700 hover:underline">
+                <MapPin className="size-4" aria-hidden="true" />{viewer === 'customer' ? 'See the pin on Google Maps' : 'Directions in Google Maps'}
+              </a>
+            )}
           </section>
         )}
         {viewer === 'customer' && order.seller && (

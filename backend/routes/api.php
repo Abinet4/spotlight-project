@@ -37,6 +37,7 @@ use App\Models\Setting;
 use App\Payments\ChapaGateway;
 use App\Payments\FakeGateway;
 use App\Payments\PaymentGateway;
+use App\Services\DistancePricing;
 use App\Services\PaymentService;
 use Illuminate\Support\Facades\Route;
 
@@ -51,6 +52,20 @@ Route::get('/config', fn () => response()->json([
         'available' => app(PaymentService::class)->available(),
         'test_mode' => (fn ($g) => $g instanceof FakeGateway || ($g instanceof ChapaGateway && $g->testMode()))(app(PaymentGateway::class)),
         'window_minutes' => max(5, (int) config('marketplace.payments.window_minutes')),
+    ],
+    // The browser key is public by design (it is sent to every visitor's browser); restrict it by
+    // website address in Google Cloud. The server key never leaves the server.
+    'maps' => [
+        'browser_key' => config('services.google_maps.browser_key') ?: null,
+        'map_id' => config('services.google_maps.map_id'),
+        'center' => config('marketplace.distance.service_center'),
+    ],
+    'delivery' => [
+        'by_distance' => DistancePricing::enabled(),
+        'base_fee_santim' => Setting::deliveryBaseFeeSantim(),
+        'per_km_santim' => Setting::deliveryPerKmSantim(),
+        'max_km' => Setting::deliveryMaxKm(),
+        'per_floor_santim' => Setting::deliveryPerFloorSantim(),
     ],
 ]));
 

@@ -14,6 +14,8 @@ class Checkout extends Model
             'items_total_santim' => 'integer',
             'delivery_total_santim' => 'integer',
             'grand_total_santim' => 'integer',
+            'floor' => 'integer',
+            'has_lift' => 'boolean',
             'payment_due_at' => 'datetime',
             'paid_at' => 'datetime',
         ];

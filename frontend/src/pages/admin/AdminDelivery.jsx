@@ -4,6 +4,82 @@ import { api, parseError } from '../../lib/api'
 import { formatETB, santimToBirr } from '../../lib/format'
 import { useFetch } from '../../lib/useFetch'
 
+/** Base fee, price per km, longest trip and carrying fee, stored as admin settings. */
+function DistanceSettings() {
+  const settings = useFetch('/admin/settings')
+  const [form, setForm] = useState(null)
+  const [errors, setErrors] = useState({})
+  const [notice, setNotice] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const keys = ['delivery_base_fee_birr', 'delivery_per_km_birr', 'delivery_max_km', 'delivery_per_floor_birr']
+
+  if (settings.error) return <ErrorState error={settings.error} onRetry={settings.reload} />
+  if (!settings.data) return null
+  const current = settings.data.data
+  const meta = settings.data.meta
+  const f = form || Object.fromEntries(keys.map((k) => [k, String(current[k])]))
+  const set = (k) => (e) => setForm({ ...f, [k]: e.target.value })
+  const example = (km) => {
+    const base = Number(f.delivery_base_fee_birr) || 0
+    const per = Number(f.delivery_per_km_birr) || 0
+    return Math.ceil((base + per * km) / 10) * 10
+  }
+
+  async function save(e) {
+    e.preventDefault()
+    setBusy(true)
+    setErrors({})
+    setNotice(null)
+    try {
+      await api.put('/admin/settings', Object.fromEntries(keys.map((k) => [k, f[k] === '' ? null : Number(f[k])])))
+      setNotice({ tone: 'success', text: 'Delivery prices saved.' })
+      setForm(null)
+      settings.reload()
+    } catch (err) {
+      const parsed = parseError(err)
+      setErrors(parsed.fields)
+      setNotice({ tone: 'error', text: Object.values(parsed.fields)[0] || parsed.message })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const box = (k, label, hint) => (
+    <Field label={label} name={k} error={errors[k]} hint={hint}>
+      <input id={k} className="input" type="number" inputMode="numeric" min={0} value={f[k]} onChange={set(k)} />
+    </Field>
+  )
+
+  return (
+    <form onSubmit={save} className="card mb-6 space-y-3 p-4" noValidate>
+      <div>
+        <h2 className="font-semibold text-stone-900">Price by distance</h2>
+        <p className="text-sm text-stone-600">Used when the store and the address both have a map pin. Otherwise the zones below apply. A listing's own fee always wins.</p>
+      </div>
+      {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
+      <div className="grid gap-3 sm:grid-cols-4">
+        {box('delivery_base_fee_birr', 'Base fee (ETB)')}
+        {box('delivery_per_km_birr', 'Per km (ETB)', '0 turns it off')}
+        {box('delivery_max_km', 'Longest trip (km)', 'Longer: store sets the fee. 0: no limit')}
+        {box('delivery_per_floor_birr', 'Per floor, no lift (ETB)', 'Carrying up stairs')}
+      </div>
+      {Number(f.delivery_per_km_birr) > 0 && (
+        <p className="text-xs text-stone-500">Examples: 3 km {formatETB(example(3) * 100)}, 8 km {formatETB(example(8) * 100)}, 15 km {formatETB(example(15) * 100)}. Fees round up to 10 birr.</p>
+      )}
+      <ul className="space-y-1 text-xs">
+        <li className={meta.maps_server_key_set ? 'text-stone-500' : 'text-amber-800'}>
+          {meta.maps_server_key_set ? 'Road distance comes from Google.' : 'No Google server key: distance is estimated from a straight line times 1.3.'}
+        </li>
+        <li className={meta.maps_browser_key_set ? 'text-stone-500' : 'text-amber-800'}>
+          {meta.maps_browser_key_set ? 'The map shows on address and store forms.' : 'No Google browser key: forms offer "Use my location" instead of a map.'}
+        </li>
+        {meta.stores_without_pin > 0 && <li className="text-amber-800">{meta.stores_without_pin} delivering {meta.stores_without_pin === 1 ? 'store has' : 'stores have'} no map pin yet, so {meta.stores_without_pin === 1 ? 'it uses' : 'they use'} zone fees.</li>}
+      </ul>
+      <button type="submit" className="btn-primary" disabled={busy}>{busy ? 'Saving...' : 'Save prices'}</button>
+    </form>
+  )
+}
+
 const EMPTY = { name: '', fee: '', min_days: 1, max_days: 3, notes: '', is_active: true, area_ids: [] }
 
 function ZoneForm({ initial, areas, zones, onSaved, onCancel }) {
@@ -111,9 +187,15 @@ export default function AdminDelivery() {
 
   return (
     <>
-      <PageHeader title="Delivery zones"
-        subtitle="Fee and time by sub-city. A listing's own fee wins."
-        actions={!editing && <button type="button" className="btn-primary" onClick={() => setEditing(EMPTY)}>Add zone</button>} />
+      <PageHeader title="Delivery" />
+      <DistanceSettings />
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h2 className="font-semibold text-stone-900">Zones by sub-city</h2>
+          <p className="text-sm text-stone-600">Fee and delivery time when distance pricing does not apply.</p>
+        </div>
+        {!editing && <button type="button" className="btn-primary" onClick={() => setEditing(EMPTY)}>Add zone</button>}
+      </div>
       {notice && <div className="mb-4"><Alert tone={notice.tone}>{notice.text}</Alert></div>}
       {editing && (
         <div className="mb-6">

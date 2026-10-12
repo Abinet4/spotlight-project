@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import MapPinPicker from '../../components/MapPinPicker'
 import { Alert, ErrorState, Field, PageHeader, Spinner, StatusBadge } from '../../components/ui'
 import { api, parseError } from '../../lib/api'
 import { useFetch } from '../../lib/useFetch'
@@ -18,6 +19,7 @@ export default function SellerProfile() {
         store_name: p.store_name, description: p.description ?? '', phone: p.phone, tin_number: p.tin_number ?? '',
         area_id: String(p.area_id ?? ''), address_line: p.address_line ?? '',
         offers_custom_orders: p.offers_custom_orders, offers_delivery: p.offers_delivery,
+        latitude: p.latitude, longitude: p.longitude,
       })
     }
   }, [profile.data])
@@ -69,6 +71,9 @@ export default function SellerProfile() {
           </Field>
           <Field label="Address or landmark" name="address_line" error={errors.address_line}><input className="input" {...bind('address_line')} /></Field>
         </div>
+        <MapPinPicker id="store-pin" label="Where deliveries leave from" error={errors.latitude || errors.longitude}
+          hint="Delivery fees are worked out from this pin to the customer's. Customers never see it."
+          value={{ latitude: values.latitude, longitude: values.longitude }} onChange={(pin) => setValues((v) => ({ ...v, ...pin }))} />
         <div className="flex flex-col gap-2 text-sm">
           <label className="flex items-center gap-2"><input className="size-4 accent-brand-700" {...bind('offers_delivery', 'checkbox')} /> I deliver within Addis Ababa</label>
           <label className="flex items-center gap-2"><input className="size-4 accent-brand-700" {...bind('offers_custom_orders', 'checkbox')} /> I accept custom orders</label>

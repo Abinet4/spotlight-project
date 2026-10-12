@@ -1,4 +1,4 @@
-import { CheckCircle2, ChevronRight } from 'lucide-react'
+import { CheckCircle2, ChevronRight, CircleAlert } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { STATUS_LABELS } from '../lib/format'
 
@@ -144,7 +144,8 @@ export function Stats({ items, className = '' }) {
 }
 
 /**
- * Only what needs someone now. Each item: [count, singular, plural, link, tone?]; zero counts are left out.
+ * Only what needs someone now. Each item: [count, singular, plural, link, tone?]; zero counts are left
+ * out. A count of `true` is a one-off task without a number.
  */
 export function TodoList({ items, done = 'Nothing needs you right now.' }) {
   const shown = items.filter(Boolean).filter(([n]) => n > 0)
@@ -156,8 +157,10 @@ export function TodoList({ items, done = 'Nothing needs you right now.' }) {
       {shown.map(([n, one, many, to, tone]) => (
         <li key={to + one}>
           <Link to={to} className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-stone-50">
-            <span className={`min-w-8 rounded-full px-2 py-0.5 text-center font-semibold ${tone === 'bad' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>{n}</span>
-            <span className="flex-1 text-stone-800">{n === 1 ? one : many}</span>
+            <span className={`flex min-w-8 justify-center rounded-full px-2 py-0.5 font-semibold ${tone === 'bad' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>
+              {n === true ? <CircleAlert className="my-0.5 size-4" aria-hidden="true" /> : n}
+            </span>
+            <span className="flex-1 text-stone-800">{n === 1 || n === true ? one : many}</span>
             <ChevronRight className="size-4 text-stone-400" aria-hidden="true" />
           </Link>
         </li>

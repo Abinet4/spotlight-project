@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AddressResource;
 use App\Models\Address;
+use App\Support\MapPin;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -96,14 +97,31 @@ class AddressController extends Controller
     {
         $required = $partial ? 'sometimes' : 'required';
 
-        return collect($request->validate([
+        return collect(validator($request->all(), [
+            ...MapPin::rules(),
             'label' => ['nullable', 'string', 'max:40'],
             'recipient_name' => [$required, 'string', 'min:2', 'max:100'],
             'phone' => [$required, 'string', 'regex:/^\+?[0-9 ]{9,16}$/'],
             'area_id' => [$required, 'integer', Rule::exists('areas', 'id')->where('is_active', true)],
             'address_line' => [$required, 'string', 'min:3', 'max:255'],
             'landmark' => ['nullable', 'string', 'max:255'],
+            // 0 is the ground floor. A lift only matters above it.
+            'floor' => ['nullable', 'integer', 'min:0', 'max:60'],
+            // Asked whenever a floor above the ground is given: it decides the carrying fee.
+            'has_lift' => [Rule::requiredIf(fn () => (int) $request->input('floor') > 0), 'nullable', 'boolean'],
+            'door_width_cm' => ['nullable', 'integer', 'min:40', 'max:400'],
+            'stair_width_cm' => ['nullable', 'integer', 'min:40', 'max:400'],
+            'lift_door_width_cm' => ['nullable', 'integer', 'min:40', 'max:400'],
             'is_default' => ['sometimes', 'boolean'],
-        ]))->except('is_default')->all();
+        ], [
+            'has_lift.required' => 'Say whether the building has a lift.',
+        ], [
+            ...MapPin::attributes(),
+            'area_id' => 'sub-city',
+            'address_line' => 'address',
+            'door_width_cm' => 'front door width',
+            'stair_width_cm' => 'stair width',
+            'lift_door_width_cm' => 'lift door width',
+        ])->after(MapPin::checkArea(...))->validate())->except('is_default')->all();
     }
 }

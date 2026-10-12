@@ -39,6 +39,9 @@ class OrderResource extends JsonResource
             'items_total_santim' => $this->items_total_santim,
             'delivery_fee_santim' => $this->delivery_fee_santim,
             'delivery_fee_confirmed' => $this->deliveryFeeConfirmed(),
+            'delivery_distance_km' => $this->delivery_distance_m === null ? null : round($this->delivery_distance_m / 1000, 1),
+            'delivery_distance_estimated' => $this->delivery_distance_estimated,
+            'carry_fee_santim' => $this->carry_fee_santim,
             'total_santim' => $this->total_santim,
             'total' => Money::toBirr($this->total_santim),
             'checkout_id' => $this->checkout_id,
@@ -79,6 +82,11 @@ class OrderResource extends JsonResource
                 'area' => $checkout->area_name,
                 'address_line' => $checkout->address_line,
                 'landmark' => $checkout->landmark,
+                // The pin lets the store open turn-by-turn directions.
+                'latitude' => $checkout->latitude === null ? null : (float) $checkout->latitude,
+                'longitude' => $checkout->longitude === null ? null : (float) $checkout->longitude,
+                'floor' => $checkout->floor,
+                'has_lift' => $checkout->has_lift === null ? null : (bool) $checkout->has_lift,
             ] : null,
             'items' => $this->whenLoaded('items', fn () => $this->items->map(fn ($i) => [
                 'id' => $i->id,

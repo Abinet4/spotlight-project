@@ -24,6 +24,10 @@ class Setting extends Model
         'commission_credit_limit_birr' => 'marketplace.commission.credit_limit_birr',
         'settlement_instructions' => 'marketplace.settlements.instructions',
         'sms_enabled' => 'marketplace.alerts.sms_enabled',
+        'delivery_base_fee_birr' => 'marketplace.distance.base_fee_birr',
+        'delivery_per_km_birr' => 'marketplace.distance.per_km_birr',
+        'delivery_max_km' => 'marketplace.distance.max_km',
+        'delivery_per_floor_birr' => 'marketplace.distance.per_floor_birr',
     ];
 
     public static function value(string $key): mixed
@@ -69,5 +73,29 @@ class Setting extends Model
     public static function smsEnabled(): bool
     {
         return filter_var(static::value('sms_enabled'), FILTER_VALIDATE_BOOL);
+    }
+
+    /** Delivery by distance: fixed part of every trip, in santim. */
+    public static function deliveryBaseFeeSantim(): int
+    {
+        return max(0, (int) static::value('delivery_base_fee_birr')) * 100;
+    }
+
+    /** Delivery by distance: price per km in santim. 0 turns distance pricing off. */
+    public static function deliveryPerKmSantim(): int
+    {
+        return max(0, (int) static::value('delivery_per_km_birr')) * 100;
+    }
+
+    /** Longest trip priced automatically, in km. 0 means no limit. */
+    public static function deliveryMaxKm(): int
+    {
+        return max(0, (int) static::value('delivery_max_km'));
+    }
+
+    /** Carrying fee per floor above the ground floor when the building has no lift, in santim. */
+    public static function deliveryPerFloorSantim(): int
+    {
+        return max(0, (int) static::value('delivery_per_floor_birr')) * 100;
     }
 }

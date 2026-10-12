@@ -69,7 +69,7 @@ class OrderService
             }
 
             $area = Area::with('deliveryZone')->findOrFail($address->area_id);
-            $priced = $this->calculator->calculate($lines, $area, $fulfillment);
+            $priced = $this->calculator->calculate($lines, $area, $fulfillment, $address);
 
             if ($priced['has_problems']) {
                 throw new HttpResponseException(response()->json([
@@ -98,6 +98,10 @@ class OrderService
             $checkout->area_name = $area->name;
             $checkout->address_line = $address->address_line;
             $checkout->landmark = $address->landmark;
+            $checkout->latitude = $address->latitude;
+            $checkout->longitude = $address->longitude;
+            $checkout->floor = $address->floor;
+            $checkout->has_lift = $address->has_lift;
             $checkout->items_total_santim = $priced['items_total_santim'];
             $checkout->delivery_total_santim = $priced['delivery_total_santim'];
             $checkout->grand_total_santim = $priced['grand_total_santim'];
@@ -118,6 +122,9 @@ class OrderService
                 $order->fulfillment = $group['fulfillment'];
                 $order->items_total_santim = $group['items_total_santim'];
                 $order->delivery_fee_santim = $group['fulfillment'] === 'delivery' ? $group['delivery_fee_santim'] : null;
+                $order->delivery_distance_m = $group['delivery_distance']['meters'] ?? null;
+                $order->delivery_distance_estimated = $group['delivery_distance']['estimated'] ?? null;
+                $order->carry_fee_santim = $group['carry_fee_santim'];
                 $order->total_santim = $group['total_santim'];
                 $order->commission_rate_bp = $rateBp;
                 $order->commission_santim = Order::commissionFor($group['items_total_santim'], $rateBp);
@@ -204,8 +211,9 @@ class OrderService
                     if ($deliveryFee === null) {
                         throw ValidationException::withMessages(['delivery_fee' => 'Set the delivery fee before confirming.']);
                     }
-                    $order->delivery_fee_santim = $deliveryFee;
-                    $order->total_santim = $order->items_total_santim + $deliveryFee;
+                    // The store sets the transport part; carrying up stairs was priced at checkout.
+                    $order->delivery_fee_santim = $deliveryFee + (int) $order->carry_fee_santim;
+                    $order->total_santim = $order->items_total_santim + $order->delivery_fee_santim;
                 }
                 $order->confirmed_at = now();
                 if ($note) {
