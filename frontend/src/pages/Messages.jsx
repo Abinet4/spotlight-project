@@ -4,6 +4,7 @@ import { ProductImage } from '../components/ProductCard'
 import { Alert, EmptyState, ErrorState, Field, PageHeader, Pagination, Spinner } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
+import { usePaymentWording } from '../context/ConfigContext'
 import { useInbox } from '../context/InboxContext'
 import { api, parseError } from '../lib/api'
 import { INQUIRY_TYPES, QUOTE_STATUS_LABELS, formatETB, timeAgo, toQuery } from '../lib/format'
@@ -91,6 +92,7 @@ export function Inbox() {
 }
 
 function QuoteCard({ quote, side, onChanged }) {
+  const pay = usePaymentWording()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const pending = quote.status === 'pending'
@@ -178,7 +180,7 @@ function OrderQuote({ quote }) {
       {error && <p className="mb-2 font-medium text-red-700">{error}</p>}
       <div className="flex flex-wrap items-center gap-3">
         <button type="button" className="btn-primary" disabled={busy} onClick={add}>{busy ? 'Adding...' : 'Add to cart'}</button>
-        <span className="text-xs text-stone-600">Order by {new Date(quote.order_by).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}. Pay cash on delivery.</span>
+        <span className="text-xs text-stone-600">Order by {new Date(quote.order_by).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}. {pay.short}</span>
       </div>
     </div>
   )

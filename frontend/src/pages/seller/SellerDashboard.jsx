@@ -71,7 +71,7 @@ export default function SellerDashboard() {
       <StoreStatus profile={p} />
       {overLimit && (
         <div className="mb-6"><Alert tone="error">
-          Your unpaid commission is over the limit, so new orders cannot be confirmed. <Link to="/seller/balance" className="font-semibold underline">See how to pay</Link>
+          Your unpaid commission is over the limit, so new cash orders cannot be confirmed. <Link to="/seller/balance" className="font-semibold underline">See how to pay</Link>
         </Alert></div>
       )}
       {waiting > 0 && (

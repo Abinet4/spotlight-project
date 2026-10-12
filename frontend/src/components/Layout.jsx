@@ -7,7 +7,7 @@ import { useAlerts } from '../context/AlertsContext'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { useCompare } from '../context/CompareContext'
-import { useConfig } from '../context/ConfigContext'
+import { useConfig, usePaymentWording } from '../context/ConfigContext'
 import { useInbox } from '../context/InboxContext'
 import { categoryIcon, useCategories } from '../lib/categories'
 import { Spinner } from './ui'
@@ -274,6 +274,7 @@ function CompareTray() {
 
 function Footer({ name }) {
   const { data: categories } = useCategories()
+  const pay = usePaymentWording()
   return (
     <footer className="mt-20 bg-brand-900 text-brand-100">
       <div className="container-page grid gap-10 py-14 text-sm sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
@@ -281,7 +282,7 @@ function Footer({ name }) {
           <p className="flex items-center gap-2 font-display text-xl font-semibold text-white">
             <img src="/favicon.svg" alt="" className="size-7 rounded-md bg-white/90 p-0.5" />{name}
           </p>
-          <p className="mt-3 max-w-xs text-brand-200">Furniture from trusted shops, workshops and makers in Addis Ababa. Pay cash when it arrives.</p>
+          <p className="mt-3 max-w-xs text-brand-200">Furniture from trusted shops, workshops and makers in Addis Ababa. {pay.short}</p>
         </div>
         <div>
           <p className="font-semibold text-white">Shop</p>

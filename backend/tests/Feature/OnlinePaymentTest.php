@@ -421,6 +421,57 @@ class OnlinePaymentTest extends TestCase
         $this->getJson('/api/admin/payments')->assertOk()->assertJsonPath('data.0.status', 'paid')->assertJsonPath('meta.gateway', 'fake');
     }
 
+    public function test_a_store_over_its_credit_limit_can_still_fill_paid_online_orders(): void
+    {
+        Setting::updateOrCreate(['key' => 'commission_credit_limit_birr'], ['value' => '500']);
+        $this->deliver($this->placeOrder(1));
+        $this->assertTrue($this->as($this->seller->user)->getJson('/api/seller/balance')->json('data.over_limit'));
+
+        $cash = $this->placeOrder(1);
+        $this->as($this->seller->user)->postJson("/api/seller/orders/{$cash->id}/confirm")->assertUnprocessable();
+
+        $this->checkoutOnline(1);
+        $this->payAtProvider(Payment::sole()->tx_ref)->assertOk();
+        $online = Order::where('payment_method', 'online')->sole();
+        $this->deliver($online);
+        // 1,000 commission on the cash sale + 1,000 on the online one - 10,300 held for the store.
+        $this->assertSame(-830_000, $this->as($this->seller->user)->getJson('/api/seller/balance')->json('data.balance_santim'));
+    }
+
+    public function test_one_payment_covers_orders_from_two_stores(): void
+    {
+        $seller2 = $this->approvedSeller();
+        $chair = Product::factory()->published()->create([
+            'seller_profile_id' => $seller2->id, 'category_id' => $this->category()->id,
+            'price_santim' => 300_000, 'stock_quantity' => 5, 'delivery_fee_santim' => 0,
+        ]);
+        $this->as($this->buyer)->postJson('/api/cart/items', ['product_slug' => $chair->slug, 'quantity' => 1])->assertCreated();
+        $checkoutId = $this->checkoutOnline(1)->assertCreated()->assertJsonCount(2, 'data.orders')->json('data.id');
+        // 10,000 + 300 delivery for the sofa, 3,000 + free delivery for the chair.
+        $this->assertSame(1_330_000, Payment::sole()->amount_santim);
+
+        $this->payAtProvider(Payment::sole()->tx_ref)->assertOk();
+        $orders = Order::where('checkout_id', $checkoutId)->orderBy('id')->get();
+        $this->assertSame(['pending_confirmation', 'pending_confirmation'], $orders->pluck('status')->map->value->all());
+        $this->assertSame([300_000, 1_030_000], $orders->pluck('paid_santim')->sort()->values()->all());
+        $this->assertSame(['order.new'], $this->kinds($this->seller->user->id));
+        $this->assertSame(['order.new'], $this->kinds($seller2->user->id));
+
+        // The chair's store cancels: only its part is refunded, the sofa goes ahead.
+        $chairOrder = $orders->firstWhere('seller_profile_id', $seller2->id);
+        $this->as($seller2->user)->postJson("/api/seller/orders/{$chairOrder->id}/cancel", ['reason' => 'Sold in the shop'])->assertOk();
+        $this->assertSame(300_000, Refund::sole()->amount_santim);
+        $this->assertSame(OrderStatus::PendingConfirmation, $orders->firstWhere('seller_profile_id', $this->seller->id)->fresh()->status);
+
+        // An unpaid checkout with two stores is cancelled as a whole.
+        $this->as($this->buyer)->postJson('/api/cart/items', ['product_slug' => $chair->slug, 'quantity' => 1])->assertCreated();
+        $second = $this->checkoutOnline(1)->json('data.id');
+        $one = Order::where('checkout_id', $second)->first();
+        $this->postJson("/api/orders/{$one->id}/cancel", ['reason' => 'Changed my mind'])->assertOk();
+        $this->assertSame(['cancelled', 'cancelled'], Order::where('checkout_id', $second)->pluck('status')->map->value->all());
+        $this->assertSame(2, CartItem::where('user_id', $this->buyer->id)->count());
+    }
+
     public function test_awaiting_orders_cannot_be_moved_by_stores_and_admins_cancel_the_whole_checkout(): void
     {
         $this->checkoutOnline();

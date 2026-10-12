@@ -65,6 +65,18 @@ export default function AdminReports() {
             <Stat label="Delivery fees (to sellers)" value={money(d.delivered.delivery_fees_santim)} />
             <Stat label="Cancelled" value={d.cancelled.orders} hint={`customer ${d.cancelled.by_customer} · seller ${d.cancelled.by_seller} · admin ${d.cancelled.by_admin}`} />
           </div>
+          {d.online && (
+            <>
+              <h2 className="mt-6 mb-3 font-semibold text-stone-900">Online payments</h2>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                <Stat label="Received online" value={money(d.online.paid_santim)} hint="customer payments in this period" />
+                <Stat label="Paid out to stores" value={money(d.online.paid_out_santim)} />
+                <Stat label="Refunded" value={money(d.online.refunded_santim)} />
+                <Stat label="Refunds to send now" value={money(d.online.refunds_due_santim)} hint="all open refunds, any date" />
+                <Stat label="Unpaid, cancelled" value={d.online.unpaid_cancelled_orders} hint="online orders never paid; not counted above" />
+              </div>
+            </>
+          )}
 
           <section className="card mt-6 p-4">
             <h2 className="mb-3 font-semibold text-stone-900">Top stores by delivered sales</h2>

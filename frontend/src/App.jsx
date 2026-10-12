@@ -28,6 +28,7 @@ const AdminUserDetail = lazy(() => import('./pages/admin/AdminUsers').then((m) =
 const AdminUsers = lazy(() => import('./pages/admin/AdminUsers').then((m) => ({ default: m.AdminUsers })))
 const AdminListings = lazy(() => import('./pages/admin/AdminListings'))
 const AdminOverview = lazy(() => import('./pages/admin/AdminOverview'))
+const AdminPayments = lazy(() => import('./pages/admin/AdminPayments'))
 const AdminSellers = lazy(() => import('./pages/admin/AdminSellers'))
 const AdminSettings = lazy(() => import('./pages/admin/AdminSettings'))
 const AdminSms = lazy(() => import('./pages/admin/AdminSms'))
@@ -40,6 +41,8 @@ const AlertSettings = lazy(() => import('./pages/Notifications').then((m) => ({ 
 const Notifications = lazy(() => import('./pages/Notifications').then((m) => ({ default: m.Notifications })))
 const OrderDetail = lazy(() => import('./pages/Orders').then((m) => ({ default: m.OrderDetail })))
 const Orders = lazy(() => import('./pages/Orders').then((m) => ({ default: m.Orders })))
+const PaymentReturn = lazy(() => import('./pages/Payment').then((m) => ({ default: m.PaymentReturn })))
+const TestPay = lazy(() => import('./pages/Payment').then((m) => ({ default: m.TestPay })))
 const SellerDashboard = lazy(() => import('./pages/seller/SellerDashboard'))
 const SellerBalance = lazy(() => import('./pages/seller/SellerBalance'))
 const SellerOrderDetail = lazy(() => import('./pages/seller/SellerOrders').then((m) => ({ default: m.SellerOrderDetail })))
@@ -74,6 +77,8 @@ export default function App() {
         <Route path="checkout" element={<RequireRole roles={['customer']}><Checkout /></RequireRole>} />
         <Route path="orders" element={<RequireRole roles={['customer']}><Orders /></RequireRole>} />
         <Route path="orders/:id" element={<RequireRole roles={['customer']}><OrderDetail /></RequireRole>} />
+        <Route path="payments/return" element={<RequireRole roles={['customer']}><PaymentReturn /></RequireRole>} />
+        <Route path="pay/test" element={<RequireRole roles={['customer']}><TestPay /></RequireRole>} />
 
         <Route path="seller" element={<RequireRole roles={['seller']}><SellerDashboard /></RequireRole>} />
         <Route path="seller/orders" element={<RequireRole roles={['seller']}><SellerOrders /></RequireRole>} />
@@ -90,6 +95,7 @@ export default function App() {
           <Route path="orders/:id" element={<AdminOrderDetail />} />
           <Route path="settlements" element={<AdminSettlements />} />
           <Route path="settlements/:id" element={<AdminSettlementDetail />} />
+          <Route path="payments" element={<AdminPayments />} />
           <Route path="reviews" element={<AdminReviews />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="users/:id" element={<AdminUserDetail />} />

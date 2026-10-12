@@ -12,6 +12,7 @@ import { RatingSummary, ReviewList } from '../components/Reviews'
 import ShareMenu from '../components/ShareMenu'
 import { ErrorState } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
+import { usePaymentWording } from '../context/ConfigContext'
 import { BUSINESS_TYPES, CONDITION_LABELS, formatDimensions, formatETB } from '../lib/format'
 import { rememberViewed } from '../lib/localList'
 import { useFetch } from '../lib/useFetch'
@@ -48,6 +49,7 @@ export default function ProductDetail() {
   const seller = useFetch(p ? `/sellers/${p.seller.slug}` : null)
   const similar = useFetch(p ? `/products?category=${encodeURIComponent(p.category.slug)}&per_page=9` : null)
   const recent = useRecentlyViewed(slug)
+  const pay = usePaymentWording()
   const [contactOpen, setContactOpen] = useState(false)
 
   useEffect(() => {
@@ -141,7 +143,7 @@ export default function ProductDetail() {
             </div>
             <div className="flex gap-3 p-4 text-sm">
               <Banknote className="mt-0.5 size-5 shrink-0 text-brand-700" aria-hidden="true" />
-              <p className="text-stone-600"><span className="font-semibold text-stone-900">Pay cash on delivery.</span> The seller confirms your order and delivery details before preparing it.</p>
+              <p className="text-stone-600"><span className="font-semibold text-stone-900">{pay.short}</span> The seller confirms your order and delivery details before preparing it.</p>
             </div>
             {p.custom_order_available && (
               <div className="flex gap-3 p-4 text-sm">

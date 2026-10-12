@@ -194,8 +194,10 @@ class OrderService
             $this->authorize($order, $from, $to, $role);
 
             if ($to === OrderStatus::Confirmed) {
+                // The limit stops new cash orders. A paid online order still goes ahead: the customer has
+                // paid, and delivering it lowers what the store owes.
                 $limit = Setting::creditLimitSantim();
-                if ($limit > 0 && LedgerService::balance($order->seller_profile_id) > $limit) {
+                if ($order->payment_method !== 'online' && $limit > 0 && LedgerService::balance($order->seller_profile_id) > $limit) {
                     throw ValidationException::withMessages(['status' => 'Your unpaid commission is over the limit. Pay your balance (see Balance) to confirm new orders.']);
                 }
                 if ($order->fulfillment === 'delivery' && $order->delivery_fee_santim === null) {

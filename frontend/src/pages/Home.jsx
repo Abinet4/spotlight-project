@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { ProductImage } from '../components/ProductCard'
 import ProductRail from '../components/ProductRail'
 import { EmptyState, ErrorState } from '../components/ui'
-import { useConfig } from '../context/ConfigContext'
+import { useConfig, usePaymentWording } from '../context/ConfigContext'
 import { categoryIcon, useCategories } from '../lib/categories'
 import { useFetch } from '../lib/useFetch'
 import { useRecentlyViewed } from '../lib/useRecent'
@@ -13,7 +13,6 @@ const PROMISES = [
   [BadgeCheck, 'Verified sellers', 'Every store is checked by our team before it can list.'],
   [Ruler, 'Clear specifications', 'Dimensions, materials and delivery terms on every listing.'],
   [MessageCircle, 'Talk to the maker', 'Ask about finishes, custom sizes or a better price.'],
-  [Banknote, 'Pay on delivery', 'Pay in cash when your furniture arrives.'],
 ]
 
 function HeroSearch() {
@@ -67,6 +66,8 @@ function HeroCollage({ products }) {
 
 export default function Home() {
   const { name } = useConfig()
+  const pay = usePaymentWording()
+  const promises = [...PROMISES, [Banknote, pay.title, pay.body]]
   const { data: categories, error: categoriesError } = useCategories()
   const featured = useFetch('/products?per_page=8&sort=recommended')
   const newest = useFetch('/products?per_page=8&sort=newest')
@@ -97,7 +98,7 @@ export default function Home() {
             </div>
             <dl className="mt-8 flex flex-wrap gap-x-8 gap-y-3 text-sm">
               {total > 0 && <div><dt className="text-stone-500">Listings</dt><dd className="text-xl font-bold text-stone-900">{total}</dd></div>}
-              <div><dt className="text-stone-500">Payment</dt><dd className="text-xl font-bold text-stone-900">Cash on delivery</dd></div>
+              <div><dt className="text-stone-500">Payment</dt><dd className="text-xl font-bold text-stone-900">{pay.stat}</dd></div>
               <div><dt className="text-stone-500">Custom orders</dt><dd className="text-xl font-bold text-stone-900">Quotes from makers</dd></div>
             </dl>
           </div>
@@ -164,7 +165,7 @@ export default function Home() {
         <ProductRail title="Recently viewed" subtitle="Pick up where you left off" products={recent} />
 
         <section aria-label="Why buy here" className="mt-6 grid gap-4 rounded-3xl bg-white p-6 shadow-soft ring-1 ring-stone-200/80 sm:grid-cols-2 lg:grid-cols-4 lg:p-8">
-          {PROMISES.map(([Icon, title, text]) => (
+          {promises.map(([Icon, title, text]) => (
             <div key={title} className="flex gap-3">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-sand-100 text-brand-700"><Icon className="size-5" aria-hidden="true" /></span>
               <div>

@@ -57,6 +57,7 @@ if [ ! -f .env ]; then
     s{^APP_URL=.*}{APP_URL=http://localhost:'"$WEB_PORT"'};
     s{^CORS_ALLOWED_ORIGINS=.*}{CORS_ALLOWED_ORIGINS=http://localhost:'"$WEB_PORT"'};
     s/^# PHP_CLI_SERVER_WORKERS=.*/PHP_CLI_SERVER_WORKERS=4/;
+    s/^MARKETPLACE_PAYMENT_GATEWAY=.*/MARKETPLACE_PAYMENT_GATEWAY=fake/;
   ' .env.example > .env
   php artisan key:generate --no-interaction
 else
@@ -99,12 +100,17 @@ npm install --no-fund --no-audit
 
 step "Starting"
 cd "$BACKEND"
+# Online payment uses the test payment page locally, unless your .env picks a gateway.
+grep -q '^MARKETPLACE_PAYMENT_GATEWAY=' .env || export MARKETPLACE_PAYMENT_GATEWAY=fake
 php artisan serve --port="$API_PORT" >"$BACKEND/storage/logs/serve.log" 2>&1 &
 API_PID=$!
 # Sends queued email and SMS alerts (both only logged locally: MAIL_MAILER and the SMS driver are "log").
 php artisan queue:work --sleep=1 --tries=3 >"$BACKEND/storage/logs/queue.log" 2>&1 &
 QUEUE_PID=$!
-trap 'kill "$API_PID" "$QUEUE_PID" 2>/dev/null || true' EXIT INT TERM
+# Cancels online orders that were not paid in time and releases their stock.
+php artisan schedule:work >"$BACKEND/storage/logs/schedule.log" 2>&1 &
+SCHEDULE_PID=$!
+trap 'kill "$API_PID" "$QUEUE_PID" "$SCHEDULE_PID" 2>/dev/null || true' EXIT INT TERM
 
 cat <<EOF
 
@@ -115,6 +121,7 @@ cat <<EOF
   Admin      $ADMIN_EMAIL         $ADMIN_PASSWORD
 
   Emails are written to backend/storage/logs/laravel.log; text messages show in Admin > Text messages.
+  Paying online opens a test payment page: no real money moves.
   API log: backend/storage/logs/serve.log. Press Ctrl+C to stop.
 
 EOF
