@@ -2,6 +2,10 @@
 
 namespace App\Providers;
 
+use App\Payments\ChapaGateway;
+use App\Payments\FakeGateway;
+use App\Payments\NullGateway;
+use App\Payments\PaymentGateway;
 use App\Sms\AfroMessageGateway;
 use App\Sms\LogSmsGateway;
 use App\Sms\SmsGateway;
@@ -18,6 +22,13 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(SmsGateway::class, fn () => match (config('marketplace.alerts.sms_driver')) {
             'afromessage' => new AfroMessageGateway(config('services.afromessage')),
             default => new LogSmsGateway,
+        });
+
+        $this->app->singleton(PaymentGateway::class, fn () => match (config('marketplace.payments.gateway')) {
+            'chapa' => new ChapaGateway(config('services.chapa')),
+            // The test page can mark orders paid without money, so it is refused in production.
+            'fake' => $this->app->isProduction() ? new NullGateway('fake (not allowed in production)') : new FakeGateway,
+            default => new NullGateway,
         });
     }
 
@@ -47,6 +58,9 @@ class AppServiceProvider extends ServiceProvider
         ]);
 
         RateLimiter::for('checkout', fn (Request $request) => Limit::perMinute(10)->by('c|'.$request->user()?->id));
+
+        // Provider callbacks only trigger a verify call, but an open endpoint still needs a ceiling.
+        RateLimiter::for('payment-callbacks', fn (Request $request) => Limit::perMinute(120)->by($request->ip()));
 
         RateLimiter::for('catalog', fn (Request $request) => Limit::perMinute(config('marketplace.catalog.requests_per_minute'))->by($request->user()?->id ?: $request->ip()));
     }

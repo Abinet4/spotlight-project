@@ -12,8 +12,10 @@ use App\Models\Checkout;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderStatusHistory;
+use App\Models\Payment;
 use App\Models\Product;
 use App\Models\Quote;
+use App\Models\Refund;
 use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -75,6 +77,10 @@ class OrderService
                     'data' => $priced,
                 ], 409));
             }
+            // Online payments charge a fixed amount up front, so every delivery fee must already be known.
+            if ($paymentMethod === 'online' && $priced['delivery_to_confirm']) {
+                throw ValidationException::withMessages(['payment_method' => 'A store still has to set the delivery fee for part of this order, so it cannot be paid online yet. Choose pickup for that store, or pay cash on delivery.']);
+            }
             if ($priced['grand_total_santim'] !== $expectedTotal) {
                 throw new HttpResponseException(response()->json([
                     'message' => 'Prices or delivery fees changed since you opened checkout. Check the new total and place the order again.',
@@ -95,6 +101,10 @@ class OrderService
             $checkout->items_total_santim = $priced['items_total_santim'];
             $checkout->delivery_total_santim = $priced['delivery_total_santim'];
             $checkout->grand_total_santim = $priced['grand_total_santim'];
+            $online = $paymentMethod === 'online';
+            if ($online) {
+                $checkout->payment_due_at = now()->addMinutes(max(5, (int) config('marketplace.payments.window_minutes')));
+            }
             $checkout->save();
 
             $rateBp = Setting::commissionRateBp();
@@ -112,6 +122,7 @@ class OrderService
                 $order->commission_rate_bp = $rateBp;
                 $order->commission_santim = Order::commissionFor($group['items_total_santim'], $rateBp);
                 $order->payment_method = $paymentMethod;
+                $order->status = $online ? OrderStatus::AwaitingPayment : OrderStatus::PendingConfirmation;
                 $order->customer_note = $note;
                 $order->save();
                 $order->number = 'ORD-'.str_pad((string) $order->id, 6, '0', STR_PAD_LEFT);
@@ -144,11 +155,14 @@ class OrderService
                     $item->save();
                 }
 
-                $this->record($order, null, OrderStatus::PendingConfirmation, $customer, 'customer', null);
+                $this->record($order, null, $order->status, $customer, 'customer', null);
             }
 
             CartItem::whereIn('id', $lines->pluck('id'))->delete();
-            $this->alerts->orderPlaced($checkout);
+            // Online orders reach the stores only once paid (see markPaid).
+            if (! $online) {
+                $this->alerts->orderPlaced($checkout);
+            }
             $this->audit->log('checkout.placed', $checkout, [
                 'orders' => $checkout->orders()->pluck('number'),
                 'grand_total_santim' => $checkout->grand_total_santim,
@@ -172,6 +186,9 @@ class OrderService
 
             if ($from->isFinal()) {
                 throw ValidationException::withMessages(['status' => 'This order is already '.str_replace('_', ' ', $from->value).'.']);
+            }
+            if ($from === OrderStatus::AwaitingPayment) {
+                throw ValidationException::withMessages(['status' => 'This order is waiting for online payment.']);
             }
 
             $this->authorize($order, $from, $to, $role);
@@ -203,32 +220,130 @@ class OrderService
                 }
             }
 
+            $refund = null;
             if ($to === OrderStatus::Cancelled) {
                 $order->cancel_reason = $note;
                 $order->cancelled_by = $role;
                 $order->cancelled_at = now();
                 $this->releaseStock($order);
+                // Money paid online for a cancelled order goes back to the customer.
+                if ($order->payment_status === 'paid' && $order->payment_method === 'online') {
+                    $order->payment_status = 'refund_due';
+                    $refund = $this->refundOrder($order, $role === 'customer' ? 'Cancelled by the customer' : ($role === 'admin' ? 'Cancelled by the marketplace' : 'Cancelled by the store'));
+                }
             }
 
             $order->status = $to;
             $order->save();
 
-            // Cash stays with the seller, so the platform's commission becomes a balance the seller owes.
-            if ($to === OrderStatus::Delivered && $order->payment_method === 'cod') {
+            if ($to === OrderStatus::Delivered) {
+                // Cash stays with the seller, so the commission becomes a balance the seller owes. Online,
+                // the platform holds the money: the sale is credited to the seller and the commission kept.
                 $this->ledger->chargeCommission($order);
+                if ($order->payment_method === 'online') {
+                    $this->ledger->creditSale($order);
+                }
             }
             $this->record($order, $from, $to, $actor, $role, $note);
             $this->audit->log('order.'.$to->value, $order, ['from' => $from->value, 'by' => $role]);
             $this->alerts->orderStatusChanged($order, $from, $to, $role);
+            if ($refund) {
+                $this->alerts->refundDue($refund);
+            }
 
             return $order;
         });
     }
 
+    /**
+     * Payment confirmed for an online checkout: its orders go to the stores. Runs inside the payment's
+     * transaction with the checkout row locked.
+     */
+    public function markPaid(Checkout $checkout, Payment $payment): void
+    {
+        $orders = Order::where('checkout_id', $checkout->id)->where('status', OrderStatus::AwaitingPayment->value)->orderBy('id')->lockForUpdate()->get();
+        foreach ($orders as $order) {
+            $order->status = OrderStatus::PendingConfirmation;
+            $order->payment_status = 'paid';
+            $order->paid_at = $payment->paid_at;
+            $order->paid_santim = $order->total_santim;
+            $order->save();
+            $this->record($order, OrderStatus::AwaitingPayment, OrderStatus::PendingConfirmation, null, 'system', 'Paid online');
+        }
+        $checkout->paid_at = $payment->paid_at;
+        $checkout->save();
+        $this->audit->log('checkout.paid', $checkout, ['payment_id' => $payment->id, 'tx_ref' => $payment->tx_ref, 'amount_santim' => $payment->amount_santim]);
+        $this->alerts->orderPlaced($checkout);
+    }
+
+    /**
+     * Cancel every order of an online checkout that was never paid, give the stock back and, when
+     * the customer may want to try again, put the items back in their cart. Runs with the checkout locked.
+     *
+     * @param  'customer'|'admin'|'system'  $role
+     */
+    public function cancelUnpaid(Checkout $checkout, string $role, ?User $actor, string $reason, bool $restoreCart): int
+    {
+        $orders = Order::where('checkout_id', $checkout->id)->where('status', OrderStatus::AwaitingPayment->value)->orderBy('id')->lockForUpdate()->get();
+        foreach ($orders as $order) {
+            if ($restoreCart) {
+                $this->restoreToCart($order);
+            }
+            $order->status = OrderStatus::Cancelled;
+            $order->cancel_reason = $reason;
+            $order->cancelled_by = $role;
+            $order->cancelled_at = now();
+            $this->releaseStock($order);
+            $order->save();
+            $this->record($order, OrderStatus::AwaitingPayment, OrderStatus::Cancelled, $actor, $role, $reason);
+        }
+        if ($orders->isNotEmpty()) {
+            $this->audit->log('checkout.cancelled_unpaid', $checkout, ['by' => $role, 'orders' => $orders->pluck('number')]);
+        }
+
+        return $orders->count();
+    }
+
+    private function restoreToCart(Order $order): void
+    {
+        $max = (int) config('marketplace.cart.max_lines');
+        foreach ($order->items()->get() as $item) {
+            if (CartItem::where('user_id', $order->customer_id)->count() >= $max) {
+                return;
+            }
+            $column = $item->quote_id ? 'quote_id' : 'product_id';
+            $id = $item->quote_id ?: $item->product_id;
+            if (! $id || ($column === 'product_id' && ! Product::whereKey($id)->exists())) {
+                continue;
+            }
+            if (! CartItem::where('user_id', $order->customer_id)->where($column, $id)->exists()) {
+                $line = new CartItem;
+                $line->user_id = $order->customer_id;
+                $line->{$column} = $id;
+                $line->quantity = $item->quote_id ? 1 : $item->quantity;
+                $line->save();
+            }
+        }
+    }
+
+    private function refundOrder(Order $order, string $reason): Refund
+    {
+        $refund = new Refund;
+        $refund->order_id = $order->id;
+        $refund->payment_id = Payment::where('checkout_id', $order->checkout_id)->where('status', 'paid')->orderBy('paid_at')->value('id');
+        $refund->customer_id = $order->customer_id;
+        $refund->amount_santim = (int) ($order->paid_santim ?? $order->total_santim);
+        $refund->reason = $reason;
+        $refund->save();
+        $this->audit->log('refund.due', $refund, ['order' => $order->number, 'amount_santim' => $refund->amount_santim]);
+
+        return $refund;
+    }
+
     private function authorize(Order $order, OrderStatus $from, OrderStatus $to, string $role): void
     {
         $allowed = match ($role) {
-            // Customers can back out until the seller starts work.
+            // Customers can back out until the seller starts work (a paid order is then refunded).
             'customer' => $to === OrderStatus::Cancelled && in_array($from, [OrderStatus::PendingConfirmation, OrderStatus::Confirmed], true),
             // Sellers confirm first, then move forward (skipping steps is fine), or cancel before dispatch.
             'seller' => match (true) {
@@ -259,13 +374,13 @@ class OrderService
         }
     }
 
-    private function record(Order $order, ?OrderStatus $from, OrderStatus $to, User $actor, string $role, ?string $note): void
+    private function record(Order $order, ?OrderStatus $from, OrderStatus $to, ?User $actor, string $role, ?string $note): void
     {
         $row = new OrderStatusHistory;
         $row->order_id = $order->id;
         $row->from_status = $from?->value;
         $row->to_status = $to->value;
-        $row->actor_id = $actor->id;
+        $row->actor_id = $actor?->id;
         $row->actor_role = $role;
         $row->note = $note;
         $row->save();

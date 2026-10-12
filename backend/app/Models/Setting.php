@@ -20,6 +20,7 @@ class Setting extends Model
     public const DEFAULTS = [
         'commission_rate_percent' => 'marketplace.commission.default_rate_percent',
         'cod_enabled' => 'marketplace.payments.cod_enabled',
+        'online_payments_enabled' => 'marketplace.payments.online_enabled',
         'commission_credit_limit_birr' => 'marketplace.commission.credit_limit_birr',
         'settlement_instructions' => 'marketplace.settlements.instructions',
         'sms_enabled' => 'marketplace.alerts.sms_enabled',
@@ -56,6 +57,12 @@ class Setting extends Model
     public static function codEnabled(): bool
     {
         return filter_var(static::value('cod_enabled'), FILTER_VALIDATE_BOOL);
+    }
+
+    /** Admin switch for online payment. It also needs a working gateway; see PaymentService::available(). */
+    public static function onlinePaymentsEnabled(): bool
+    {
+        return filter_var(static::value('online_payments_enabled'), FILTER_VALIDATE_BOOL);
     }
 
     /** Admin switch that pauses every SMS alert (in-app and email alerts continue). */

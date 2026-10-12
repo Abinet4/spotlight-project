@@ -10,6 +10,7 @@ use App\Models\Conversation;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\Quote;
+use App\Models\Refund;
 use App\Models\Review;
 use App\Models\SellerLedgerEntry;
 use App\Models\SellerProfile;
@@ -51,10 +52,11 @@ class Alerts
             }
 
             $lines = $checkout->orders->map(fn (Order $o) => "{$o->number} from {$o->seller?->store_name}: ".self::etb($o->total_santim).($o->fulfillment === 'delivery' && $o->delivery_fee_santim === null ? ' plus delivery (the store will confirm the fee)' : ''))->all();
+            $online = $checkout->isOnline();
             $this->notify($checkout->customer, new Alert(
                 kind: 'checkout.placed',
-                title: 'We received your order',
-                body: 'Each store will confirm its part. You pay cash on delivery.',
+                title: $online ? 'Payment received: '.self::etb($checkout->grand_total_santim) : 'We received your order',
+                body: $online ? 'Thank you. Each store will now confirm its part.' : 'Each store will confirm its part. You pay cash on delivery.',
                 url: '/orders',
                 channels: ['mail'],
                 mailLines: $lines,
@@ -72,6 +74,7 @@ class Alerts
             $store = $order->seller?->store_name ?? 'The store';
             $customerUrl = "/orders/{$order->id}";
             $phone = $order->checkout?->phone;
+            $paid = $order->payment_method === 'online';
 
             $toCustomer = fn (string $kind, string $title, string $body, array $channels, ?string $sms = null) => $this->notify($order->customer, new Alert(
                 kind: $kind, title: $title, body: $body, url: $customerUrl, channels: $channels,
@@ -80,17 +83,17 @@ class Alerts
 
             match ($to) {
                 OrderStatus::Confirmed => $toCustomer('order.confirmed', "{$store} confirmed order {$order->number}",
-                    'Total '.self::etb($order->total_santim).', paid in cash '.($order->fulfillment === 'pickup' ? 'at pickup.' : 'on delivery.'),
+                    'Total '.self::etb($order->total_santim).($paid ? ', already paid online.' : ', paid in cash '.($order->fulfillment === 'pickup' ? 'at pickup.' : 'on delivery.')),
                     ['database', 'mail', 'sms'],
                     "{$store} confirmed {$order->number}. Total ".self::etb($order->total_santim).'.'),
                 OrderStatus::Processing => $toCustomer('order.processing', "{$store} is preparing order {$order->number}", 'We will tell you when it is ready.', ['database']),
                 OrderStatus::Ready => $order->fulfillment === 'pickup'
-                    ? $toCustomer('order.ready', "Order {$order->number} is ready for pickup", "Collect it from {$store}. Pay ".self::etb($order->total_santim).' at pickup.', ['database', 'sms'],
-                        "{$order->number} is ready for pickup at {$store}. Pay ".self::etb($order->total_santim).'.')
+                    ? $toCustomer('order.ready', "Order {$order->number} is ready for pickup", "Collect it from {$store}.".($paid ? ' It is already paid.' : ' Pay '.self::etb($order->total_santim).' at pickup.'), ['database', 'sms'],
+                        "{$order->number} is ready for pickup at {$store}.".($paid ? ' Already paid.' : ' Pay '.self::etb($order->total_santim).'.'))
                     : $toCustomer('order.ready', "Order {$order->number} is ready", "{$store} will send it out soon.", ['database']),
                 OrderStatus::Dispatched => $toCustomer('order.dispatched', "Order {$order->number} is on the way",
-                    'Have '.self::etb($order->total_santim).' ready in cash.', ['database', 'sms'],
-                    "{$order->number} from {$store} is on the way. Have ".self::etb($order->total_santim).' ready.'),
+                    $paid ? 'It is already paid; there is nothing to pay on delivery.' : 'Have '.self::etb($order->total_santim).' ready in cash.', ['database', 'sms'],
+                    "{$order->number} from {$store} is on the way.".($paid ? ' Already paid.' : ' Have '.self::etb($order->total_santim).' ready.')),
                 OrderStatus::Delivered => $toCustomer('order.delivered', "Order {$order->number} was delivered",
                     'Thank you for your order. You can now rate the items you received.', ['database', 'mail']),
                 OrderStatus::Cancelled => $this->orderCancelled($order, $role, $toCustomer),
@@ -120,6 +123,84 @@ class Alerts
                 sms: "{$who} cancelled {$order->number}. Do not send it. ".Alert::link($url),
             ));
         }
+    }
+
+    public function refundDue(Refund $refund): void
+    {
+        $this->afterCommit(function () use ($refund) {
+            $refund = Refund::with(['customer', 'order'])->find($refund->id);
+            if (! $refund) {
+                return;
+            }
+            $what = $refund->order ? "order {$refund->order->number}" : 'your payment';
+            $this->notify($refund->customer, new Alert(
+                kind: 'refund.due',
+                title: 'Refund on the way: '.self::etb($refund->amount_santim),
+                body: "We will send back the money for {$what}. {$refund->reason}.",
+                url: $refund->order ? "/orders/{$refund->order_id}" : '/orders',
+                channels: ['database', 'mail', 'sms'],
+                sms: 'We will refund '.self::etb($refund->amount_santim)." for {$what}.",
+            ));
+            $this->notifyAdmins(new Alert(
+                kind: 'admin.refund_due',
+                title: 'Refund to send: '.self::etb($refund->amount_santim),
+                body: ($refund->customer?->name ?? 'A customer').": {$refund->reason}. Send it, then mark it refunded in Admin > Payments.",
+                url: '/admin/payments',
+                channels: ['database', 'mail'],
+            ));
+        });
+    }
+
+    public function refundCompleted(Refund $refund): void
+    {
+        $this->afterCommit(function () use ($refund) {
+            $refund = Refund::with(['customer', 'order'])->find($refund->id);
+            if (! $refund) {
+                return;
+            }
+            $this->notify($refund->customer, new Alert(
+                kind: 'refund.sent',
+                title: 'Refund sent: '.self::etb($refund->amount_santim),
+                body: ($refund->order ? "For order {$refund->order->number}." : 'For your payment.').($refund->reference ? " Reference: {$refund->reference}." : ''),
+                url: $refund->order ? "/orders/{$refund->order_id}" : '/orders',
+                channels: ['database', 'mail'],
+            ));
+        });
+    }
+
+    /**
+     * An online checkout was cancelled before payment: by the customer, an admin, or because time ran out.
+     */
+    public function checkoutCancelledUnpaid(Checkout $checkout, string $role): void
+    {
+        if ($role === 'customer') {
+            return;
+        }
+        $this->afterCommit(function () use ($checkout, $role) {
+            $checkout = Checkout::with('customer')->find($checkout->id);
+            $this->notify($checkout?->customer, new Alert(
+                kind: 'checkout.expired',
+                title: $role === 'system' ? 'Your order was cancelled: payment not completed' : 'Your unpaid order was cancelled',
+                body: $role === 'system' ? 'The time to pay ran out, so the items were released. They are back in your cart if you still want them.' : 'The marketplace cancelled it before payment. Nothing was charged.',
+                url: $role === 'system' ? '/cart' : '/orders',
+                channels: ['database', 'mail'],
+            ));
+        });
+    }
+
+    public function payoutRecorded(SellerLedgerEntry $entry, int $stillOwedSantim): void
+    {
+        $this->afterCommit(function () use ($entry, $stillOwedSantim) {
+            $seller = SellerProfile::with('user')->find($entry->seller_profile_id);
+            $this->notify($seller?->user, new Alert(
+                kind: 'balance.payout',
+                title: 'Payout sent: '.self::etb($entry->amount_santim),
+                body: ($entry->reference ? "Reference {$entry->reference}. " : '').($stillOwedSantim > 0 ? 'We still owe you '.self::etb($stillOwedSantim).'.' : 'Your online sales are fully paid out.'),
+                url: '/seller/balance',
+                channels: ['database', 'mail', 'sms'],
+                sms: 'Payout sent: '.self::etb($entry->amount_santim).($entry->reference ? ", ref {$entry->reference}" : '').'.',
+            ));
+        });
     }
 
     /**

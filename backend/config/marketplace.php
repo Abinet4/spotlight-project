@@ -70,8 +70,15 @@ return [
     ],
 
     'payments' => [
-        // Cash on delivery. Online payment providers are added in a later milestone.
+        // Starting value for the Admin > Settings switch.
         'cod_enabled' => (bool) env('MARKETPLACE_COD_ENABLED', true),
+        // Starting value for the Admin > Settings switch. Online payment also needs a working gateway.
+        'online_enabled' => (bool) env('MARKETPLACE_ONLINE_PAYMENTS_ENABLED', true),
+        // 'none' turns online payment off. 'chapa' uses Chapa (Telebirr, CBE Birr, M-Pesa, cards).
+        // 'fake' shows a test page instead of a real provider; it never works when APP_ENV=production.
+        'gateway' => env('MARKETPLACE_PAYMENT_GATEWAY', 'none'),
+        // Minutes a customer has to finish paying before the order is cancelled and the stock released.
+        'window_minutes' => (int) env('MARKETPLACE_PAYMENT_WINDOW_MINUTES', 30),
     ],
 
     // Order and account alerts. In-app alerts are always on; email uses the normal mail settings.

@@ -4,9 +4,11 @@ use App\Enums\Role;
 use App\Models\AuditLog;
 use App\Models\ProductImage;
 use App\Models\User;
+use App\Services\PaymentService;
 use Database\Seeders\DemoFurnitureArt;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -71,3 +73,11 @@ Artisan::command('marketplace:demo-pictures', function () {
 
     return 0;
 })->purpose('Replace the old plain demo pictures with drawn furniture (demo data only)');
+
+Artisan::command('marketplace:expire-payments', function (PaymentService $payments) {
+    $counts = $payments->expireDue();
+    $this->info("Expired {$counts['expired']} unpaid checkout(s); {$counts['paid']} turned out paid; {$counts['skipped']} waiting for the payment provider.");
+})->purpose('Cancel online orders whose payment time ran out and release their stock');
+
+// Needs the scheduler running in production: a cron entry for `php artisan schedule:run` every minute.
+Schedule::command('marketplace:expire-payments')->everyFiveMinutes()->withoutOverlapping();

@@ -4,6 +4,9 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Setting;
+use App\Payments\ChapaGateway;
+use App\Payments\FakeGateway;
+use App\Payments\PaymentGateway;
 use App\Services\AuditLogger;
 use App\Sms\SmsGateway;
 use Illuminate\Http\JsonResponse;
@@ -23,6 +26,7 @@ class SettingsController extends Controller
         $data = $request->validate([
             'commission_rate_percent' => ['sometimes', 'numeric', 'min:0', "max:$max", 'regex:/^\d{1,2}(\.\d{1,2})?$/'],
             'cod_enabled' => ['sometimes', 'boolean'],
+            'online_payments_enabled' => ['sometimes', 'boolean'],
             'commission_credit_limit_birr' => ['sometimes', 'integer', 'min:0', 'max:100000000'],
             'settlement_instructions' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'sms_enabled' => ['sometimes', 'boolean'],
@@ -44,8 +48,16 @@ class SettingsController extends Controller
     private function meta(): array
     {
         $gateway = app(SmsGateway::class);
+        $payments = app(PaymentGateway::class);
 
-        return ['sms_driver' => $gateway->name(), 'sms_delivers' => $gateway->delivers()];
+        return [
+            'sms_driver' => $gateway->name(),
+            'sms_delivers' => $gateway->delivers(),
+            'payment_gateway' => $payments->name(),
+            'payment_gateway_ready' => $payments->ready(),
+            'payment_test_mode' => $payments instanceof FakeGateway || ($payments instanceof ChapaGateway && $payments->testMode()),
+            'payment_window_minutes' => max(5, (int) config('marketplace.payments.window_minutes')),
+        ];
     }
 
     private function current(): array
@@ -53,6 +65,7 @@ class SettingsController extends Controller
         return [
             'commission_rate_percent' => Setting::commissionRateBp() / 100,
             'cod_enabled' => Setting::codEnabled(),
+            'online_payments_enabled' => Setting::onlinePaymentsEnabled(),
             'commission_credit_limit_birr' => intdiv(Setting::creditLimitSantim(), 100),
             'settlement_instructions' => Setting::settlementInstructions(),
             'sms_enabled' => Setting::smsEnabled(),

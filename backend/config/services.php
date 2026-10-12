@@ -43,4 +43,13 @@ return [
         ],
     ],
 
+    // Online payments. Keys come from the Chapa dashboard (Settings > API); test keys start with
+    // CHASECK_TEST. The webhook secret is the "Secret hash" set for the webhook in the same place.
+    'chapa' => [
+        'secret_key' => env('CHAPA_SECRET_KEY'),
+        'webhook_secret' => env('CHAPA_WEBHOOK_SECRET'),
+        'base_url' => env('CHAPA_BASE_URL', 'https://api.chapa.co/v1'),
+        'timeout' => (int) env('CHAPA_TIMEOUT', 15),
+    ],
+
 ];
