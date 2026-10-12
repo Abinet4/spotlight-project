@@ -92,7 +92,6 @@ export function Inbox() {
 }
 
 function QuoteCard({ quote, side, onChanged }) {
-  const pay = usePaymentWording()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const pending = quote.status === 'pending'
@@ -152,6 +151,7 @@ function QuoteCard({ quote, side, onChanged }) {
 }
 
 function OrderQuote({ quote }) {
+  const pay = usePaymentWording()
   const { refreshCart } = useCart()
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
