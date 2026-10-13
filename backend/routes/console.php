@@ -5,6 +5,7 @@ use App\Models\AuditLog;
 use App\Models\City;
 use App\Models\ProductImage;
 use App\Models\User;
+use App\Providers\AppServiceProvider;
 use App\Services\ImageVariants;
 use App\Services\PaymentService;
 use Database\Seeders\DemoFurnitureArt;
@@ -18,15 +19,24 @@ use Illuminate\Validation\Rules\Password;
 
 Artisan::command('marketplace:create-admin {email} {--name=Administrator}
     {--password-from-env : Read the password from the ADMIN_PASSWORD variable instead of asking (deploy scripts)}
-    {--if-missing : Leave an existing account with this email unchanged}', function (string $email) {
+    {--if-missing : Only create the first administrator: do nothing if this email has an account or any administrator exists}', function (string $email) {
     $email = mb_strtolower(trim($email));
 
     // A deploy runs this on every start: once the account exists it is left alone, so a password
-    // changed on the site is not reset to the deploy variable.
-    if ($this->option('if-missing') && ($existing = User::where('email', $email)->first())) {
-        $this->info("{$email} already has an account ({$existing->role->value}); left unchanged.");
+    // changed on the site is not reset to the deploy variable. And once there is any administrator,
+    // nothing is created: after the admin changes their email on the site, the old deploy variables
+    // must not bring back a second admin account.
+    if ($this->option('if-missing')) {
+        if ($existing = User::where('email', $email)->first()) {
+            $this->info("{$email} already has an account ({$existing->role->value}); left unchanged.");
 
-        return 0;
+            return 0;
+        }
+        if (User::where('role', Role::Admin)->exists()) {
+            $this->info('An administrator already exists, so no account was created for '.$email.'. ADMIN_EMAIL and ADMIN_PASSWORD can be removed.');
+
+            return 0;
+        }
     }
 
     $password = $this->option('password-from-env')
@@ -69,8 +79,8 @@ Artisan::command('marketplace:prepare {--demo : Also add the demo sellers and li
     if (! $this->option('demo')) {
         return 0;
     }
-    if (app()->isProduction()) {
-        $this->warn('Demo data is for test sites only, so it was not added (APP_ENV=production).');
+    if (! AppServiceProvider::isTestSite()) {
+        $this->warn('Demo data is for test sites only, so it was not added (APP_ENV must be local, testing or staging).');
 
         return 0;
     }
@@ -111,10 +121,10 @@ Artisan::command('marketplace:demo-pictures', function (ImageVariants $variants)
             continue;
         }
         $new = "products/{$image->product_id}/".DemoSeeder::ART_PREFIX.Str::random(8).'.jpg';
-        Storage::disk('public')->put($new, $art->jpeg($image->product->name, $image->product->color, $image->product_id));
-        $old = $image->files();
+        Storage::disk(ProductImage::ORIGINALS_DISK)->put($new, $art->jpeg($image->product->name, $image->product->color, $image->product_id));
+        $old = clone $image;
         $image->forceFill(['path' => $new, 'thumb_path' => null, 'large_path' => null, ...$variants->make($new)])->save();
-        Storage::disk('public')->delete($old);
+        $old->deleteFiles();
         $redrawn++;
     }
 
@@ -158,3 +168,5 @@ Artisan::command('marketplace:expire-payments', function (PaymentService $paymen
 
 // Needs the scheduler running in production: a cron entry for `php artisan schedule:run` every minute.
 Schedule::command('marketplace:expire-payments')->everyFiveMinutes()->withoutOverlapping();
+// Sign-ins last 30 days; remove the expired ones so a copied old token is gone from the database too.
+Schedule::command('sanctum:prune-expired --hours=24')->daily();

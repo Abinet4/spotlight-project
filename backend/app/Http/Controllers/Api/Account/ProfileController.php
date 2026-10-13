@@ -17,7 +17,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -48,7 +47,9 @@ class ProfileController extends Controller
         }
         $data = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'min:2', 'max:100'],
-            'email' => ['sometimes', 'required', 'string', 'email:rfc', 'max:190', Rule::unique('users', 'email')->ignore($user->id)],
+            // Whether another account uses the email is checked only after the current password, so
+            // this form cannot be used to find out who has an account here.
+            'email' => ['sometimes', 'required', 'string', 'email:rfc', 'max:190'],
             'phone' => ['sometimes', 'nullable', 'string', 'regex:/^\+?[0-9 ]{9,16}$/'],
             'current_password' => ['nullable', 'string'],
         ]);
@@ -60,6 +61,9 @@ class ProfileController extends Controller
         $emailChanges = isset($data['email']) && $data['email'] !== $oldEmail;
         if ($emailChanges) {
             $this->checkCurrentPassword($user, $data['current_password'] ?? null);
+            if (User::where('email', $data['email'])->whereKeyNot($user->id)->exists()) {
+                throw ValidationException::withMessages(['email' => 'The email has already been taken.']);
+            }
         }
 
         unset($data['current_password']);

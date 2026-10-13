@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\ProductImage;
+use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
@@ -10,8 +12,8 @@ use Illuminate\Support\Facades\Storage;
  * Makes the smaller copies of a product photo that pages actually load: a thumbnail for cards and
  * lists, and a large copy for the product page. Copies are WebP when this PHP can write it, else JPEG.
  * Re-encoding drops all photo metadata (camera, GPS location), and phone photos are turned upright
- * from their EXIF orientation first. If anything goes wrong the photo is still usable: pages fall
- * back to the original file.
+ * from their EXIF orientation first. Only these copies are public: the original stays on the private
+ * disk (ProductImage::ORIGINALS_DISK), so a photo without copies is not shown at all.
  */
 class ImageVariants
 {
@@ -19,8 +21,16 @@ class ImageVariants
 
     public const LARGE = 1600;
 
-    /** Largest photo (in pixels) this will decode; bigger ones keep using the original. */
+    /** Largest photo (in pixels) this will decode. */
     private const MAX_PIXELS = 8000 * 8000;
+
+    /**
+     * A big photo takes hundreds of MB while decoded, so photos are decoded one at a time on this
+     * server: many uploads at once wait their turn instead of running the server out of memory.
+     */
+    private const DECODE_LOCK = 'image-decode';
+
+    private const DECODE_WAIT_SECONDS = 60;
 
     /**
      * Create the copies for a stored original and return their paths, or [] when they could not be made.
@@ -29,13 +39,25 @@ class ImageVariants
      */
     public function make(string $path): array
     {
+        try {
+            return Cache::lock(self::DECODE_LOCK, 120)->block(self::DECODE_WAIT_SECONDS, fn () => $this->makeNow($path));
+        } catch (LockTimeoutException) {
+            Log::warning('Too many photos being processed at once; this one was skipped.', ['path' => $path]);
+
+            return [];
+        }
+    }
+
+    /** @return array{thumb_path?: string, large_path?: string} */
+    private function makeNow(string $path): array
+    {
         $disk = Storage::disk('public');
         $written = [];
         $memory = ini_get('memory_limit');
 
         try {
             // Read through the disk (not a local path) so this also works when photos live on S3.
-            $bytes = $disk->get($path);
+            $bytes = Storage::disk(ProductImage::ORIGINALS_DISK)->get($path);
             $info = $bytes === null ? false : @getimagesizefromstring($bytes);
             if ($info === false || $info[0] * $info[1] > self::MAX_PIXELS) {
                 return [];
@@ -44,8 +66,7 @@ class ImageVariants
 
             $orientation = 1;
             if ($type === IMAGETYPE_JPEG) {
-                // Without the exif extension a sideways phone photo would be saved sideways; the
-                // original keeps its orientation tag, which browsers honor, so use that instead.
+                // Without the exif extension a sideways phone photo would be saved sideways.
                 if (! $this->canReadOrientation()) {
                     return [];
                 }
@@ -76,7 +97,7 @@ class ImageVariants
             return $written;
         } catch (\Throwable $e) {
             $disk->delete(array_values($written));
-            Log::warning('Could not make smaller copies of a product photo; the original is used.', ['path' => $path, 'error' => $e->getMessage()]);
+            Log::warning('Could not make the copies of a product photo, so it is not shown.', ['path' => $path, 'error' => $e->getMessage()]);
 
             return [];
         } finally {

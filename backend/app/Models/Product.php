@@ -79,9 +79,10 @@ class Product extends Model
         return $this->belongsToMany(User::class, 'favorites')->withTimestamps();
     }
 
+    /** The first photo that can be shown, i.e. that has its public copies (originals stay private). */
     public function primaryImage(): HasOne
     {
-        return $this->hasOne(ProductImage::class)->ofMany(['sort_order' => 'min', 'id' => 'min']);
+        return $this->hasOne(ProductImage::class)->ofMany(['sort_order' => 'min', 'id' => 'min'], fn ($q) => $q->whereNotNull('large_path'));
     }
 
     /**

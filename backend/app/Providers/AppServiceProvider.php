@@ -25,11 +25,21 @@ class AppServiceProvider extends ServiceProvider
         });
 
         $this->app->singleton(PaymentGateway::class, fn () => match (config('marketplace.payments.gateway')) {
-            'chapa' => new ChapaGateway(config('services.chapa')),
-            // The test page can mark orders paid without money, so it is refused in production.
-            'fake' => $this->app->isProduction() ? new NullGateway('fake (not allowed in production)') : new FakeGateway,
+            // A Chapa test key marks orders paid without real money, so only a test site may use one.
+            'chapa' => ! self::isTestSite() && str_starts_with(trim((string) config('services.chapa.secret_key')), 'CHASECK_TEST')
+                ? new NullGateway('chapa test key (only allowed when APP_ENV is local, testing or staging)')
+                : new ChapaGateway(config('services.chapa')),
+            // The test page can mark orders paid without money: only on named test environments, so a
+            // live site called "prod" or "live" cannot have it switched on by mistake.
+            'fake' => self::isTestSite() ? new FakeGateway : new NullGateway('fake (only allowed when APP_ENV is local, testing or staging)'),
             default => new NullGateway,
         });
+    }
+
+    /** Environments where fake payments and demo data are allowed. Any other name counts as live. */
+    public static function isTestSite(): bool
+    {
+        return app()->environment('local', 'testing', 'staging');
     }
 
     public function boot(): void
@@ -61,6 +71,13 @@ class AppServiceProvider extends ServiceProvider
 
         // Provider callbacks only trigger a verify call, but an open endpoint still needs a ceiling.
         RateLimiter::for('payment-callbacks', fn (Request $request) => Limit::perMinute(120)->by($request->ip()));
+
+        // Delivery estimates may ask Google (billed per trip); saved addresses feed the same lookup.
+        RateLimiter::for('distance', fn (Request $request) => Limit::perMinute(30)->by('d|'.($request->user()?->id ?: $request->ip())));
+        RateLimiter::for('addresses', fn (Request $request) => Limit::perHour(30)->by('a|'.$request->user()?->id));
+
+        // Profile edits (including email changes) are rare; this also slows down probing which emails exist.
+        RateLimiter::for('account', fn (Request $request) => Limit::perHour(30)->by('p|'.$request->user()?->id));
 
         RateLimiter::for('catalog', fn (Request $request) => Limit::perMinute(config('marketplace.catalog.requests_per_minute'))->by($request->user()?->id ?: $request->ip()));
     }

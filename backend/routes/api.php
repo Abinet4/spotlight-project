@@ -84,7 +84,7 @@ Route::middleware('throttle:catalog')->group(function () {
     Route::get('/products/{slug}', [CatalogController::class, 'product']);
     Route::get('/sellers/{slug}', [CatalogController::class, 'seller']);
     Route::get('/delivery-zones', [DeliveryController::class, 'zones']);
-    Route::get('/products/{slug}/delivery-estimate', [DeliveryController::class, 'estimate']);
+    Route::get('/products/{slug}/delivery-estimate', [DeliveryController::class, 'estimate'])->middleware('throttle:distance');
     Route::get('/products/{slug}/reviews', [ReviewController::class, 'forProduct']);
     Route::get('/sellers/{slug}/reviews', [ReviewController::class, 'forSeller']);
 });
@@ -115,7 +115,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead'])->whereUuid('id');
 
     Route::get('/account/profile', [ProfileController::class, 'show']);
-    Route::put('/account/profile', [ProfileController::class, 'update']);
+    Route::put('/account/profile', [ProfileController::class, 'update'])->middleware('throttle:account');
     Route::put('/account/password', [ProfileController::class, 'password']);
     Route::post('/account/sign-out-others', [ProfileController::class, 'signOutOthers']);
 
@@ -126,8 +126,8 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
 // Customers only
 Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
     Route::get('/addresses', [AddressController::class, 'index']);
-    Route::post('/addresses', [AddressController::class, 'store']);
-    Route::put('/addresses/{id}', [AddressController::class, 'update'])->whereNumber('id');
+    Route::post('/addresses', [AddressController::class, 'store'])->middleware('throttle:addresses');
+    Route::put('/addresses/{id}', [AddressController::class, 'update'])->whereNumber('id')->middleware('throttle:addresses');
     Route::post('/addresses/{id}/default', [AddressController::class, 'setDefault'])->whereNumber('id');
     Route::delete('/addresses/{id}', [AddressController::class, 'destroy'])->whereNumber('id');
 

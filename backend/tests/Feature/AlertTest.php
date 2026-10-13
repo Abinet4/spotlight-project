@@ -396,6 +396,43 @@ class AlertTest extends TestCase
         $this->assertFalse(Setting::smsEnabled());
     }
 
+    public function test_text_people_type_cannot_add_links_or_formatting_to_emails(): void
+    {
+        $this->buyer->forceFill(['name' => 'Eve [Claim your refund](https://evil.example/login)'])->save();
+        $mail = (new Alert(
+            kind: 'quote.new',
+            title: 'A store sent you a quote',
+            body: "![x](https://evil.example/p.png) **Free** `code` _now_\n\n# Urgent: pay here",
+            url: '/messages/1',
+            channels: ['mail'],
+            mailLines: ['1. Pay to account 1000', '- listed', 'Normal line, with 2.5 m and a | pipe'],
+        ))->toMail($this->buyer);
+        $html = (string) $mail->render();
+
+        $this->assertStringNotContainsString('evil.example/login"', $html);
+        $this->assertStringNotContainsString('<img', $html);
+        foreach (['<strong>', '<em>', '<code>', '<ol', '<ul', '<h1>Urgent'] as $tag) {
+            $this->assertStringNotContainsString($tag, $html, $tag);
+        }
+        // The words still show, as typed, and the real button still links to the site.
+        foreach (['Eve [Claim your refund](https://evil.example/login)', '![x](https://evil.example/p.png) **Free** `code` _now_ # Urgent: pay here', '1. Pay to account 1000', '- listed', 'with 2.5 m and a | pipe'] as $text) {
+            $this->assertStringContainsString(e($text), str_replace("\n", ' ', $html), $text);
+        }
+        $this->assertStringContainsString('href="'.Alert::link('/messages/1').'"', $html);
+        $this->assertSame('Plain words stay plain.', Alert::plain("  Plain words\n stay   plain. "));
+    }
+
+    public function test_the_store_text_for_a_new_inquiry_leaves_out_what_the_customer_typed_as_a_name(): void
+    {
+        $this->buyer->forceFill(['name' => 'Call 0911223344 or visit evil.example'])->save();
+        $this->as($this->buyer)->postJson('/api/conversations', ['product_slug' => $this->sofa->slug, 'type' => 'question', 'body' => 'Hi'])->assertCreated();
+
+        $body = SmsMessage::where('kind', 'message.inquiry')->sole()->body;
+        $this->assertStringStartsWith('New inquiry from a customer about '.$this->sofa->name, $body);
+        $this->assertStringNotContainsString('evil', $body);
+        $this->assertStringNotContainsString('0911', $body);
+    }
+
     public function test_alert_text_formats_money(): void
     {
         $this->assertSame('ETB 12,500', Alerts::etb(1_250_000));

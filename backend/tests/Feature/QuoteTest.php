@@ -26,6 +26,8 @@ class QuoteTest extends TestCase
     {
         parent::setUp();
         $this->seedReferenceData();
+        // These quotes carry the store's own delivery fee, which needs the admin switch on.
+        config(['marketplace.distance.stores_set_fee' => true]);
         $this->seller = $this->approvedSeller();
         $this->seller->forceFill(['offers_custom_orders' => true])->save();
         $product = Product::factory()->published()->create([

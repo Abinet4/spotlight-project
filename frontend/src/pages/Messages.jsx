@@ -4,7 +4,7 @@ import { ProductImage } from '../components/ProductCard'
 import { Alert, EmptyState, ErrorState, Field, PageHeader, Pagination, Spinner } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
-import { usePaymentWording } from '../context/ConfigContext'
+import { useConfig, usePaymentWording } from '../context/ConfigContext'
 import { useInbox } from '../context/InboxContext'
 import { api, parseError } from '../lib/api'
 import { INQUIRY_TYPES, QUOTE_STATUS_LABELS, formatETB, timeAgo, toQuery } from '../lib/format'
@@ -205,6 +205,8 @@ function QuoteForm({ conversation, onSent, onCancel }) {
   const [errors, setErrors] = useState({})
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
+  // While the marketplace prices delivery, a store can only offer it free.
+  const storesSetFee = Boolean(useConfig().delivery?.stores_set_fee)
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value })
 
   async function submit(e) {
@@ -247,9 +249,21 @@ function QuoteForm({ conversation, onSent, onCancel }) {
         <Field label="Quantity" name="q-qty" error={errors.quantity}>
           <input id="q-qty" type="number" min="1" max="1000" className="input" value={form.quantity} onChange={set('quantity')} />
         </Field>
-        <Field label="Delivery fee (ETB, optional)" name="q-fee" error={errors.delivery_fee} hint="Leave empty if delivery is arranged separately. Enter 0 for free delivery.">
-          <input id="q-fee" className="input" inputMode="decimal" value={form.delivery_fee} onChange={set('delivery_fee')} />
-        </Field>
+        {storesSetFee ? (
+          <Field label="Delivery fee (ETB, optional)" name="q-fee" error={errors.delivery_fee} hint="Leave empty if delivery is arranged separately. Enter 0 for free delivery.">
+            <input id="q-fee" className="input" inputMode="decimal" value={form.delivery_fee} onChange={set('delivery_fee')} />
+          </Field>
+        ) : (
+          <div className="text-sm">
+            <label className="flex items-center gap-2 pt-6">
+              <input type="checkbox" className="size-4 accent-brand-700" checked={form.delivery_fee === '0'}
+                onChange={(e) => setForm({ ...form, delivery_fee: e.target.checked ? '0' : '' })} />
+              Free delivery
+            </label>
+            <p className="mt-1 text-xs text-stone-500">Otherwise the marketplace prices delivery at checkout.</p>
+            {errors.delivery_fee && <p className="mt-1 text-xs text-red-700">{errors.delivery_fee}</p>}
+          </div>
+        )}
         <Field label="Production days (optional)" name="q-days" error={errors.production_days}>
           <input id="q-days" type="number" min="0" max="365" className="input" value={form.production_days} onChange={set('production_days')} />
         </Field>

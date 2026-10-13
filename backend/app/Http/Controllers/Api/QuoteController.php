@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\QuoteResource;
 use App\Models\Conversation;
 use App\Models\Quote;
+use App\Models\Setting;
 use App\Services\Alerts;
 use App\Services\AuditLogger;
 use App\Services\ConversationService;
@@ -52,6 +53,11 @@ class QuoteController extends Controller
         $quote = DB::transaction(function () use ($request, $seller, $conversationId, $data) {
             $conversation = Conversation::where('seller_profile_id', $seller?->id ?? 0)->lockForUpdate()->findOrFail($conversationId);
             $this->conversations->assertWritable($conversation);
+            // Commission is charged on the price, so while admins price delivery a store cannot move part
+            // of the price into its own delivery charge. Free delivery is always fine.
+            if (isset($data['delivery_fee']) && Money::toSantim($data['delivery_fee']) > 0 && ! Setting::storesSetDeliveryFee()) {
+                throw ValidationException::withMessages(['delivery_fee' => 'The marketplace sets delivery prices. Leave this empty, or offer free delivery.']);
+            }
 
             $conversation->quotes()->where('status', QuoteStatus::Pending->value)
                 ->update(['status' => QuoteStatus::Withdrawn->value, 'responded_at' => now()]);

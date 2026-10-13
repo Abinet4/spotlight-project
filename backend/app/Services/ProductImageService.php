@@ -38,23 +38,29 @@ class ProductImageService
             }
 
             $next = (int) $product->images()->max('sort_order') + ($existing > 0 ? 1 : 0);
-            $stored = [];
 
+            $originals = [];
+            $copies = [];
             try {
-                foreach ($files as $file) {
-                    $path = $file->store("products/{$product->id}", 'public');
+                foreach ($files as $i => $file) {
+                    // The original keeps the camera's data (GPS location included), so it stays private.
+                    $path = $file->store("products/{$product->id}", ProductImage::ORIGINALS_DISK);
                     if ($path === false) {
                         throw new \RuntimeException('Image could not be saved.');
                     }
-                    $stored[] = $path;
-                    // Without copies the original is shown, so a failure here never blocks the upload.
-                    $copies = $this->variants->make($path);
-                    array_push($stored, ...array_values($copies));
-                    $product->images()->create(['path' => $path, ...$copies, 'sort_order' => $next++, 'alt' => $product->name]);
+                    $originals[] = $path;
+                    // Only the re-encoded copies are shown, so a photo without them is refused.
+                    $made = $this->variants->make($path);
+                    array_push($copies, ...array_values($made));
+                    if (! isset($made['thumb_path'], $made['large_path'])) {
+                        throw ValidationException::withMessages(["images.{$i}" => 'This photo could not be processed. Try another JPG, PNG or WebP photo.']);
+                    }
+                    $product->images()->create(['path' => $path, ...$made, 'sort_order' => $next++, 'alt' => $product->name]);
                 }
             } catch (\Throwable $e) {
-                // Do not leave orphaned files when the database write fails.
-                Storage::disk('public')->delete($stored);
+                // Do not leave orphaned files when a photo or the database write fails.
+                Storage::disk(ProductImage::ORIGINALS_DISK)->delete($originals);
+                Storage::disk('public')->delete($copies);
                 throw $e;
             }
         });
@@ -62,8 +68,7 @@ class ProductImageService
 
     public function delete(ProductImage $image): void
     {
-        $files = $image->files();
         $image->delete();
-        Storage::disk('public')->delete($files);
+        $image->deleteFiles();
     }
 }

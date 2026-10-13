@@ -27,6 +27,7 @@ class ImageVariantsTest extends TestCase
     {
         parent::setUp();
         Storage::fake('public');
+        Storage::fake('local');
         $this->seedReferenceData();
     }
 
@@ -44,19 +45,22 @@ class ImageVariantsTest extends TestCase
         $this->assertMatchesRegularExpression('#-large\.webp$#', $image->large_path);
         $this->assertSame([640, 427], $this->dimensions($image->thumb_path));
         $this->assertSame([1600, 1067], $this->dimensions($image->large_path));
-        $this->assertSame([3000, 2000], $this->dimensions($image->path), 'the original is kept');
-        $this->assertLessThan(strlen(Storage::disk('public')->get($image->path)), strlen(Storage::disk('public')->get($image->thumb_path)));
+        $this->assertSame([3000, 2000], $this->dimensions($image->path, 'local'), 'the original is kept, privately');
+        Storage::disk('public')->assertMissing($image->path);
+        $this->assertSame([$image->large_path, $image->thumb_path], $this->files(), 'only the copies are public');
+        $this->assertLessThan(strlen(Storage::disk('local')->get($image->path)), strlen(Storage::disk('public')->get($image->thumb_path)));
 
-        // Cards get the thumbnail; the product page gets the large copy plus a thumbnail per photo.
-        ProductImage::whereKeyNot($image->id)->update(['sort_order' => 9]);
+        // Cards get the thumbnail of the first photo that has copies (the factory photo before it has none);
+        // the product page gets the large copy plus a thumbnail per photo.
+        $this->assertLessThanOrEqual($image->sort_order, ProductImage::whereKeyNot($image->id)->value('sort_order'), 'the factory photo comes first');
         $this->getJson('/api/products?per_page=48')->assertOk()
             ->assertJsonFragment(['image' => Storage::disk('public')->url($image->thumb_path)]);
         $detail = $this->getJson("/api/products/{$product->slug}")->assertOk()->json('data.images');
         $this->assertSame(Storage::disk('public')->url($image->large_path), $detail[0]['url']);
         $this->assertSame(Storage::disk('public')->url($image->thumb_path), $detail[0]['thumb']);
-        // A photo without copies (from the factory) falls back to the original everywhere.
-        $this->assertStringEndsWith('/test.jpg', $detail[1]['url']);
-        $this->assertStringEndsWith('/test.jpg', $detail[1]['thumb']);
+        // A photo without copies (from the factory) is not shown: there is nothing public to link to.
+        $this->assertCount(1, $detail);
+        $this->assertNull(ProductImage::whereKeyNot($image->id)->first()->thumbUrl());
     }
 
     public function test_phone_photos_are_turned_upright_for_all_eight_exif_orientations(): void
@@ -76,8 +80,8 @@ class ImageVariantsTest extends TestCase
 
         foreach ($expected as $orientation => $corners) {
             $path = "products/1/o{$orientation}.jpg";
-            Storage::disk('public')->put($path, $this->jpeg(400, 200, $orientation));
-            $this->assertSame($orientation, exif_read_data(Storage::disk('public')->path($path))['Orientation'], 'fixture carries the tag');
+            Storage::disk('local')->put($path, $this->jpeg(400, 200, $orientation));
+            $this->assertSame($orientation, exif_read_data(Storage::disk('local')->path($path))['Orientation'], 'fixture carries the tag');
 
             $copies = app(ImageVariants::class)->make($path);
             $this->assertCount(2, $copies, "orientation {$orientation}");
@@ -90,8 +94,8 @@ class ImageVariantsTest extends TestCase
 
     public function test_copies_drop_photo_metadata_such_as_location(): void
     {
-        Storage::disk('public')->put('products/1/gps.jpg', $this->jpeg(1000, 800, 1));
-        $this->assertStringContainsString('Home-of-the-seller', Storage::disk('public')->get('products/1/gps.jpg'));
+        Storage::disk('local')->put('products/1/gps.jpg', $this->jpeg(1000, 800, 1));
+        $this->assertStringContainsString('Home-of-the-seller', Storage::disk('local')->get('products/1/gps.jpg'));
 
         $copies = app(ImageVariants::class)->make('products/1/gps.jpg');
         foreach ($copies as $copy) {
@@ -99,11 +103,16 @@ class ImageVariantsTest extends TestCase
             $this->assertStringNotContainsString('Home-of-the-seller', $bytes);
             $this->assertStringNotContainsString('Exif', $bytes);
         }
+        // Nothing on the public disk carries the location, the original included.
+        $this->assertCount(2, $this->files());
+        foreach ($this->files() as $file) {
+            $this->assertStringNotContainsString('Home-of-the-seller', Storage::disk('public')->get($file));
+        }
     }
 
     public function test_small_photos_are_not_enlarged_and_png_transparency_is_kept(): void
     {
-        Storage::disk('public')->put('products/1/small.png', $this->png(300, 250));
+        Storage::disk('local')->put('products/1/small.png', $this->png(300, 250));
         $copies = app(ImageVariants::class)->make('products/1/small.png');
 
         $this->assertSame([300, 250], $this->dimensions($copies['thumb_path']));
@@ -121,7 +130,7 @@ class ImageVariantsTest extends TestCase
                 return false;
             }
         });
-        Storage::disk('public')->put('products/1/small.png', $this->png(300, 250));
+        Storage::disk('local')->put('products/1/small.png', $this->png(300, 250));
         $copies = app(ImageVariants::class)->make('products/1/small.png');
 
         $this->assertStringEndsWith('-thumb.jpg', $copies['thumb_path']);
@@ -129,7 +138,7 @@ class ImageVariantsTest extends TestCase
         $this->assertSame([self::WHITE], [$this->rgb(imagecreatefromstring(Storage::disk('public')->get($copies['large_path'])), 5, 5)]);
     }
 
-    public function test_without_the_exif_extension_jpegs_keep_the_original_but_pngs_still_get_copies(): void
+    public function test_without_the_exif_extension_jpegs_get_no_copies_but_pngs_do(): void
     {
         $this->app->instance(ImageVariants::class, new class extends ImageVariants
         {
@@ -138,15 +147,15 @@ class ImageVariantsTest extends TestCase
                 return false;
             }
         });
-        Storage::disk('public')->put('products/1/side.jpg', $this->jpeg(400, 200, 6));
-        Storage::disk('public')->put('products/1/flat.png', $this->png(300, 250));
+        Storage::disk('local')->put('products/1/side.jpg', $this->jpeg(400, 200, 6));
+        Storage::disk('local')->put('products/1/flat.png', $this->png(300, 250));
 
-        $this->assertSame([], app(ImageVariants::class)->make('products/1/side.jpg'), 'a sideways copy is worse than the original');
+        $this->assertSame([], app(ImageVariants::class)->make('products/1/side.jpg'), 'a sideways copy would be wrong');
         $this->assertCount(2, app(ImageVariants::class)->make('products/1/flat.png'));
-        $this->assertSame(['products/1/flat-large.webp', 'products/1/flat-thumb.webp', 'products/1/flat.png', 'products/1/side.jpg'], $this->files());
+        $this->assertSame(['products/1/flat-large.webp', 'products/1/flat-thumb.webp'], $this->files());
     }
 
-    public function test_upload_still_succeeds_when_copies_cannot_be_made(): void
+    public function test_a_photo_that_cannot_be_processed_is_refused_and_nothing_is_left(): void
     {
         $seller = $this->approvedSeller();
         Sanctum::actingAs($seller->user);
@@ -159,18 +168,20 @@ class ImageVariantsTest extends TestCase
             }
         });
 
-        $this->post("/api/seller/products/{$product->id}/images", ['images' => [$this->photo()]], ['Accept' => 'application/json'])->assertOk();
+        $before = $product->images()->count();
 
-        $image = ProductImage::query()->latest('id')->first();
-        $this->assertNull($image->thumb_path);
-        $this->assertNull($image->large_path);
-        Storage::disk('public')->assertExists($image->path);
-        $this->assertSame(Storage::disk('public')->url($image->path), $image->thumbUrl());
+        // The original cannot be shown (it keeps the camera's data), so without copies there is nothing to show.
+        $this->post("/api/seller/products/{$product->id}/images", ['images' => [$this->photo('ok.jpg'), $this->photo('bad.jpg')]], ['Accept' => 'application/json'])
+            ->assertUnprocessable()->assertJsonValidationErrors('images.0');
+
+        $this->assertSame($before, $product->images()->count());
+        $this->assertSame([], $this->files());
+        $this->assertSame([], Storage::disk('local')->allFiles());
     }
 
     public function test_a_failed_second_copy_removes_the_first(): void
     {
-        Storage::disk('public')->put('products/1/a.png', $this->png(300, 250));
+        Storage::disk('local')->put('products/1/a.png', $this->png(300, 250));
         // A folder where the large copy should go makes that write fail.
         Storage::disk('public')->makeDirectory('products/1/a-large.webp');
 
@@ -186,12 +197,13 @@ class ImageVariantsTest extends TestCase
         $this->post("/api/seller/products/{$product->id}/images", ['images' => [$this->photo()]], ['Accept' => 'application/json'])->assertOk();
         $image = ProductImage::query()->latest('id')->first();
         $this->assertNotNull($image->thumb_path);
-        $files = $image->files();
-        $this->assertCount(3, $files);
+        Storage::disk('local')->assertExists($image->path);
+        $this->assertCount(2, $image->copies());
 
         $this->deleteJson("/api/seller/products/{$product->id}/images/{$image->id}")->assertOk();
 
-        foreach ($files as $file) {
+        Storage::disk('local')->assertMissing($image->path);
+        foreach ($image->copies() as $file) {
             Storage::disk('public')->assertMissing($file);
         }
     }
@@ -200,9 +212,9 @@ class ImageVariantsTest extends TestCase
     {
         $product = Product::factory()->published()->create(['seller_profile_id' => $this->approvedSeller()->id, 'category_id' => $this->category()->id]);
         $good = $product->images()->first();
-        Storage::disk('public')->put($good->path, $this->jpeg(2000, 1500));
+        Storage::disk('local')->put($good->path, $this->jpeg(2000, 1500));
         $broken = $product->images()->create(['path' => "products/{$product->id}/broken.jpg", 'sort_order' => 1]);
-        Storage::disk('public')->put($broken->path, 'not a picture');
+        Storage::disk('local')->put($broken->path, 'not a picture');
         $missing = $product->images()->create(['path' => "products/{$product->id}/gone.jpg", 'sort_order' => 2]);
 
         $this->artisan('marketplace:image-variants')
@@ -226,7 +238,7 @@ class ImageVariantsTest extends TestCase
     {
         $product = Product::factory()->published()->create(['seller_profile_id' => $this->approvedSeller()->id, 'category_id' => $this->category()->id]);
         $image = $product->images()->first();
-        Storage::disk('public')->put($image->path, $this->jpeg(1000, 800));
+        Storage::disk('local')->put($image->path, $this->jpeg(1000, 800));
         $this->artisan('marketplace:image-variants')->assertSuccessful();
         $this->assertStringEndsWith('.webp', $image->fresh()->thumb_path);
 
@@ -242,13 +254,51 @@ class ImageVariantsTest extends TestCase
 
         $image->refresh();
         $this->assertStringEndsWith('-thumb.jpg', $image->thumb_path);
-        $this->assertSame([$image->path, $image->large_path, $image->thumb_path], array_values(array_intersect([$image->path, $image->large_path, $image->thumb_path], $this->files())));
-        $this->assertCount(3, $this->files(), 'the old WebP copies are removed');
+        $this->assertSame([$image->large_path, $image->thumb_path], $this->files(), 'the old WebP copies are removed');
+    }
+
+    public function test_moving_old_public_originals_to_the_private_disk(): void
+    {
+        $product = Product::factory()->published()->create(['seller_profile_id' => $this->approvedSeller()->id, 'category_id' => $this->category()->id]);
+        // Uploaded before this change: the original (with GPS) is public and has no copies yet.
+        $old = $product->images()->first();
+        Storage::disk('public')->put($old->path, $this->jpeg(1000, 800, 1));
+        // Also from before, but its copies were already made.
+        $copied = $product->images()->create(['path' => "products/{$product->id}/copied.png", 'thumb_path' => "products/{$product->id}/copied-thumb.webp", 'large_path' => "products/{$product->id}/copied-large.webp", 'sort_order' => 1]);
+        Storage::disk('public')->put($copied->path, $this->png(300, 250));
+        Storage::disk('public')->put($copied->thumb_path, 'thumb');
+        Storage::disk('public')->put($copied->large_path, 'large');
+        // Already private, and one whose file is gone: neither stops the others.
+        $private = $product->images()->create(['path' => "products/{$product->id}/private.png", 'sort_order' => 2]);
+        Storage::disk('local')->put($private->path, $this->png(200, 200));
+        $gone = $product->images()->create(['path' => "products/{$product->id}/gone.jpg", 'sort_order' => 3]);
+
+        $migrate = fn () => (require database_path('migrations/2026_10_17_100000_move_product_photo_originals_to_private_disk.php'))->up();
+        $migrate();
+
+        foreach ([$old, $copied, $private] as $image) {
+            Storage::disk('public')->assertMissing($image->path);
+            Storage::disk('local')->assertExists($image->path);
+            $this->assertNotNull($image->fresh()->large_path);
+        }
+        $this->assertSame([1000, 800], $this->dimensions($old->path, 'local'), 'moved unchanged');
+        $this->assertSame('thumb', Storage::disk('public')->get($copied->thumb_path), 'existing copies are kept');
+        $this->assertNull($gone->fresh()->large_path);
+        foreach ($this->files() as $file) {
+            $this->assertStringNotContainsString('Home-of-the-seller', Storage::disk('public')->get($file));
+            $this->assertMatchesRegularExpression('/-(thumb|large)\.webp$/', $file);
+        }
+
+        // Running it again changes nothing.
+        $public = $this->files();
+        $migrate();
+        $this->assertSame($public, $this->files());
+        $this->assertSame([1000, 800], $this->dimensions($old->path, 'local'));
     }
 
     public function test_memory_limit_is_raised_for_a_big_photo_and_restored_afterwards(): void
     {
-        Storage::disk('public')->put('products/1/huge.jpg', $this->jpeg(4000, 3000));
+        Storage::disk('local')->put('products/1/huge.jpg', $this->jpeg(4000, 3000));
         $original = ini_get('memory_limit');
         try {
             ini_set('memory_limit', '200M');
@@ -311,9 +361,9 @@ class ImageVariantsTest extends TestCase
     }
 
     /** @return array{int, int} */
-    private function dimensions(string $path): array
+    private function dimensions(string $path, string $disk = 'public'): array
     {
-        $info = getimagesizefromstring(Storage::disk('public')->get($path));
+        $info = getimagesizefromstring(Storage::disk($disk)->get($path));
 
         return [$info[0], $info[1]];
     }

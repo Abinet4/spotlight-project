@@ -38,7 +38,7 @@ RUN composer dump-autoload --optimize --no-dev --no-interaction \
  && chown -R www-data:www-data storage bootstrap/cache
 
 # Logs go to the host's log viewer. Override any of these in the host's variables.
-ENV APP_ENV=production APP_DEBUG=false LOG_CHANNEL=stderr LOG_LEVEL=info ROLE=all
+ENV APP_ENV=production APP_DEBUG=false LOG_CHANNEL=stderr LOG_LEVEL=info MAIL_LOG_CHANNEL=mail ROLE=all
 
 EXPOSE 8080
 CMD ["docker/start.sh"]

@@ -241,7 +241,8 @@ class Alerts
                 body: $about ? "About: {$about}. Reply in Messages." : 'Reply in Messages.',
                 url: $url,
                 channels: $channels,
-                sms: "New inquiry from {$from}".($about ? " about {$about}" : '').'. Reply: '.Alert::link($url),
+                // No customer name: it is typed by anyone and the text goes out under the marketplace's sender name.
+                sms: 'New inquiry from a customer'.($about ? " about {$about}" : '').'. Reply: '.Alert::link($url),
             ));
         });
     }

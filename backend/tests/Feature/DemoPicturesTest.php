@@ -16,6 +16,7 @@ class DemoPicturesTest extends TestCase
     public function test_redraws_only_old_demo_pictures_and_is_safe_to_rerun(): void
     {
         Storage::fake('public');
+        Storage::fake('local');
         $this->seedReferenceData();
         $seller = $this->approvedSeller();
         $sofa = Product::factory()->published()->create(['seller_profile_id' => $seller->id, 'category_id' => $this->category()->id, 'name' => 'Grey Sofa', 'color' => 'Grey']);
@@ -24,7 +25,7 @@ class DemoPicturesTest extends TestCase
         $photo = $sofa->images()->create(['path' => "products/{$sofa->id}/real-photo.jpg", 'sort_order' => 1]);
         $tricky = $sofa->images()->create(['path' => "products/{$sofa->id}/demo-../../secret.jpg", 'sort_order' => 2]);
         foreach ([$old, $photo] as $img) {
-            Storage::disk('public')->put($img->path, 'x');
+            Storage::disk('local')->put($img->path, 'x');
         }
 
         $before = ProductImage::count();
@@ -32,12 +33,13 @@ class DemoPicturesTest extends TestCase
 
         $redrawn = $old->fresh()->path;
         $this->assertMatchesRegularExpression("#^products/{$sofa->id}/demo-art-[A-Za-z0-9]{8}\.jpg$#", $redrawn);
-        Storage::disk('public')->assertExists($redrawn);
-        Storage::disk('public')->assertMissing("products/{$sofa->id}/demo-abcd1234.jpg");
+        Storage::disk('local')->assertExists($redrawn);
+        Storage::disk('public')->assertMissing($redrawn);
+        Storage::disk('local')->assertMissing("products/{$sofa->id}/demo-abcd1234.jpg");
         $this->assertSame("products/{$sofa->id}/real-photo.jpg", $photo->fresh()->path, 'seller photos are never touched');
-        Storage::disk('public')->assertExists($photo->path);
+        Storage::disk('local')->assertExists($photo->path);
         $this->assertSame("products/{$sofa->id}/demo-../../secret.jpg", $tricky->fresh()->path, 'odd paths are skipped');
-        $this->assertSame('image/jpeg', getimagesizefromstring(Storage::disk('public')->get($redrawn))['mime']);
+        $this->assertSame('image/jpeg', getimagesizefromstring(Storage::disk('local')->get($redrawn))['mime']);
         $copies = [$old->fresh()->thumb_path, $old->fresh()->large_path];
         $this->assertNotContains(null, $copies, 'the redrawn picture gets its smaller copies');
         Storage::disk('public')->assertExists($copies);

@@ -76,7 +76,7 @@ class OrderResource extends JsonResource
                 'name' => $this->customer->name,
                 'email' => $this->when($this->viewer === 'admin', $this->customer->email),
             ]),
-            'delivery_address' => $checkout instanceof Checkout ? [
+            'delivery_address' => $checkout instanceof Checkout && ! $this->hideAddressFromStore() ? [
                 'recipient_name' => $checkout->recipient_name,
                 'phone' => $checkout->phone,
                 'area' => $checkout->area_name,
@@ -124,5 +124,21 @@ class OrderResource extends JsonResource
             'cancelled_at' => $this->cancelled_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),
         ];
+    }
+
+    /**
+     * A store sees the customer's phone and home pin only while it can still deliver: not once the
+     * order is cancelled, and not while the store itself is suspended or otherwise not approved.
+     */
+    private function hideAddressFromStore(): bool
+    {
+        if ($this->viewer !== 'seller') {
+            return false;
+        }
+
+        // Without the store loaded its state is unknown, so the address stays hidden.
+        return $this->status === OrderStatus::Cancelled
+            || ! $this->relationLoaded('seller')
+            || $this->seller?->isApproved() !== true;
     }
 }

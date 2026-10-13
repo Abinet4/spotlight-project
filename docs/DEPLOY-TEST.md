@@ -12,8 +12,9 @@ Browser ──> https://<shop>.vercel.app          (frontend/, static pages)
 ```
 
 This is for testing with people you invite. Demo accounts can be added, payments go to a built-in
-test page where no money moves, and emails are only written to the logs. Read "Going live later" before
-real customers use it.
+test page where no money moves, and emails are only written to the logs. Testers should type made-up
+names, addresses and phone numbers: everyone who knows the demo password can open the demo customer's
+orders and addresses. Read "Going live later" before real customers use it.
 
 You need: a GitHub login with access to `fikremariamF/spotlight-project`, a Railway account
 (railway.com, sign in with GitHub) and a Vercel account (vercel.com, sign in with GitHub). Railway has a
@@ -80,13 +81,19 @@ The site is on the public internet, so do not reuse the local demo passwords (`D
    `${{...}}` are Railway references: the API's own domain and the database address, filled in by
    Railway. If your database service is not named `MySQL`, use its name instead.
 6. **Deploy** (or wait for the automatic one). The deploy log shows `[start]` lines and ends with
-   `Web server, queue worker and scheduler starting.` Opening `https://<api>.up.railway.app/up` shows a
-   green "Application up" page, and `/api/categories` shows the furniture categories.
+   `Web server, queue worker and scheduler starting.` Opening `https://<api>.up.railway.app/up` shows the
+   words "Application up" (unstyled: the API sends no page styles), and `/api/categories` shows the
+   furniture categories.
+7. Sign in with `ADMIN_EMAIL` and `ADMIN_PASSWORD`, change the password in **My account**, then delete
+   `ADMIN_EMAIL`, `ADMIN_PASSWORD` and `DEMO_USER_PASSWORD` from the Railway variables and set
+   `SEED_DEMO=false`. They are only needed on the first start, and a password left in the variables can
+   be read by anyone who gets into the Railway project.
 
 What happens on each start (`backend/docker/start.sh`): settings are cached, database tables are created or
 updated, sub-cities and categories are added to a new database, demo data is added once (only with
 `SEED_DEMO=true`, never with `APP_ENV=production`), and the admin is created if that email has no account
-yet. Later starts never reset the admin's password or bring back categories or demo listings you deleted.
+yet and no other administrator exists. Later starts never reset the admin's password, add a second admin
+(even after you change the admin email on the site), or bring back categories or demo listings you deleted.
 
 ## 3. Vercel: shop pages
 
@@ -111,21 +118,29 @@ redeploy the API. Several addresses can be listed in `CORS_ALLOWED_ORIGINS`, sep
 2. Sign in as `seller1@demo.local` with `DEMO_USER_PASSWORD` and add a listing with a phone photo.
 3. Sign in with `ADMIN_EMAIL` and `ADMIN_PASSWORD` and approve that listing. In Admin > Audit log the
    approval should show your real public IP address (search "what is my IP" to compare). If entries from
-   different people all show the same unfamiliar address, set `TRUSTED_PROXIES=*` and tell the developer,
-   because sign-in limits would then apply to all visitors together.
+   different people all show the same unfamiliar address, tell the developer, because sign-in limits
+   would then apply to all visitors together. Do not set `TRUSTED_PROXIES=*` as a quick fix: it lets
+   anyone pretend to be any address and get around the sign-in limits.
 4. Redeploy the API and check the photo is still there (that proves the volume works).
 5. As `customer@demo.local`, add an address, buy something with cash on delivery, and once with online
    payment: the test payment page lets you pick paid or failed.
-6. Emails are not sent: Railway's log shows them. Texts are listed in Admin > Text messages.
+6. Emails are not sent: Railway's deploy log shows them, password reset links included, so only share
+   access to the Railway project with people you trust. Texts are listed in Admin > Text messages.
 
 ## Optional settings
 
 - Maps and distance pricing: `GOOGLE_MAPS_BROWSER_KEY` and `GOOGLE_MAPS_SERVER_KEY` on Railway. Restrict
-  the browser key to `https://<shop>.vercel.app/*` in Google Cloud.
+  the browser key to `https://<shop>.vercel.app/*` in Google Cloud, and set a daily quota on the Routes
+  API there so a mistake cannot run up a bill. The API itself asks Google at most
+  `GOOGLE_ROUTES_PER_HOUR` times an hour (default 200); past that, distances are estimated.
 - Real emails: `MAIL_MAILER=smtp` with `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`,
   `MAIL_FROM_ADDRESS` from your mail provider.
 - Chapa test mode: `MARKETPLACE_PAYMENT_GATEWAY=chapa`, `CHAPA_SECRET_KEY=CHASECK_TEST-...`,
   `CHAPA_WEBHOOK_SECRET`; webhook URL in the Chapa dashboard `https://<api>.up.railway.app/api/payments/chapa/webhook`.
+  Test keys and the built-in test payment page only work while `APP_ENV` is `staging` (or `local`); with
+  `production` online payment is switched off until a live key is set.
+- Page security: the shop pages send a Content Security Policy from `frontend/vercel.json`. If you add a
+  script from another site (analytics, chat), add its address there or the browser blocks it.
 - Separate worker: `ROLE` can be `web`, `worker` or `scheduler` to split the jobs into three Railway
   services from the same repository. The default `all` keeps them together, which is simpler and is
   needed while photos are on a volume (a Railway volume belongs to one service).
@@ -144,6 +159,7 @@ The API's **Deploy Logs** on Railway explain a failed start in a line starting w
 | Pages call the wrong server | `VITE_API_URL` on Vercel; redeploy the pages after changing it. |
 | Photos broken | `API_URL` must be the Railway address; photos uploaded before the volume was attached are gone. |
 | Too many sign-in attempts for everyone | See check 3 above about `TRUSTED_PROXIES`. |
+| Map stays blank, browser console mentions Content Security Policy | Tell the developer the blocked address; it goes in `frontend/vercel.json`. |
 | Railway says the app is not responding | The domain's port and the `PORT` variable must both be `8080`. |
 
 ## Going live later
@@ -151,4 +167,5 @@ The API's **Deploy Logs** on Railway explain a failed start in a line starting w
 Before real customers: `APP_ENV=production` (demo data and the test payment page are then refused), a real
 Chapa key, a real mail provider, your own domain on both hosts (update `APP_URL`, `API_URL`,
 `CORS_ALLOWED_ORIGINS`, `VITE_API_URL`), Railway database backups, and Vercel's terms for commercial use.
-Demo accounts already created stay until you suspend them in Admin > Users.
+Demo accounts already created stay until you suspend them in Admin > Users: suspend them all, since
+their password was shared with testers.

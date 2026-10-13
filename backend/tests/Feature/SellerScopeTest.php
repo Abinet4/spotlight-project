@@ -119,6 +119,7 @@ class SellerScopeTest extends TestCase
     public function test_stores_cannot_charge_their_own_delivery_fee_unless_admins_allow_it(): void
     {
         Storage::fake('public');
+        Storage::fake('local');
         $this->as($this->seller->user);
 
         $this->postJson('/api/seller/products', $this->productPayload(['delivery_fee' => '450']))

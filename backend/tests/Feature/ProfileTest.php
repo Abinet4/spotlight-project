@@ -131,6 +131,29 @@ class ProfileTest extends TestCase
         $this->assertSame('abebe@example.com', $this->user->fresh()->email);
     }
 
+    public function test_others_cannot_learn_which_emails_are_registered(): void
+    {
+        User::factory()->create(['email' => 'taken@example.com']);
+        // Without the right password the answer is the same for a taken and a free address.
+        foreach (['taken@example.com', 'free@example.com'] as $email) {
+            $this->send('PUT', '/api/account/profile', ['email' => $email, 'current_password' => 'wrong-pass1'])
+                ->assertUnprocessable()->assertJsonValidationErrors('current_password')->assertJsonMissingValidationErrors('email');
+        }
+        $this->send('PUT', '/api/account/profile', ['email' => 'taken@example.com'])
+            ->assertUnprocessable()->assertJsonMissingValidationErrors('email');
+    }
+
+    public function test_profile_changes_are_capped_per_hour(): void
+    {
+        $token = $this->token();
+        for ($i = 0; $i < 30; $i++) {
+            $this->send('PUT', '/api/account/profile', ['name' => "Abebe {$i}"], $token)->assertOk();
+        }
+        $this->send('PUT', '/api/account/profile', ['name' => 'Abebe X'], $token)->assertTooManyRequests();
+        $this->travel(61)->minutes();
+        $this->send('PUT', '/api/account/profile', ['name' => 'Abebe Y'], $token)->assertOk();
+    }
+
     public function test_role_and_status_cannot_be_changed_here(): void
     {
         $this->send('PUT', '/api/account/profile', ['role' => 'admin', 'status' => 'active', 'alert_sms' => false, 'password' => 'Hacked-123'])->assertOk();

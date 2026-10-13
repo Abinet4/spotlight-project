@@ -8,6 +8,7 @@ use App\Models\Category;
 use App\Models\City;
 use App\Models\Product;
 use App\Models\User;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -77,6 +78,18 @@ class DeployTest extends TestCase
         $this->artisan('marketplace:create-admin', ['email' => $customer->email, '--password-from-env' => true, '--if-missing' => true, '--no-interaction' => true])
             ->assertExitCode(0);
         $this->assertSame(Role::Customer, $customer->fresh()->role);
+
+        // The admin changed their email on the site; the old deploy variables must not add a second admin.
+        $admin->forceFill(['email' => 'new-owner@example.com'])->save();
+        $this->artisan('marketplace:create-admin', ['email' => 'owner@example.com', '--password-from-env' => true, '--if-missing' => true, '--no-interaction' => true])
+            ->expectsOutputToContain('An administrator already exists')
+            ->assertExitCode(0);
+        $this->assertSame(1, User::where('role', Role::Admin)->count());
+        $this->assertFalse(User::where('email', 'owner@example.com')->exists());
+
+        // Without --if-missing the command still adds more admins on purpose.
+        $this->artisan('marketplace:create-admin', ['email' => 'second@example.com', '--password-from-env' => true, '--no-interaction' => true])->assertExitCode(0);
+        $this->assertSame(2, User::where('role', Role::Admin)->count());
     }
 
     public function test_a_weak_or_missing_deploy_password_creates_nobody(): void
@@ -114,10 +127,11 @@ class DeployTest extends TestCase
     public function test_demo_data_is_added_once_and_never_in_production(): void
     {
         Storage::fake('public');
+        Storage::fake('local');
 
         $this->app['env'] = 'production';
         $this->artisan('marketplace:prepare', ['--demo' => true])
-            ->expectsOutput('Demo data is for test sites only, so it was not added (APP_ENV=production).')
+            ->expectsOutput('Demo data is for test sites only, so it was not added (APP_ENV must be local, testing or staging).')
             ->assertExitCode(0);
         $this->assertFalse(User::where('email', 'customer@demo.local')->exists());
         $this->app['env'] = 'testing';
@@ -178,5 +192,21 @@ class DeployTest extends TestCase
         // An empty variable means none, not a broken list.
         $this->env('TRUSTED_PROXIES', '');
         $this->assertNull((require config_path('trustedproxy.php'))['proxies']);
+    }
+
+    public function test_the_server_root_is_a_plain_answer_without_a_session_or_framework_page(): void
+    {
+        $response = $this->get('/')->assertOk()->assertJson(['name' => config('marketplace.name')]);
+        $this->assertSame([], $response->headers->getCookies(), 'no session or XSRF cookie');
+        $this->assertStringNotContainsStringIgnoringCase('laravel', $response->getContent());
+    }
+
+    public function test_expired_sign_ins_are_removed_daily(): void
+    {
+        $events = collect(app(Schedule::class)->events());
+        $prune = $events->first(fn ($e) => str_contains($e->command ?? '', 'sanctum:prune-expired'));
+        $this->assertNotNull($prune);
+        $this->assertSame('0 0 * * *', $prune->expression);
+        $this->assertNotNull($events->first(fn ($e) => str_contains($e->command ?? '', 'marketplace:expire-payments')));
     }
 }

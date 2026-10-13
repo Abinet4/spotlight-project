@@ -21,6 +21,7 @@ class SellerProductTest extends TestCase
         parent::setUp();
         config(['marketplace.distance.stores_set_fee' => true]);
         Storage::fake('public');
+        Storage::fake('local');
         $this->seedReferenceData();
         $this->seller = $this->approvedSeller();
         Sanctum::actingAs($this->seller->user);
@@ -43,7 +44,10 @@ class SellerProductTest extends TestCase
         $this->assertSame(3850050, $product->price_santim);
         $this->assertSame($this->seller->area_id, $product->area_id);
         foreach ($product->images as $image) {
-            Storage::disk('public')->assertExists($image->path);
+            // The original keeps camera data, so it stays private; only the copies are public.
+            Storage::disk('local')->assertExists($image->path);
+            Storage::disk('public')->assertMissing($image->path);
+            Storage::disk('public')->assertExists($image->copies());
             $this->assertStringStartsWith("products/{$product->id}/", $image->path);
             $this->assertStringNotContainsString('a.jpg', $image->path);
         }

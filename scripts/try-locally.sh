@@ -32,7 +32,8 @@ if [ -n "$missing" ]; then
 fi
 php -r 'exit(version_compare(PHP_VERSION, "8.3.0", ">=") ? 0 : 1);' \
   || fail "PHP 8.3 or newer is needed (found $(php -r 'echo PHP_VERSION;')). Run: brew upgrade php"
-for ext in pdo_sqlite mbstring fileinfo gd; do
+# exif: phone photos are turned upright from it; without it JPEG photos are refused.
+for ext in pdo_sqlite mbstring fileinfo gd exif; do
   php -r "exit(extension_loaded('$ext') ? 0 : 1);" || fail "the PHP extension '$ext' is not enabled"
 done
 node -e 'const [a,b]=process.versions.node.split(".").map(Number); process.exit(a>22||(a===22&&b>=12)||(a===20&&b>=19)?0:1)' \

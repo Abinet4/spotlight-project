@@ -62,6 +62,9 @@ return [
         'map_id' => env('GOOGLE_MAPS_MAP_ID', 'DEMO_MAP_ID'),
         'routes_url' => env('GOOGLE_ROUTES_URL', 'https://routes.googleapis.com/directions/v2:computeRoutes'),
         'timeout' => (int) env('GOOGLE_MAPS_TIMEOUT', 5),
+        // Google bills each Routes call. Above this many new trips an hour (all visitors together),
+        // distances are estimated from the straight line instead, so a script cannot run up the bill.
+        'routes_per_hour' => (int) env('GOOGLE_ROUTES_PER_HOUR', 200),
     ],
 
 ];

@@ -90,10 +90,10 @@ class Alert extends Notification implements ShouldQueue
     {
         $mail = (new MailMessage)
             ->subject($this->title)
-            ->greeting('Hello '.$notifiable->name.',')
-            ->line($this->body);
+            ->greeting('Hello '.self::plain($notifiable->name).',')
+            ->line(self::plain($this->body));
         foreach ($this->mailLines as $line) {
-            $mail->line($line);
+            $mail->line(self::plain($line));
         }
         if ($this->url) {
             $mail->action('Open in '.config('marketplace.name'), self::link($this->url));
@@ -107,6 +107,20 @@ class Alert extends Notification implements ShouldQueue
         $text = $this->sms ?? $this->title.'. '.$this->body;
 
         return mb_substr($text, 0, 480);
+    }
+
+    /**
+     * Email lines are Markdown, and they carry text people typed (names, quote titles, cancel reasons).
+     * Show that text as typed: it must not add links, pictures, headings or code to an email sent in the
+     * marketplace's name. HTML is already escaped by the mail template.
+     */
+    public static function plain(string $text): string
+    {
+        $text = trim((string) preg_replace('/\s+/u', ' ', $text));
+        $text = (string) preg_replace('/[\\\\`*_\[\]~|]/', '\\\\$0', $text);
+
+        // A line starting like a heading or a list.
+        return (string) preg_replace(['/^([#+=-])/', '/^(\d+)([.)])/'], ['\\\\$1', '$1\\\\$2'], $text);
     }
 
     public static function link(string $path): string

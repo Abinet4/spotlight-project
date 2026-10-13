@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Support\MapPin;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Throwable;
 
 /**
@@ -22,7 +24,10 @@ class DistanceService
      */
     public function between(array $from, array $to): array
     {
-        $key = 'distance:'.implode(',', array_map(fn ($v) => number_format((float) $v, 5, '.', ''), [...$from, ...$to]));
+        // Pins are rounded to about 10 m: nudging a pin by a hair is the same trip, not a new paid lookup.
+        $from = [round((float) $from[0], 4), round((float) $from[1], 4)];
+        $to = [round((float) $to[0], 4), round((float) $to[1], 4)];
+        $key = 'distance:'.implode(',', array_map(fn ($v) => number_format($v, 4, '.', ''), [...$from, ...$to]));
         $cached = Cache::get($key);
         if (is_array($cached)) {
             return $cached;
@@ -48,6 +53,11 @@ class DistanceService
     {
         $key = config('services.google_maps.server_key');
         if (! $key) {
+            return null;
+        }
+        if (! RateLimiter::attempt('google-routes', (int) config('services.google_maps.routes_per_hour'), fn () => true, 3600)) {
+            Log::warning('Google Routes hourly limit reached; estimating distances from the straight line.');
+
             return null;
         }
         $point = fn (array $p) => ['location' => ['latLng' => ['latitude' => $p[0], 'longitude' => $p[1]]]];

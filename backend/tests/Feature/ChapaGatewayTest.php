@@ -153,7 +153,11 @@ class ChapaGatewayTest extends TestCase
         $this->assertSame('pending', $payment->fresh()->status);
         $this->assertSame(OrderStatus::AwaitingPayment, Order::sole()->status);
 
+        // Unsigned callbacks keep the pause between checks, so repeating one cannot flood Chapa.
         $this->verifyAnswer($this->verified($payment->tx_ref));
+        $this->getJson("/api/payments/chapa/callback?trx_ref={$payment->tx_ref}&ref_id=X&status=success")->assertOk();
+        $this->assertSame('pending', $payment->fresh()->status, 'checked a moment ago: not asked again yet');
+        $this->travel(6)->seconds();
         $this->getJson("/api/payments/chapa/callback?trx_ref={$payment->tx_ref}&ref_id=X&status=success")->assertOk();
         $payment->refresh();
         $this->assertSame('paid', $payment->status);

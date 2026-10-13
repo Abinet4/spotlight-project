@@ -78,6 +78,10 @@ class OrderController extends Controller
             'note' => ['nullable', 'string', 'max:500'],
         ]);
         $this->scoped($request)->findOrFail($id);
+        // A suspended store may still cancel, but marking orders delivered would credit it money.
+        if (! $request->user()->isApprovedSeller()) {
+            throw ValidationException::withMessages(['status' => 'Your store is not active, so it cannot update orders. You can still cancel them.']);
+        }
         $order = $this->orders->transition($id, OrderStatus::from($data['status']), $request->user(), 'seller', $data['note'] ?? null);
 
         return CustomerOrderController::detail($order, 'seller');

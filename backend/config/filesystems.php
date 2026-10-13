@@ -33,7 +33,8 @@ return [
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
-            'serve' => true,
+            // Private files (photo originals) are never served, not even by signed link.
+            'serve' => false,
             'throw' => false,
             'report' => false,
         ],

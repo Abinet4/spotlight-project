@@ -186,7 +186,9 @@ class CheckoutCalculator
         }
 
         // A custom quote is one line for its full quantity; its own delivery fee wins.
-        $fee = $q->delivery_fee_santim ?? ($p?->ownDeliveryFeeSantim($this->storesSetFee) ?? $defaultFee);
+        // Same rule as a listing's fee: a store's own charge counts only while admins allow it (free always does).
+        $quoteFee = $q->delivery_fee_santim === 0 || ($q->delivery_fee_santim !== null && $this->storesSetFee) ? $q->delivery_fee_santim : null;
+        $fee = $quoteFee ?? ($p?->ownDeliveryFeeSantim($this->storesSetFee) ?? $defaultFee);
 
         return [
             'id' => $item->id,

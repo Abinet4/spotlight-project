@@ -98,7 +98,8 @@ class PaymentController extends Controller
     {
         $txRef = (string) ($request->query('trx_ref') ?? $request->query('tx_ref') ?? $request->input('trx_ref') ?? $request->input('tx_ref') ?? '');
 
-        return $this->verifyByReference($txRef);
+        // Unsigned, so it keeps the usual pause between checks: repeating it cannot flood Chapa.
+        return $this->verifyByReference($txRef, force: false);
     }
 
     /** Chapa webhook. Unsigned or badly signed calls are refused; signed ones still only prompt a verify. */
@@ -112,10 +113,10 @@ class PaymentController extends Controller
             return response()->json(['message' => 'Invalid signature.'], 401);
         }
 
-        return $this->verifyByReference((string) ($request->input('tx_ref') ?? $request->input('trx_ref') ?? ''));
+        return $this->verifyByReference((string) ($request->input('tx_ref') ?? $request->input('trx_ref') ?? ''), force: true);
     }
 
-    private function verifyByReference(string $txRef): JsonResponse
+    private function verifyByReference(string $txRef, bool $force): JsonResponse
     {
         $payment = preg_match('/^[A-Za-z0-9._-]{1,64}$/', $txRef) ? Payment::where('tx_ref', $txRef)->first() : null;
         if (! $payment) {
@@ -123,7 +124,7 @@ class PaymentController extends Controller
             return response()->json(['received' => true]);
         }
         try {
-            $this->payments->refresh($payment, force: true);
+            $this->payments->refresh($payment, force: $force);
         } catch (PaymentGatewayError $e) {
             report($e);
 

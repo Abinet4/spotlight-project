@@ -5,6 +5,10 @@ on:
   push:
     branches: [main]
 
+# Jobs only read the code; nothing in CI may write to the repository.
+permissions:
+  contents: read
+
 jobs:
   backend:
     runs-on: ubuntu-latest
@@ -21,7 +25,7 @@ jobs:
         options: --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
       - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
+      - uses: shivammathur/setup-php@d52fc211a0436f8839a587b3b5b8efddab4744ea # v2
         with:
           php-version: '8.3'
           extensions: pdo_mysql, mbstring, gd, fileinfo, intl
@@ -90,6 +94,20 @@ jobs:
           echo "$image"
           [[ "$image" == http://localhost:8080/storage/products/*-thumb.webp ]]
           curl -fs -o /dev/null -w '%{content_type}\n' "$image" | grep -q image/webp
+      - name: Original photos are private and answers carry the security headers
+        run: |
+          image=$(curl -fs http://localhost:8080/api/products | jq -r '.data[0].image')
+          original="${image%-thumb.webp}.jpg"
+          echo "$original"
+          [ "$(curl -s -o /dev/null -w '%{http_code}' "$original")" = 404 ]
+          headers=$(curl -fsI http://localhost:8080/api/categories)
+          echo "$headers"
+          grep -qi "^content-security-policy: default-src 'none'" <<< "$headers"
+          grep -qi '^x-frame-options: DENY' <<< "$headers"
+          grep -qi '^x-content-type-options: nosniff' <<< "$headers"
+          root=$(curl -fsi http://localhost:8080/)
+          # (`! grep` would not stop the step under bash -e, hence the if.)
+          if grep -qi -e '^set-cookie' -e 'laravel' <<< "$root"; then echo "$root"; exit 1; fi
       - name: Admin can sign in
         run: |
           curl -fs -X POST http://localhost:8080/api/auth/login -H 'Accept: application/json' -H 'Content-Type: application/json' \

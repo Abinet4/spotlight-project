@@ -71,7 +71,8 @@ class ProductResource extends JsonResource
                 'area' => $this->seller->relationLoaded('area') ? $this->seller->area?->name : null,
             ]),
             'image' => $this->whenLoaded('primaryImage', fn () => $this->primaryImage?->thumbUrl()),
-            'images' => $this->whenLoaded('images', fn () => $this->images->map(fn ($img) => [
+            // A photo without its copies has nothing public to show; its store still sees it to remove it.
+            'images' => $this->whenLoaded('images', fn () => $this->images->filter(fn ($img) => $this->withModeration || $img->large_path)->map(fn ($img) => [
                 'id' => $img->id,
                 'url' => $img->url(),
                 'thumb' => $img->thumbUrl(),

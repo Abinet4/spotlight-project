@@ -113,6 +113,19 @@ return [
             'processors' => [PsrLogMessageProcessor::class],
         ],
 
+        // Test sites without a mail provider (MAIL_MAILER=log) write each email here. Mail is logged at
+        // debug level, so it gets its own channel: the server's LOG_LEVEL=info would drop it otherwise.
+        'mail' => [
+            'driver' => 'monolog',
+            'level' => 'debug',
+            'handler' => StreamHandler::class,
+            'handler_with' => [
+                'stream' => 'php://stderr',
+            ],
+            'formatter' => env('LOG_STDERR_FORMATTER'),
+            'processors' => [PsrLogMessageProcessor::class],
+        ],
+
         'syslog' => [
             'driver' => 'syslog',
             'level' => env('LOG_LEVEL', 'debug'),

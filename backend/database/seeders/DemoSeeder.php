@@ -7,8 +7,10 @@ use App\Models\Area;
 use App\Models\Category;
 use App\Models\DeliveryZone;
 use App\Models\Product;
+use App\Models\ProductImage;
 use App\Models\SellerProfile;
 use App\Models\User;
+use App\Providers\AppServiceProvider;
 use App\Services\ImageVariants;
 use App\Support\Slug;
 use Illuminate\Database\Seeder;
@@ -75,8 +77,8 @@ class DemoSeeder extends Seeder
 
     public function run(): void
     {
-        if (app()->isProduction()) {
-            throw new RuntimeException('DemoSeeder must not run in production.');
+        if (! AppServiceProvider::isTestSite()) {
+            throw new RuntimeException('DemoSeeder only runs when APP_ENV is local, testing or staging.');
         }
 
         $this->call([LocationSeeder::class, CategorySeeder::class]);
@@ -158,7 +160,7 @@ class DemoSeeder extends Seeder
             $product->save();
 
             $path = "products/{$product->id}/".self::ART_PREFIX.Str::random(8).'.jpg';
-            Storage::disk('public')->put($path, (new DemoFurnitureArt)->jpeg($name, $color, $i));
+            Storage::disk(ProductImage::ORIGINALS_DISK)->put($path, (new DemoFurnitureArt)->jpeg($name, $color, $i));
             $product->images()->create(['path' => $path, ...app(ImageVariants::class)->make($path), 'alt' => $name, 'sort_order' => 0]);
         }
 
