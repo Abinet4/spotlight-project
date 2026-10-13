@@ -54,6 +54,11 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    // Public address of this API server when the shop pages are hosted elsewhere (for example the
+    // pages on Vercel and the API on Railway). Photo links and payment callbacks use it. Leave it
+    // empty when the API is served from the same address as the pages (APP_URL).
+    'api_url' => env('API_URL'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone

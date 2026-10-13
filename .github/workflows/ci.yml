@@ -56,3 +56,47 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run build
+
+  # The API server image as Railway builds it (docs/DEPLOY-TEST.md), started like a fresh test site.
+  docker:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: marketplace
+          MYSQL_USER: mp
+          MYSQL_PASSWORD: secret
+          MYSQL_ROOT_PASSWORD: root
+        ports: ['3306:3306']
+        options: --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the API image
+        run: docker build -t spotlight-api backend
+      - name: Start it with demo data
+        run: |
+          docker run -d --name api --network host -e PORT=8080 -e APP_ENV=staging \
+            -e APP_KEY="base64:$(openssl rand -base64 32)" -e APP_URL=http://localhost:5173 -e API_URL=http://localhost:8080 \
+            -e DB_CONNECTION=mysql -e DB_URL=mysql://mp:secret@127.0.0.1:3306/marketplace \
+            -e ADMIN_EMAIL=ci@example.com -e 'ADMIN_PASSWORD=Ci-admin-pass-123!' \
+            -e SEED_DEMO=true -e 'DEMO_USER_PASSWORD=Ci-demo-pass-123!' spotlight-api
+          for i in $(seq 1 90); do curl -fs http://localhost:8080/up > /dev/null && break; sleep 2; done
+          docker logs api
+          curl -fs http://localhost:8080/up > /dev/null
+      - name: Demo listings have WebP photo copies served by the API
+        run: |
+          image=$(curl -fs http://localhost:8080/api/products | jq -r '.data[0].image')
+          echo "$image"
+          [[ "$image" == http://localhost:8080/storage/products/*-thumb.webp ]]
+          curl -fs -o /dev/null -w '%{content_type}\n' "$image" | grep -q image/webp
+      - name: Admin can sign in
+        run: |
+          curl -fs -X POST http://localhost:8080/api/auth/login -H 'Accept: application/json' -H 'Content-Type: application/json' \
+            -d '{"email":"ci@example.com","password":"Ci-admin-pass-123!"}' | jq -e '.token' > /dev/null
+      - name: A second start changes nothing
+        run: |
+          docker restart api
+          for i in $(seq 1 60); do curl -fs http://localhost:8080/up > /dev/null && break; sleep 2; done
+          docker logs api 2>&1 | grep -q 'Demo data was added on an earlier start; skipped.'
+          docker logs api 2>&1 | grep -q 'ci@example.com already has an account (admin); left unchanged.'

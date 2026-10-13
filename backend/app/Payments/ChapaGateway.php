@@ -39,6 +39,8 @@ class ChapaGateway implements PaymentGateway
         $customer = $checkout->customer;
         [$first, $last] = self::splitName($checkout->recipient_name ?: ($customer?->name ?? 'Customer'));
         $app = rtrim((string) config('app.url'), '/');
+        // Chapa calls the API server, which may sit at its own address; the customer returns to the shop.
+        $api = rtrim((string) (config('app.api_url') ?: $app), '/');
 
         $payload = array_filter([
             'amount' => Money::toBirr($payment->amount_santim),
@@ -48,7 +50,7 @@ class ChapaGateway implements PaymentGateway
             'last_name' => $last,
             'email' => self::usableEmail($customer?->email),
             'phone_number' => self::localPhone($checkout->phone),
-            'callback_url' => $app.'/api/payments/chapa/callback',
+            'callback_url' => $api.'/api/payments/chapa/callback',
             'return_url' => $app.'/payments/return?checkout='.$checkout->id,
             'customization' => [
                 'title' => self::clean((string) config('marketplace.name'), 16),

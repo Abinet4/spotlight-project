@@ -76,8 +76,10 @@ npm run build                    # production build into dist/
 
 ## Deployment notes
 
+For a test site with the shop pages on Vercel and the API, database, worker and photos on Railway, follow [docs/DEPLOY-TEST.md](docs/DEPLOY-TEST.md). `backend/Dockerfile` builds the API server for any Docker host.
+
 - Build the frontend (`npm run build`) and serve `frontend/dist` as static files, with every unknown path falling back to `index.html`.
-- Serve the API from the same domain under `/api` (recommended), or set `VITE_API_URL` at build time and list the frontend origin in `CORS_ALLOWED_ORIGINS`.
+- Serve the API from the same domain under `/api` (recommended), or set `VITE_API_URL` at build time, list the frontend origin in `CORS_ALLOWED_ORIGINS` and set `API_URL` to the API's own address (photo links and Chapa's callback use it).
 - Production `.env`: `APP_ENV=production`, `APP_DEBUG=false`, a real `APP_URL`, strong DB credentials, HTTPS only.
 - Run `php artisan migrate --force` and `php artisan optimize` (caches config, routes, events and views) on each deploy.
 - Speed: run PHP under PHP-FPM with OPcache on (`opcache.enable=1`, `opcache.memory_consumption=128`, `opcache.max_accelerated_files=20000`; with `opcache.validate_timestamps=0` restart PHP-FPM on each deploy). Turn on gzip or Brotli in the web server for HTML, CSS, JS and JSON, and send `Cache-Control: public, max-age=31536000, immutable` for `frontend/dist/assets/` (file names change on every build) but not for `index.html`.
@@ -85,7 +87,7 @@ npm run build                    # production build into dist/
 - Run a queue worker all the time (for example under systemd or Supervisor): `php artisan queue:work --tries=3 --max-time=3600`. Emails and text messages are sent by the worker; without it they wait in the `jobs` table. In-app alerts do not need it. Restart it on each deploy with `php artisan queue:restart`.
 - Email: set `MAIL_MAILER` and the `MAIL_*` settings for your mail provider, and `MAIL_FROM_ADDRESS`. With the default `log` mailer, emails are only written to `storage/logs/laravel.log`.
 - Run the scheduler: a cron entry `* * * * * cd /path/to/backend && php artisan schedule:run >> /dev/null 2>&1`. It cancels online orders that were not paid in time (every five minutes) and releases their stock. Without it, unpaid orders hold stock until someone cancels them.
-- Online payment (Chapa): set `MARKETPLACE_PAYMENT_GATEWAY=chapa`, `CHAPA_SECRET_KEY` and `CHAPA_WEBHOOK_SECRET` in `.env` only, never in the code. A `CHASECK_TEST-...` key runs Chapa's test mode; switch to the live key only after a test payment works end to end. In the Chapa dashboard set the webhook URL to `https://your-domain/api/payments/chapa/webhook` with the same secret. `APP_URL` must be the public HTTPS address, because Chapa sends customers back to `APP_URL/payments/return` and calls `APP_URL/api/payments/chapa/callback`. Admins can turn online payment on or off in Admin > Settings. `MARKETPLACE_PAYMENT_GATEWAY=fake` (a test page in the app) is refused when `APP_ENV=production`.
+- Online payment (Chapa): set `MARKETPLACE_PAYMENT_GATEWAY=chapa`, `CHAPA_SECRET_KEY` and `CHAPA_WEBHOOK_SECRET` in `.env` only, never in the code. A `CHASECK_TEST-...` key runs Chapa's test mode; switch to the live key only after a test payment works end to end. In the Chapa dashboard set the webhook URL to `https://your-api-domain/api/payments/chapa/webhook` with the same secret. `APP_URL` must be the public HTTPS address of the shop pages, because Chapa sends customers back to `APP_URL/payments/return`; it calls the API at `API_URL/api/payments/chapa/callback` (or `APP_URL/...` when `API_URL` is empty). Admins can turn online payment on or off in Admin > Settings. `MARKETPLACE_PAYMENT_GATEWAY=fake` (a test page in the app) is refused when `APP_ENV=production`.
 - Refunds and payouts are recorded by an admin, not sent automatically: send the money in the Chapa dashboard or by transfer, then mark it in Admin > Payments (refunds) or Admin > Settlements (payouts to stores).
 - Text messages: `MARKETPLACE_SMS_DRIVER=log` (the default) sends nothing and only records each text in Admin > Text messages. To send for real, set `MARKETPLACE_SMS_DRIVER=afromessage` and `AFROMESSAGE_TOKEN`, `AFROMESSAGE_IDENTIFIER_ID` and `AFROMESSAGE_SENDER` from your AfroMessage account, in `.env` only, never in the code. Admins can pause all texts in Admin > Settings.
 - `storage/app/public` holds seller photos: put it on persistent storage (or switch the `public` disk to S3-compatible storage) and include it in backups.
@@ -98,7 +100,7 @@ npm run build                    # production build into dist/
 
 ## Troubleshooting
 
-- **Images do not load**: run `php artisan storage:link` and make sure `APP_URL` matches the URL you open in the browser.
+- **Images do not load**: run `php artisan storage:link` and make sure `APP_URL` matches the URL you open in the browser, or, with the API on its own address, that `API_URL` is that address.
 - **401 after login in production**: the frontend and API are on different origins and `VITE_API_URL` or `CORS_ALLOWED_ORIGINS` is not set.
 - **429 Too Many Requests**: login is limited to 5 attempts per minute per email and IP; wait a minute.
 - **Online payment option missing at checkout**: `MARKETPLACE_PAYMENT_GATEWAY` is `none` or the Chapa key is empty, the admin switch is off, or a store still has to confirm a delivery fee (customers can choose pickup or pay cash).

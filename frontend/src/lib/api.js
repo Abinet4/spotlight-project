@@ -20,8 +20,11 @@ export const tokenStore = {
   },
 }
 
+// The API's own address when it is hosted apart from these pages; a trailing slash is ignored.
+const API_ORIGIN = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '')
+
 export const api = axios.create({
-  baseURL: `${import.meta.env.VITE_API_URL || ''}/api`,
+  baseURL: `${API_ORIGIN}/api`,
   headers: { Accept: 'application/json' },
   timeout: 30000,
 })

@@ -2,6 +2,7 @@
 
 use App\Enums\Role;
 use App\Models\AuditLog;
+use App\Models\City;
 use App\Models\ProductImage;
 use App\Models\User;
 use App\Services\ImageVariants;
@@ -15,9 +16,22 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 
-Artisan::command('marketplace:create-admin {email} {--name=Administrator}', function (string $email) {
-    $email = mb_strtolower($email);
-    $password = $this->secret('Password (min 12 characters, letters, numbers and symbols)');
+Artisan::command('marketplace:create-admin {email} {--name=Administrator}
+    {--password-from-env : Read the password from the ADMIN_PASSWORD variable instead of asking (deploy scripts)}
+    {--if-missing : Leave an existing account with this email unchanged}', function (string $email) {
+    $email = mb_strtolower(trim($email));
+
+    // A deploy runs this on every start: once the account exists it is left alone, so a password
+    // changed on the site is not reset to the deploy variable.
+    if ($this->option('if-missing') && ($existing = User::where('email', $email)->first())) {
+        $this->info("{$email} already has an account ({$existing->role->value}); left unchanged.");
+
+        return 0;
+    }
+
+    $password = $this->option('password-from-env')
+        ? (string) getenv('ADMIN_PASSWORD')
+        : $this->secret('Password (min 12 characters, letters, numbers and symbols)');
 
     $validator = Validator::make(['email' => $email, 'password' => $password], [
         'email' => ['required', 'email'],
@@ -46,6 +60,40 @@ Artisan::command('marketplace:create-admin {email} {--name=Administrator}', func
 
     return 0;
 })->purpose('Create or promote a marketplace administrator');
+
+Artisan::command('marketplace:prepare {--demo : Also add the demo sellers and listings, once (test sites only)}', function () {
+    // Sub-cities and categories on the first start only: afterwards the admin may rename or delete them.
+    if (! City::exists()) {
+        $this->call('db:seed', ['--force' => true]);
+    }
+    if (! $this->option('demo')) {
+        return 0;
+    }
+    if (app()->isProduction()) {
+        $this->warn('Demo data is for test sites only, so it was not added (APP_ENV=production).');
+
+        return 0;
+    }
+    // Recorded only after the seeder finished, so a start that failed halfway tries again, and a demo
+    // listing the admin deleted later does not come back on the next deploy.
+    if (AuditLog::where('action', 'demo.seeded')->exists()) {
+        $this->info('Demo data was added on an earlier start; skipped.');
+
+        return 0;
+    }
+    if ((string) getenv('DEMO_USER_PASSWORD') === '') {
+        $this->error('Set DEMO_USER_PASSWORD (the password for the demo sellers and customer) to add demo data.');
+
+        return 1;
+    }
+
+    $code = $this->call('db:seed', ['--class' => DemoSeeder::class, '--force' => true]);
+    if ($code === 0) {
+        AuditLog::create(['action' => 'demo.seeded']);
+    }
+
+    return $code;
+})->purpose('Add the reference data on a new database, and optionally demo data (used when a server starts)');
 
 Artisan::command('marketplace:demo-pictures', function (ImageVariants $variants) {
     // Only pictures the demo seeder generated (products/{id}/demo-*.jpg); seller photos are never touched.

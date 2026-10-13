@@ -99,6 +99,18 @@ class ChapaGatewayTest extends TestCase
         $this->getJson('/api/config')->assertJsonPath('online_payments.test_mode', true);
     }
 
+    public function test_with_the_api_on_its_own_address_chapa_calls_the_api_and_the_customer_returns_to_the_shop(): void
+    {
+        // Pages on Vercel, API on Railway.
+        config(['app.url' => 'https://shop.vercel.app/', 'app.api_url' => 'https://api.up.railway.app/']);
+        $this->initializeOk();
+
+        $res = $this->checkout()->assertCreated();
+        Http::assertSent(fn (HttpRequest $r) => $r->url() === self::BASE.'/transaction/initialize'
+            && $r['callback_url'] === 'https://api.up.railway.app/api/payments/chapa/callback'
+            && $r['return_url'] === 'https://shop.vercel.app/payments/return?checkout='.$res->json('data.id'));
+    }
+
     public function test_chapa_refusing_to_start_keeps_the_order_and_allows_a_retry(): void
     {
         Http::fake([self::BASE.'/transaction/initialize' => Http::sequence()

@@ -19,7 +19,12 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => array_values(array_filter(explode(',', (string) env('CORS_ALLOWED_ORIGINS', 'http://localhost:5173')))),
+    // Comma separated. A browser sends its origin without a trailing slash, so one pasted with a
+    // slash ("https://shop.vercel.app/") would never match; spaces and trailing slashes are dropped.
+    'allowed_origins' => array_values(array_filter(array_map(
+        fn (string $origin) => rtrim(trim($origin), '/'),
+        explode(',', (string) env('CORS_ALLOWED_ORIGINS', 'http://localhost:5173')),
+    ))),
 
     'allowed_origins_patterns' => [],
 
