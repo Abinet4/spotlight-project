@@ -19,6 +19,7 @@ class SellerProductTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        config(['marketplace.distance.stores_set_fee' => true]);
         Storage::fake('public');
         $this->seedReferenceData();
         $this->seller = $this->approvedSeller();
@@ -292,10 +293,20 @@ class SellerProductTest extends TestCase
     {
         $slug = $this->seller->slug;
 
-        $this->putJson('/api/seller/profile', ['store_name' => 'Renamed Store', 'status' => 'approved', 'area_id' => $this->area('arada')->id])
+        // An approved store's name is changed by admins (SellerScopeTest); the status is never the store's to set.
+        $this->putJson('/api/seller/profile', ['status' => 'suspended', 'area_id' => $this->area('arada')->id])
             ->assertOk()
-            ->assertJsonPath('data.store_name', 'Renamed Store')
+            ->assertJsonPath('data.status', 'approved')
             ->assertJsonPath('data.slug', $slug)
             ->assertJsonPath('data.area', 'Arada');
+
+        // While applying, the store can still fix its name, and the slug stays the same.
+        $applicant = $this->pendingSeller();
+        Sanctum::actingAs($applicant->user);
+        $this->putJson('/api/seller/profile', ['store_name' => 'Renamed Store', 'status' => 'approved'])
+            ->assertOk()
+            ->assertJsonPath('data.store_name', 'Renamed Store')
+            ->assertJsonPath('data.status', 'pending')
+            ->assertJsonPath('data.slug', $applicant->slug);
     }
 }

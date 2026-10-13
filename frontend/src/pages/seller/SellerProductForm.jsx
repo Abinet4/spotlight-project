@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Alert, ErrorState, Field, PageHeader, Spinner, StatusBadge } from '../../components/ui'
 import { useConfig } from '../../context/ConfigContext'
 import { api, parseError } from '../../lib/api'
+import { formatETB } from '../../lib/format'
 import { useFetch } from '../../lib/useFetch'
 
 const EMPTY = {
@@ -30,6 +31,8 @@ function fromProduct(p) {
   }
 }
 
+const isFree = (fee) => fee !== '' && fee !== null && fee !== undefined && Number(String(fee).replace(/,/g, '')) === 0
+
 /** Send empty strings as null so optional numeric fields clear instead of failing validation. */
 function payload(values) {
   const out = {}
@@ -47,6 +50,7 @@ export default function SellerProductForm() {
   const editing = Boolean(id)
   const navigate = useNavigate()
   const config = useConfig()
+  const storesSetFee = Boolean(config.delivery?.stores_set_fee)
   const categories = useFetch('/categories')
   const areas = useFetch('/areas')
   const existing = useFetch(editing ? `/seller/products/${id}` : null)
@@ -95,7 +99,8 @@ export default function SellerProductForm() {
     setErrors({})
     setMessage(null)
     try {
-      const data = payload(values)
+      // While the marketplace prices delivery, a listing is either free to deliver or left to it.
+      const data = payload(storesSetFee ? values : { ...values, delivery_fee: isFree(values.delivery_fee) ? '0' : '' })
       if (!editing) {
         const form = new FormData()
         Object.entries({ ...data, action }).forEach(([k, v]) => {
@@ -224,10 +229,25 @@ export default function SellerProductForm() {
             <label className="flex items-center gap-2"><input className="size-4 accent-brand-700" {...bind('pickup_available', 'checkbox')} /> Customers can pick it up</label>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            {values.offers_delivery && (
-              <Field label="Delivery fee (ETB)" name="delivery_fee" error={errors.delivery_fee} hint="Leave empty to quote after confirming the address. Enter 0 for free delivery.">
+            {values.offers_delivery && storesSetFee && (
+              <Field label="Delivery fee (ETB)" name="delivery_fee" error={errors.delivery_fee}
+                hint="Leave empty and the marketplace prices it by distance or sub-city. Enter 0 for free delivery.">
                 <input className="input" inputMode="decimal" {...bind('delivery_fee')} />
               </Field>
+            )}
+            {values.offers_delivery && !storesSetFee && (
+              <div className="text-sm sm:col-span-2">
+                <label className="flex items-center gap-2">
+                  <input id="free-delivery" type="checkbox" className="size-4 accent-brand-700" checked={isFree(values.delivery_fee)}
+                    onChange={(e) => setValues((v) => ({ ...v, delivery_fee: e.target.checked ? '0' : '' }))} />
+                  Free delivery for this item
+                </label>
+                <p className="mt-1 text-xs text-stone-500">Otherwise the marketplace sets the delivery price from the distance or sub-city, the same for every store.</p>
+                {existing.data?.data?.delivery?.fee_ignored && !isFree(values.delivery_fee) && (
+                  <p className="mt-1 text-xs text-amber-800">The {formatETB(existing.data.data.delivery.fee_santim)} fee you set earlier is no longer used.</p>
+                )}
+                {errors.delivery_fee && <p className="mt-1 text-xs font-medium text-red-700">{errors.delivery_fee}</p>}
+              </div>
             )}
             <Field label="Item location" name="area_id" error={errors.area_id} hint="Defaults to your store location">
               <select className="input" {...bind('area_id')}>
@@ -266,7 +286,7 @@ export default function SellerProductForm() {
           )}
           {remainingSlots - files.length > 0 && (
             <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={pickFiles} aria-label="Add photos"
-              className="block text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-brand-50 file:px-4 file:py-2 file:font-semibold file:text-brand-800" />
+              className="block w-full max-w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-brand-50 file:px-4 file:py-2 file:font-semibold file:text-brand-800" />
           )}
           {errors.images && <p className="text-xs font-medium text-red-700">{errors.images}</p>}
         </section>

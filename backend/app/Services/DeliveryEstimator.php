@@ -6,10 +6,11 @@ use App\Enums\StockType;
 use App\Models\Address;
 use App\Models\Area;
 use App\Models\Product;
+use App\Models\Setting;
 
 /**
  * Works out what a customer would pay and wait for delivery of a listing to an area.
- * The listing's own fee wins; otherwise the distance from the store's pin to the customer's
+ * The listing's own fee wins (free delivery always; a charged fee only while admins allow it); otherwise the distance from the store's pin to the customer's
  * (when both are known); otherwise the area's delivery zone; otherwise the seller quotes the
  * fee after confirming the address. Same order as CheckoutCalculator.
  */
@@ -51,9 +52,10 @@ class DeliveryEstimator
             return $result;
         }
 
-        $trip = $product->delivery_fee_santim === null ? $this->distance->quote($product->seller, $pin) : null;
-        if ($product->delivery_fee_santim !== null) {
-            $result['fee_santim'] = $product->delivery_fee_santim;
+        $own = $product->ownDeliveryFeeSantim(Setting::storesSetDeliveryFee());
+        $trip = $own === null ? $this->distance->quote($product->seller, $pin) : null;
+        if ($own !== null) {
+            $result['fee_santim'] = $own;
             $result['fee_source'] = 'listing';
         } elseif ($trip) {
             $result['distance_km'] = round($trip['meters'] / 1000, 1);

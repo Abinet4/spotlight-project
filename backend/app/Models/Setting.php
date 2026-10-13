@@ -28,6 +28,7 @@ class Setting extends Model
         'delivery_per_km_birr' => 'marketplace.distance.per_km_birr',
         'delivery_max_km' => 'marketplace.distance.max_km',
         'delivery_per_floor_birr' => 'marketplace.distance.per_floor_birr',
+        'stores_set_delivery_fee' => 'marketplace.distance.stores_set_fee',
     ];
 
     public static function value(string $key): mixed
@@ -67,6 +68,12 @@ class Setting extends Model
     public static function onlinePaymentsEnabled(): bool
     {
         return filter_var(static::value('online_payments_enabled'), FILTER_VALIDATE_BOOL);
+    }
+
+    /** Admin switch: may stores charge their own delivery fee on a listing? Free delivery is always allowed. */
+    public static function storesSetDeliveryFee(): bool
+    {
+        return filter_var(static::value('stores_set_delivery_fee'), FILTER_VALIDATE_BOOL);
     }
 
     /** Admin switch that pauses every SMS alert (in-app and email alerts continue). */

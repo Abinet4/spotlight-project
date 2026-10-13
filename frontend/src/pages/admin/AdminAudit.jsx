@@ -21,18 +21,18 @@ export default function AdminAudit() {
       {data && (data.data.length ? (
         <>
           <div className="card relative overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="rtable w-full text-left text-sm">
               <thead className="border-b border-stone-200 text-xs text-stone-500 uppercase">
                 <tr><th className="px-4 py-3">When</th><th className="px-4 py-3">Who</th><th className="px-4 py-3">Action</th><th className="px-4 py-3">Subject</th><th className="px-4 py-3">Details</th></tr>
               </thead>
               <tbody className="divide-y divide-stone-100">
                 {data.data.map((log) => (
                   <tr key={log.id}>
-                    <td className="px-4 py-2.5 whitespace-nowrap text-stone-600">{new Date(log.created_at).toLocaleString()}</td>
-                    <td className="px-4 py-2.5">{log.user?.email || 'System'}</td>
-                    <td className="px-4 py-2.5 font-medium">{log.action}</td>
-                    <td className="px-4 py-2.5 text-stone-600">{log.subject_type ? `${log.subject_type.split('\\').pop()} #${log.subject_id}` : ''}</td>
-                    <td className="max-w-xs truncate px-4 py-2.5 text-stone-600" title={JSON.stringify(log.meta)}>{log.meta ? JSON.stringify(log.meta) : ''}</td>
+                    <td data-label="When" className="px-4 py-2.5 whitespace-nowrap text-stone-600">{new Date(log.created_at).toLocaleString()}</td>
+                    <td data-label="Who" className="px-4 py-2.5 break-all">{log.user?.email || 'System'}</td>
+                    <td className="rtable-title px-4 py-2.5 font-medium">{log.action}</td>
+                    <td data-label={log.subject_type ? 'Subject' : undefined} className="px-4 py-2.5 text-stone-600">{log.subject_type ? `${log.subject_type.split('\\').pop()} #${log.subject_id}` : ''}</td>
+                    <td data-label="Details" className="max-w-xs px-4 py-2.5 text-stone-600 max-sm:max-w-none" title={JSON.stringify(log.meta)}><span className="block min-w-0 truncate">{log.meta ? JSON.stringify(log.meta) : ''}</span></td>
                   </tr>
                 ))}
               </tbody>

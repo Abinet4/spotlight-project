@@ -4,6 +4,9 @@ import { Alert, ErrorState, Field, PageHeader, Spinner, StatusBadge } from '../.
 import { api, parseError } from '../../lib/api'
 import { useFetch } from '../../lib/useFetch'
 
+const LOCKED = ['store_name', 'tin_number']
+const LOCKED_HINT = 'Checked when your store was approved. Ask the marketplace team to change it.'
+
 export default function SellerProfile() {
   const profile = useFetch('/seller/profile')
   const areas = useFetch('/areas')
@@ -24,6 +27,7 @@ export default function SellerProfile() {
     }
   }, [profile.data])
 
+  const locked = !['pending', 'rejected'].includes(profile.data?.data?.status)
   if (profile.loading || !values) return profile.error ? <ErrorState error={profile.error} /> : <Spinner />
 
   const bind = (name, type = 'text') => ({
@@ -40,7 +44,8 @@ export default function SellerProfile() {
     setErrors({})
     setNotice(null)
     try {
-      const body = Object.fromEntries(Object.entries(values).map(([k, v]) => [k, v === '' ? null : v]))
+      // A checked store's name and TIN are changed by the marketplace team, so they are not sent.
+      const body = Object.fromEntries(Object.entries(values).filter(([k]) => !(locked && LOCKED.includes(k))).map(([k, v]) => [k, v === '' ? null : v]))
       await api.put('/seller/profile', body)
       setNotice({ tone: 'success', text: 'Store profile saved.' })
       profile.reload()
@@ -59,11 +64,15 @@ export default function SellerProfile() {
       <PageHeader title="Store profile" subtitle={<span className="inline-flex items-center gap-2">Status: <StatusBadge status={p.status} /></span>} />
       {notice && <div className="mb-4"><Alert tone={notice.tone}>{notice.text}</Alert></div>}
       <form onSubmit={save} className="card space-y-4 p-5" noValidate>
-        <Field label="Store name" name="store_name" error={errors.store_name}><input className="input" {...bind('store_name')} /></Field>
+        <Field label="Store name" name="store_name" error={errors.store_name} hint={locked ? LOCKED_HINT : undefined}>
+          <input className="input read-only:bg-stone-50 read-only:text-stone-600" readOnly={locked} {...bind('store_name')} />
+        </Field>
         <Field label="About your store" name="description" error={errors.description}><textarea rows={4} className="input" {...bind('description')} /></Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Store phone" name="phone" error={errors.phone}><input className="input" inputMode="tel" {...bind('phone', 'tel')} /></Field>
-          <Field label="TIN number" name="tin_number" error={errors.tin_number}><input className="input" {...bind('tin_number')} /></Field>
+          <Field label="TIN number" name="tin_number" error={errors.tin_number} hint={locked ? LOCKED_HINT : undefined}>
+            <input className="input read-only:bg-stone-50 read-only:text-stone-600" readOnly={locked} placeholder={locked ? 'None' : undefined} {...bind('tin_number')} />
+          </Field>
           <Field label="Sub-city" name="area_id" error={errors.area_id}>
             <select className="input" {...bind('area_id')}>
               {(areas.data?.data || []).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}

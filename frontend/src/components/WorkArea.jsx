@@ -1,6 +1,6 @@
 import { ChevronDown } from 'lucide-react'
 import { Suspense, useEffect, useRef, useState } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useFetch } from '../lib/useFetch'
 import { Spinner } from './ui'
 
@@ -23,27 +23,32 @@ export function useAreaSummary(url) {
   return summary
 }
 
+/** `also` lists other paths that belong to the same menu item (the listing form under Listings). */
 function isHere(link, pathname) {
-  return link.end ? pathname === link.to || pathname === `${link.to}/` : pathname === link.to || pathname.startsWith(`${link.to}/`)
+  const under = (base) => pathname === base || pathname.startsWith(`${base}/`)
+  return (link.end ? pathname === link.to || pathname === `${link.to}/` : under(link.to)) || (link.also || []).some(under)
 }
 
 function Nav({ label, groups, counts }) {
+  const { pathname } = useLocation()
   return (
     <nav aria-label={label} className="space-y-4">
       {groups.map(([group, links]) => (
         <div key={group}>
           <p className="mb-1 px-3 text-xs font-semibold tracking-wide text-stone-400 uppercase">{group}</p>
           <ul>
-            {links.map(({ to, label: text, icon: Icon, end, count }) => {
+            {links.map((link) => {
+              const { to, label: text, icon: Icon, count } = link
               const n = counts && count ? count(counts) || 0 : 0
+              const active = isHere(link, pathname)
               return (
                 <li key={to}>
-                  <NavLink to={to} end={end}
-                    className={({ isActive }) => `flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-sm ${isActive ? 'bg-brand-50 font-semibold text-brand-800' : 'text-stone-700 hover:bg-stone-100'}`}>
+                  <Link to={to} aria-current={active ? 'page' : undefined}
+                    className={`flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-sm ${active ? 'bg-brand-50 font-semibold text-brand-800' : 'text-stone-700 hover:bg-stone-100'}`}>
                     <Icon className="size-4 shrink-0" aria-hidden="true" />
                     <span className="flex-1">{text}</span>
                     {n > 0 && <span className="rounded-full bg-amber-100 px-1.5 text-xs font-semibold text-amber-800">{n}<span className="sr-only"> waiting</span></span>}
-                  </NavLink>
+                  </Link>
                 </li>
               )
             })}

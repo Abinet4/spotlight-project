@@ -106,3 +106,40 @@
 @utility container-page {
   @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
 }
+
+/*
+ * Tables that turn into stacked rows on phones: each cell shows its column name from data-label.
+ * Cells without a label (actions) span the row. From 640px up it is an ordinary table.
+ */
+@media (max-width: 639.98px) {
+  .rtable thead {
+    @apply sr-only;
+  }
+  .rtable,
+  .rtable tbody {
+    display: block;
+    width: 100%;
+  }
+  .rtable td {
+    width: 100%;
+  }
+  .rtable tr {
+    @apply flex flex-col border-b border-stone-100 px-4 py-3 last:border-0;
+  }
+  .rtable td {
+    @apply flex items-baseline justify-between gap-4 border-0 px-0 py-0.5 text-right;
+  }
+  .rtable td[data-label]::before {
+    content: attr(data-label);
+    @apply shrink-0 text-left text-xs font-medium text-stone-500;
+  }
+  .rtable td:not([data-label]) {
+    @apply justify-start pt-2 text-left;
+  }
+  .rtable.rtable-flush tr {
+    @apply px-0;
+  }
+  .rtable td.rtable-title {
+    @apply order-first justify-start text-left text-sm font-semibold text-stone-900;
+  }
+}

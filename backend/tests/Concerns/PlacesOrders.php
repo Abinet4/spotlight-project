@@ -25,6 +25,8 @@ trait PlacesOrders
 
     protected function setUpOrders(): void
     {
+        // These fixtures price delivery with the listing's own fee; MarketplaceDeliveryFeeTest covers the switch.
+        config(['marketplace.distance.stores_set_fee' => true]);
         $this->seedReferenceData();
         $this->seller = $this->approvedSeller();
         $this->sofa = Product::factory()->published()->create([

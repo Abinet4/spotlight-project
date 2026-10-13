@@ -101,29 +101,31 @@ function Attempts() {
     <>
       <form className="mb-3 flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); setPage(1); setQ(term.trim()) }}>
         <label htmlFor="pay-q" className="sr-only">Reference</label>
-        <input id="pay-q" className="input w-64" placeholder="Our ref (BF-...) or Chapa ref" value={term} onChange={(e) => setTerm(e.target.value)} />
+        <input id="pay-q" className="input min-w-[12rem] flex-1 sm:w-64 sm:flex-none" placeholder="Our ref (BF-...) or Chapa ref" value={term} onChange={(e) => setTerm(e.target.value)} />
         <button type="submit" className="btn-secondary">Find</button>
       </form>
       {list.loading && !list.data ? <Spinner /> : list.error ? <ErrorState error={list.error} onRetry={list.reload} /> : !list.data.data.length ? <EmptyState title="No payments" /> : (
         <>
           <div className="card relative overflow-x-auto">
-            <table className="w-full min-w-[720px] text-left text-sm">
+            <table className="rtable w-full text-left text-sm sm:min-w-[720px]">
               <thead className="text-xs text-stone-500 uppercase">
                 <tr><th className="p-3 font-semibold">Started</th><th className="p-3 font-semibold">Customer</th><th className="p-3 font-semibold">Orders</th><th className="p-3 font-semibold">Status</th><th className="p-3 font-semibold">References</th><th className="p-3 text-right font-semibold">Amount</th></tr>
               </thead>
               <tbody className="divide-y divide-stone-100">
                 {list.data.data.map((p) => (
                   <tr key={p.id} className="align-top">
-                    <td className="p-3 whitespace-nowrap text-stone-600">{formatDateTime(p.created_at)}</td>
-                    <td className="p-3">{p.customer.name}</td>
-                    <td className="p-3">{p.orders.map((o) => <Link key={o.id} to={`/admin/orders/${o.id}`} className="mr-2 text-brand-700 hover:underline">{o.number}</Link>)}</td>
-                    <td className="p-3">
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${PAYMENT_TONES[p.status] || ''}`}>{p.status}</span>
-                      {p.method && <span className="block text-xs text-stone-500">{p.method}</span>}
-                      {p.problem && <span className="block max-w-56 text-xs text-red-700">{p.problem}</span>}
+                    <td data-label="Started" className="p-3 whitespace-nowrap text-stone-600">{formatDateTime(p.created_at)}</td>
+                    <td data-label="Customer" className="p-3">{p.customer.name}</td>
+                    <td data-label="Orders" className="p-3"><span>{p.orders.map((o) => <Link key={o.id} to={`/admin/orders/${o.id}`} className="mr-2 text-brand-700 hover:underline">{o.number}</Link>)}</span></td>
+                    <td data-label="Status" className="p-3">
+                      <div>
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${PAYMENT_TONES[p.status] || ''}`}>{p.status}</span>
+                        {p.method && <span className="block text-xs text-stone-500">{p.method}</span>}
+                        {p.problem && <span className="block max-w-56 text-xs text-red-700">{p.problem}</span>}
+                      </div>
                     </td>
-                    <td className="p-3 text-xs break-all text-stone-600">{p.tx_ref}{p.provider_reference && <span className="block">Chapa {p.provider_reference}</span>}</td>
-                    <td className="p-3 text-right font-medium whitespace-nowrap">{formatETB(p.amount_santim)}</td>
+                    <td data-label="References" className="p-3 text-xs break-all text-stone-600"><div className="min-w-0">{p.tx_ref}{p.provider_reference && <span className="block">Chapa {p.provider_reference}</span>}</div></td>
+                    <td data-label="Amount" className="p-3 text-right font-medium whitespace-nowrap">{formatETB(p.amount_santim)}</td>
                   </tr>
                 ))}
               </tbody>

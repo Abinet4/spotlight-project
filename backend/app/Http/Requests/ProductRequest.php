@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Enums\ProductCondition;
 use App\Enums\StockType;
+use App\Models\Setting;
 use App\Support\Money;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -84,6 +85,12 @@ class ProductRequest extends FormRequest
 
             if ($this->has('price') && Money::toSantim($this->input('price')) < 100) {
                 $validator->errors()->add('price', 'The price must be at least 1 birr.');
+            }
+
+            // While admins price delivery, a store may only offer it free (0) or leave it to the marketplace.
+            $fee = $this->input('delivery_fee');
+            if ($fee !== null && $fee !== '' && Money::toSantim($fee) > 0 && ! Setting::storesSetDeliveryFee()) {
+                $validator->errors()->add('delivery_fee', 'The marketplace sets delivery prices. Leave this empty, or offer free delivery.');
             }
 
             $delivery = $this->boolean('offers_delivery', true);

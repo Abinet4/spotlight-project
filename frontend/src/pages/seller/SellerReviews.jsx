@@ -51,6 +51,8 @@ export default function SellerReviews() {
   const summary = useSellerSummary()
 
   const total = summary.data?.data.reviews
+  // Replies are public, so a store that is not active cannot post them (the server refuses too).
+  const canReply = summary.data?.data.store?.status === 'approved'
   const filters = [['', 'All', total?.count], ['1', 'Without a reply', total?.unanswered]]
 
   return (
@@ -71,11 +73,13 @@ export default function SellerReviews() {
         <EmptyState title={unanswered ? 'All caught up' : 'No reviews yet'}>{unanswered ? 'Every review has a reply.' : 'Reviews appear here after customers receive their orders.'}</EmptyState>
       ) : (
         <>
-          <p className="mb-2 text-xs text-stone-500">Everyone can read your replies. A short, polite one helps future buyers trust you.</p>
+          <p className="mb-2 text-xs text-stone-500">
+            {canReply || !summary.data ? 'Everyone can read your replies. A short, polite one helps future buyers trust you.' : 'You can reply to reviews again once your store is active.'}
+          </p>
           <ul className="card divide-y divide-stone-100 px-4">
             {res.data.data.map((r) => (
               <ReviewItem key={r.id} review={r} showProduct>
-                <ReplyForm review={r} onSaved={() => { res.reload(); summary.reload() }} />
+                {canReply && <ReplyForm review={r} onSaved={() => { res.reload(); summary.reload() }} />}
               </ReviewItem>
             ))}
           </ul>

@@ -29,6 +29,9 @@ use Illuminate\Support\Collection;
  */
 class CheckoutCalculator
 {
+    /** Read once per calculation: whether listings' own delivery fees above 0 count. */
+    private bool $storesSetFee = false;
+
     public function __construct(private readonly DistancePricing $distance) {}
 
     /**
@@ -40,6 +43,7 @@ class CheckoutCalculator
     {
         $pin = $address?->pin();
         $carry = self::carryFee($address);
+        $this->storesSetFee = Setting::storesSetDeliveryFee();
         $visibleProductIds = Product::visible()->whereIn('products.id', $items->pluck('product_id')->filter()->all())->pluck('products.id')->flip();
         $activeSellerIds = SellerProfile::publiclyVisible()
             ->whereIn('id', $items->map(fn (CartItem $i) => $i->product?->seller_profile_id ?? $i->quote?->seller_profile_id)->filter()->unique()->all())
@@ -141,7 +145,7 @@ class CheckoutCalculator
             $problem = "Only {$max} left. Lower the quantity.";
         }
 
-        $fee = $p->delivery_fee_santim ?? $defaultFee;
+        $fee = $p->ownDeliveryFeeSantim($this->storesSetFee) ?? $defaultFee;
 
         return [
             'id' => $item->id,
@@ -182,7 +186,7 @@ class CheckoutCalculator
         }
 
         // A custom quote is one line for its full quantity; its own delivery fee wins.
-        $fee = $q->delivery_fee_santim ?? ($p?->delivery_fee_santim ?? $defaultFee);
+        $fee = $q->delivery_fee_santim ?? ($p?->ownDeliveryFeeSantim($this->storesSetFee) ?? $defaultFee);
 
         return [
             'id' => $item->id,

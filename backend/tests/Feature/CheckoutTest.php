@@ -37,6 +37,7 @@ class CheckoutTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        config(['marketplace.distance.stores_set_fee' => true]);
         $this->seedReferenceData();
         $this->sellerA = $this->approvedSeller();
         $this->sellerB = $this->approvedSeller();

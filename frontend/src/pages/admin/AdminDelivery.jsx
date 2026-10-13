@@ -17,7 +17,7 @@ function DistanceSettings() {
   if (!settings.data) return null
   const current = settings.data.data
   const meta = settings.data.meta
-  const f = form || Object.fromEntries(keys.map((k) => [k, String(current[k])]))
+  const f = form || { ...Object.fromEntries(keys.map((k) => [k, String(current[k])])), stores_set_delivery_fee: current.stores_set_delivery_fee }
   const set = (k) => (e) => setForm({ ...f, [k]: e.target.value })
   const example = (km) => {
     const base = Number(f.delivery_base_fee_birr) || 0
@@ -31,7 +31,7 @@ function DistanceSettings() {
     setErrors({})
     setNotice(null)
     try {
-      await api.put('/admin/settings', Object.fromEntries(keys.map((k) => [k, f[k] === '' ? null : Number(f[k])])))
+      await api.put('/admin/settings', { ...Object.fromEntries(keys.map((k) => [k, f[k] === '' ? null : Number(f[k])])), stores_set_delivery_fee: Boolean(f.stores_set_delivery_fee) })
       setNotice({ tone: 'success', text: 'Delivery prices saved.' })
       setForm(null)
       settings.reload()
@@ -54,7 +54,7 @@ function DistanceSettings() {
     <form onSubmit={save} className="card mb-6 space-y-3 p-4" noValidate>
       <div>
         <h2 className="font-semibold text-stone-900">Price by distance</h2>
-        <p className="text-sm text-stone-600">Used when the store and the address both have a map pin. Otherwise the zones below apply. A listing's own fee always wins.</p>
+        <p className="text-sm text-stone-600">Used when the store and the address both have a map pin. Otherwise the zones below apply. A store can always offer free delivery on a listing.</p>
       </div>
       {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
       <div className="grid gap-3 sm:grid-cols-4">
@@ -62,6 +62,18 @@ function DistanceSettings() {
         {box('delivery_per_km_birr', 'Per km (ETB)', '0 turns it off')}
         {box('delivery_max_km', 'Longest trip (km)', 'Longer: store sets the fee. 0: no limit')}
         {box('delivery_per_floor_birr', 'Per floor, no lift (ETB)', 'Carrying up stairs')}
+      </div>
+      <div className="text-sm">
+        <label className="flex items-start gap-2">
+          <input id="stores_set_delivery_fee" type="checkbox" className="mt-0.5 size-4 accent-brand-700" checked={Boolean(f.stores_set_delivery_fee)}
+            onChange={(e) => setForm({ ...f, stores_set_delivery_fee: e.target.checked })} />
+          <span>Stores can set their own delivery fee on a listing
+            <span className="block text-xs text-stone-500">
+              {f.stores_set_delivery_fee ? 'A listing\'s own fee wins over the prices here.' : 'Off: the prices here apply to every store.'}
+              {meta.listings_with_own_fee > 0 && ` ${meta.listings_with_own_fee} ${meta.listings_with_own_fee === 1 ? 'listing has' : 'listings have'} a fee of its own${f.stores_set_delivery_fee ? '' : ', not used while this is off'}.`}
+            </span>
+          </span>
+        </label>
       </div>
       {Number(f.delivery_per_km_birr) > 0 && (
         <p className="text-xs text-stone-500">Examples: 3 km {formatETB(example(3) * 100)}, 8 km {formatETB(example(8) * 100)}, 15 km {formatETB(example(15) * 100)}. Fees round up to 10 birr.</p>
@@ -213,7 +225,7 @@ export default function AdminDelivery() {
             </div>
           )}
           <div className="card relative overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="rtable w-full text-left text-sm">
               <thead className="border-b border-stone-200 text-xs text-stone-500 uppercase">
                 <tr><th className="px-4 py-3">Zone</th><th className="px-4 py-3">Fee</th><th className="px-4 py-3">Days</th><th className="px-4 py-3">Sub-cities</th><th className="px-4 py-3">Status</th><th className="px-4 py-3"><span className="sr-only">Actions</span></th></tr>
               </thead>
@@ -221,13 +233,13 @@ export default function AdminDelivery() {
                 {zones.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-stone-500">No zones yet.</td></tr>}
                 {zones.map((z) => (
                   <tr key={z.id}>
-                    <td className="px-4 py-3 font-medium text-stone-900">{z.name}</td>
-                    <td className="px-4 py-3">{z.fee_santim === 0 ? 'Free' : formatETB(z.fee_santim)}</td>
-                    <td className="px-4 py-3">{z.min_days === z.max_days ? z.min_days : `${z.min_days} to ${z.max_days}`}</td>
-                    <td className="px-4 py-3 text-stone-600">{z.areas.map((a) => a.name).join(', ') || 'None'}</td>
-                    <td className="px-4 py-3">{z.is_active ? 'Active' : <span className="text-stone-500">Inactive</span>}</td>
+                    <td className="rtable-title px-4 py-3 font-medium text-stone-900">{z.name}</td>
+                    <td data-label="Fee" className="px-4 py-3">{z.fee_santim === 0 ? 'Free' : formatETB(z.fee_santim)}</td>
+                    <td data-label="Days" className="px-4 py-3">{z.min_days === z.max_days ? z.min_days : `${z.min_days} to ${z.max_days}`}</td>
+                    <td data-label="Sub-cities" className="px-4 py-3 text-stone-600">{z.areas.map((a) => a.name).join(', ') || 'None'}</td>
+                    <td data-label="Status" className="px-4 py-3">{z.is_active ? 'Active' : <span className="text-stone-500">Inactive</span>}</td>
                     <td className="px-4 py-3">
-                      <div className="flex justify-end gap-1">
+                      <div className="-ml-3 flex gap-1 sm:ml-0 sm:justify-end">
                         <button type="button" className="btn-ghost"
                           onClick={() => setEditing({ ...EMPTY, ...z, fee: santimToBirr(z.fee_santim), notes: z.notes || '', area_ids: z.areas.map((a) => a.id) })}>Edit</button>
                         <button type="button" className="btn-ghost text-red-700" onClick={() => remove(z)}>Delete</button>

@@ -59,19 +59,19 @@ export default function AdminCategories() {
       {list.error && <ErrorState error={list.error} onRetry={list.reload} />}
       {list.data && (
         <div className="card relative overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="rtable w-full text-left text-sm">
             <thead className="border-b border-stone-200 text-xs text-stone-500 uppercase">
               <tr><th className="px-4 py-3">Name</th><th className="px-4 py-3">Slug</th><th className="px-4 py-3">Listings</th><th className="px-4 py-3">Status</th><th className="px-4 py-3"><span className="sr-only">Actions</span></th></tr>
             </thead>
             <tbody className="divide-y divide-stone-100">
               {topLevel.flatMap((parent) => [parent, ...all.filter((c) => c.parent_id === parent.id)]).map((c) => (
                 <tr key={c.id}>
-                  <td className={`px-4 py-3 font-medium ${c.parent_id ? 'pl-10 text-stone-700' : 'text-stone-900'}`}>{c.name}</td>
-                  <td className="px-4 py-3 text-stone-500">{c.slug}</td>
-                  <td className="px-4 py-3">{c.products_count}</td>
-                  <td className="px-4 py-3">{c.is_active ? 'Active' : <span className="text-stone-500">Inactive</span>}</td>
+                  <td className={`rtable-title px-4 py-3 font-medium ${c.parent_id ? 'pl-10 text-stone-700' : 'text-stone-900'}`}>{c.parent_id && <span className="mr-1 font-normal text-stone-400 sm:hidden">Inside {all.find((x) => x.id === c.parent_id)?.name}:</span>}{c.name}</td>
+                  <td data-label="Slug" className="px-4 py-3 text-stone-500">{c.slug}</td>
+                  <td data-label="Listings" className="px-4 py-3">{c.products_count}</td>
+                  <td data-label="Status" className="px-4 py-3">{c.is_active ? 'Active' : <span className="text-stone-500">Inactive</span>}</td>
                   <td className="px-4 py-3">
-                    <div className="flex justify-end gap-1">
+                    <div className="-ml-3 flex flex-wrap gap-1 sm:ml-0 sm:justify-end">
                       <button type="button" className="btn-ghost" onClick={() => rename(c)}>Rename</button>
                       <button type="button" className="btn-ghost" onClick={() => run(() => api.put(`/admin/categories/${c.id}`, { is_active: !c.is_active }), c.is_active ? 'Category deactivated.' : 'Category activated.')}>
                         {c.is_active ? 'Deactivate' : 'Activate'}

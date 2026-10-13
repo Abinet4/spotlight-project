@@ -8,6 +8,7 @@ use App\Models\Review;
 use App\Services\ReviewService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Validation\ValidationException;
 
 /**
  * A seller reads their store's reviews (hidden ones excluded) and can reply publicly to each.
@@ -36,6 +37,10 @@ class ReviewController extends Controller
     {
         $data = $request->validate(['reply' => ['nullable', 'string', 'max:1000']]);
         $seller = $request->user()->sellerProfile()->firstOrFail();
+        // Replies are public, so only a store in good standing can post or change one.
+        if (! $seller->isApproved()) {
+            throw ValidationException::withMessages(['reply' => 'Your store is not active, so you cannot reply to reviews right now.']);
+        }
         $reply = isset($data['reply']) ? (trim($data['reply']) ?: null) : null;
 
         return new ReviewResource($reviews->reply($seller, $id, $reply)->load(['customer:id,name', 'product:id,name,slug', 'orderItem:id,name']));

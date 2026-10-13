@@ -121,6 +121,9 @@ return [
         // Pins must be within this many km of the service centre (Addis Ababa).
         'service_center' => [9.0108, 38.7613],
         'service_radius_km' => (int) env('MARKETPLACE_SERVICE_RADIUS_KM', 60),
+        // Whether a store may put its own delivery fee on a listing (above 0). Off: the marketplace
+        // prices delivery and a store can only offer free delivery. Admins switch it in Admin > Delivery.
+        'stores_set_fee' => (bool) env('MARKETPLACE_STORES_SET_DELIVERY_FEE', false),
     ],
 
 ];

@@ -31,6 +31,7 @@ class QuoteOrderTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        config(['marketplace.distance.stores_set_fee' => true]);
         $this->seedReferenceData();
         $this->seller = $this->approvedSeller();
         $this->seller->forceFill(['offers_custom_orders' => true])->save();

@@ -84,6 +84,17 @@ class Product extends Model
         return $this->hasOne(ProductImage::class)->ofMany(['sort_order' => 'min', 'id' => 'min']);
     }
 
+    /**
+     * The listing's own delivery fee as it applies now. A fee above 0 counts only while admins let
+     * stores set their own fees; free delivery (0) always counts. Null: the marketplace prices it.
+     */
+    public function ownDeliveryFeeSantim(bool $storesSetFee): ?int
+    {
+        $fee = $this->delivery_fee_santim;
+
+        return $fee === 0 || ($fee !== null && $storesSetFee) ? $fee : null;
+    }
+
     public function isAvailable(): bool
     {
         return $this->stock_type === StockType::MadeToOrder || $this->stock_quantity > 0;

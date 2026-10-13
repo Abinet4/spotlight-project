@@ -72,10 +72,10 @@ export default function AdminReports() {
             <h2 className="mb-3 font-semibold text-stone-900">Top stores by delivered sales</h2>
             {d.top_sellers.length === 0 ? <p className="text-sm text-stone-500">No delivered orders in this period.</p> : (
               <div className="relative overflow-x-auto">
-                <table className="w-full min-w-[300px] text-left text-sm">
+                <table className="rtable rtable-flush w-full text-left text-sm sm:min-w-[300px]">
                   <thead className="text-xs text-stone-500 uppercase"><tr><th className="py-2 pr-3">Store</th><th className="py-2 pr-3 text-right">Orders</th><th className="py-2 pr-3 text-right">Gross</th><th className="py-2 text-right">Commission</th></tr></thead>
                   <tbody className="divide-y divide-stone-100">
-                    {d.top_sellers.map((s) => <tr key={s.slug}><td className="py-2 pr-3">{s.store_name}</td><td className="py-2 pr-3 text-right">{s.orders}</td><td className="py-2 pr-3 text-right">{money(s.gross_santim)}</td><td className="py-2 text-right">{money(s.commission_santim)}</td></tr>)}
+                    {d.top_sellers.map((s) => <tr key={s.slug}><td className="rtable-title py-2 pr-3">{s.store_name}</td><td data-label="Orders" className="py-2 pr-3 text-right">{s.orders}</td><td data-label="Gross" className="py-2 pr-3 text-right">{money(s.gross_santim)}</td><td data-label="Commission" className="py-2 text-right">{money(s.commission_santim)}</td></tr>)}
                   </tbody>
                 </table>
               </div>
@@ -87,20 +87,20 @@ export default function AdminReports() {
             <p className="mb-3 text-xs text-stone-500">Days with no deliveries are left out.</p>
             {activeDays.length === 0 ? <p className="text-sm text-stone-500">No deliveries in this period.</p> : (
             <div className="relative overflow-x-auto">
-              <table className="w-full min-w-[300px] text-left text-sm">
+              <table className="rtable rtable-flush w-full text-left text-sm sm:min-w-[300px]">
                 <thead className="text-xs text-stone-500 uppercase"><tr><th className="py-2 pr-3">Day</th><th className="py-2 pr-3 text-right">Orders</th><th className="py-2 pr-3">Gross</th><th className="py-2 text-right">Commission</th></tr></thead>
                 <tbody className="divide-y divide-stone-100">
                   {activeDays.map((x) => (
                     <tr key={x.date}>
-                      <td className="py-1.5 pr-3 whitespace-nowrap">{x.date}</td>
-                      <td className="py-1.5 pr-3 text-right">{x.orders}</td>
-                      <td className="py-1.5 pr-3">
+                      <td className="rtable-title py-1.5 pr-3 whitespace-nowrap">{x.date}</td>
+                      <td data-label="Orders" className="py-1.5 pr-3 text-right">{x.orders}</td>
+                      <td data-label="Gross" className="py-1.5 pr-3">
                         <span className="flex items-center gap-2">
                           <span className="hidden h-2 rounded bg-brand-600 sm:block" style={{ width: `${Math.round((80 * x.gross_santim) / maxDay)}px` }} aria-hidden="true" />
                           {x.gross_santim ? money(x.gross_santim) : <span className="text-stone-400">0</span>}
                         </span>
                       </td>
-                      <td className="py-1.5 text-right">{x.commission_santim ? money(x.commission_santim) : <span className="text-stone-400">0</span>}</td>
+                      <td data-label="Commission" className="py-1.5 text-right">{x.commission_santim ? money(x.commission_santim) : <span className="text-stone-400">0</span>}</td>
                     </tr>
                   ))}
                 </tbody>

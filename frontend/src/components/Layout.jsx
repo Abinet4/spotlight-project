@@ -341,18 +341,19 @@ export default function Layout() {
     <div className="flex min-h-screen flex-col">
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-white focus:p-2">Skip to content</a>
       <header className="sticky top-0 z-30 border-b border-stone-200/80 bg-white/90 backdrop-blur-md">
-        <div className="container-page flex h-16 items-center gap-3 lg:gap-5">
-          <Link to="/" className="flex shrink-0 items-center gap-2 font-bold text-brand-800">
-            <img src="/favicon.svg" alt="" className="size-8" />
-            <span className="font-display text-lg font-semibold tracking-tight sm:text-xl">{name}</span>
+        <div className="container-page flex h-16 items-center gap-2 sm:gap-3 lg:gap-5">
+          {/* On narrow phones the name gives way (truncates) so the bell and menu always fit. */}
+          <Link to="/" className="flex min-w-0 items-center gap-2 font-bold text-brand-800 md:shrink-0">
+            <img src="/favicon.svg" alt="" className="size-8 shrink-0" />
+            <span className="truncate font-display text-lg font-semibold tracking-tight sm:text-xl">{name}</span>
           </Link>
           {workArea
-            ? <span className="rounded-full bg-stone-100 px-2.5 py-1 text-xs font-semibold text-stone-600">{workArea}</span>
+            ? <span className="shrink-0 rounded-full bg-stone-100 px-2.5 py-1 text-xs font-semibold text-stone-600">{workArea}</span>
             : <SearchBox className="hidden flex-1 md:block md:max-w-xl" />}
           <nav className="ml-auto hidden items-center gap-1 lg:flex" aria-label="Account">
             <DesktopActions onSignOut={handleSignOut} workArea={workArea} />
           </nav>
-          <div className="ml-auto flex items-center gap-0.5 lg:hidden">
+          <div className="ml-auto flex shrink-0 items-center gap-0.5 lg:hidden">
             {user?.role === 'customer' && <CartLink />}
             {user && <AlertsLink />}
             {!user && <Link to="/login" className="icon-btn" aria-label="Sign in"><User className="size-5" aria-hidden="true" /></Link>}

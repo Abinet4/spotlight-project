@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Models\Product;
+use App\Models\Setting;
 use App\Support\Money;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -17,6 +18,10 @@ class ProductResource extends JsonResource
 
     public function toArray(Request $request): array
     {
+        // Shoppers see the fee that applies; the owner and admins see what the store entered.
+        $storesSetFee = self::storesSetFee($request);
+        $fee = $this->withModeration ? $this->delivery_fee_santim : $this->ownDeliveryFeeSantim($storesSetFee);
+
         return [
             'id' => $this->id,
             'name' => $this->name,
@@ -48,8 +53,10 @@ class ProductResource extends JsonResource
             'delivery' => [
                 'offers_delivery' => $this->offers_delivery,
                 'pickup_available' => $this->pickup_available,
-                'fee' => Money::toBirr($this->delivery_fee_santim),
-                'fee_santim' => $this->delivery_fee_santim,
+                'fee' => Money::toBirr($fee),
+                'fee_santim' => $fee,
+                // The store's own charged fee is switched off by admins, so the marketplace prices delivery.
+                'fee_ignored' => $this->when($this->withModeration, fn () => $fee !== null && $fee > 0 && ! $storesSetFee),
                 'notes' => $this->delivery_notes,
             ],
             'category' => $this->whenLoaded('category', fn () => [
@@ -78,5 +85,15 @@ class ProductResource extends JsonResource
             'published_at' => $this->published_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];
+    }
+
+    /** Read once per request, not once per listing in a list. */
+    private static function storesSetFee(Request $request): bool
+    {
+        if (! $request->attributes->has('stores_set_delivery_fee')) {
+            $request->attributes->set('stores_set_delivery_fee', Setting::storesSetDeliveryFee());
+        }
+
+        return $request->attributes->get('stores_set_delivery_fee');
     }
 }

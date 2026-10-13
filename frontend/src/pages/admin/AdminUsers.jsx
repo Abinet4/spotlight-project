@@ -31,7 +31,7 @@ export function AdminUsers() {
           <option value="suspended">Suspended</option>
         </select>
         <label htmlFor="user-q" className="sr-only">Search</label>
-        <input id="user-q" className="input min-w-0 flex-1 sm:max-w-xs" placeholder="Name, email or phone" value={term} onChange={(e) => setTerm(e.target.value)} />
+        <input id="user-q" className="input min-w-[12rem] flex-1 sm:max-w-xs" placeholder="Name, email or phone" value={term} onChange={(e) => setTerm(e.target.value)} />
         <button type="submit" className="btn-secondary">Search</button>
       </form>
       {list.loading && !list.data ? <Spinner /> : list.error ? <ErrorState error={list.error} /> : list.data.data.length === 0 ? <EmptyState title="No accounts found" /> : (

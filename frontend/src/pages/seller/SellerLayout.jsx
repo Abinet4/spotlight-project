@@ -8,7 +8,7 @@ function groups(store) {
     ['Daily', [
       { to: '/seller', label: 'Overview', icon: LayoutDashboard, end: true },
       { to: '/seller/orders', label: 'Orders', icon: ShoppingBag, count: (s) => s.orders.pending_confirmation },
-      { to: '/seller/listings', label: 'Listings', icon: Package, count: (s) => s.products.rejected },
+      { to: '/seller/listings', label: 'Listings', icon: Package, count: (s) => s.products.rejected, also: ['/seller/products'] },
       { to: '/messages', label: 'Messages', icon: MessageCircle, count: (s) => s.unread },
       { to: '/seller/reviews', label: 'Reviews', icon: Star, count: (s) => s.reviews.low_unanswered },
     ]],

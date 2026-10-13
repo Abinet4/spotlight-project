@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Product;
 use App\Models\SellerProfile;
 use App\Models\Setting;
 use App\Payments\ChapaGateway;
@@ -35,6 +36,7 @@ class SettingsController extends Controller
             'delivery_per_km_birr' => ['sometimes', 'integer', 'min:0', 'max:10000'],
             'delivery_max_km' => ['sometimes', 'integer', 'min:0', 'max:1000'],
             'delivery_per_floor_birr' => ['sometimes', 'integer', 'min:0', 'max:10000'],
+            'stores_set_delivery_fee' => ['sometimes', 'boolean'],
         ], [], [
             'delivery_base_fee_birr' => 'base fee',
             'delivery_per_km_birr' => 'per km fee',
@@ -69,6 +71,7 @@ class SettingsController extends Controller
             'payment_window_minutes' => max(5, (int) config('marketplace.payments.window_minutes')),
             'maps_browser_key_set' => (bool) config('services.google_maps.browser_key'),
             'maps_server_key_set' => (bool) config('services.google_maps.server_key'),
+            'listings_with_own_fee' => Product::whereNotNull('delivery_fee_santim')->where('delivery_fee_santim', '>', 0)->count(),
             'stores_without_pin' => SellerProfile::where('status', 'approved')->where('offers_delivery', true)->whereNull('latitude')->count(),
         ];
     }
@@ -86,6 +89,7 @@ class SettingsController extends Controller
             'delivery_per_km_birr' => intdiv(Setting::deliveryPerKmSantim(), 100),
             'delivery_max_km' => Setting::deliveryMaxKm(),
             'delivery_per_floor_birr' => intdiv(Setting::deliveryPerFloorSantim(), 100),
+            'stores_set_delivery_fee' => Setting::storesSetDeliveryFee(),
         ];
     }
 }

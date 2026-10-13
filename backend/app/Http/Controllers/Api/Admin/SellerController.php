@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Enums\BusinessType;
 use App\Enums\SellerStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\SellerProfileResource;
@@ -55,6 +56,39 @@ class SellerController extends Controller
     public function show(SellerProfile $seller): SellerProfileResource
     {
         return new SellerProfileResource($seller->load(['user:id,name,email', 'city', 'area'])->loadCount('products'));
+    }
+
+    /**
+     * The store's checked identity: name, TIN and kind of business. Stores cannot change these
+     * themselves after approval, so corrections and renames come through here, and are logged.
+     */
+    public function update(Request $request, SellerProfile $seller, AuditLogger $audit): SellerProfileResource
+    {
+        $data = $request->validate([
+            'store_name' => ['sometimes', 'string', 'min:2', 'max:120'],
+            'tin_number' => ['sometimes', 'nullable', 'string', 'max:32'],
+            'business_type' => ['sometimes', Rule::enum(BusinessType::class)],
+        ], [], ['tin_number' => 'TIN number', 'business_type' => 'kind of business']);
+
+        $data = array_map(fn ($v) => is_string($v) ? (trim($v) === '' ? null : trim($v)) : $v, $data);
+        if (array_key_exists('store_name', $data) && $data['store_name'] === null) {
+            throw ValidationException::withMessages(['store_name' => 'Enter the store name.']);
+        }
+
+        DB::transaction(function () use ($seller, $data, $audit) {
+            $locked = SellerProfile::whereKey($seller->id)->lockForUpdate()->firstOrFail();
+            $before = collect($data)->keys()->mapWithKeys(fn ($k) => [$k => $locked->{$k} instanceof \BackedEnum ? $locked->{$k}->value : $locked->{$k}])->all();
+            // The storefront slug stays fixed so shared links keep working after a rename.
+            $locked->fill($data);
+            if (! $locked->isDirty()) {
+                return;
+            }
+            $locked->save();
+            $after = collect($data)->keys()->mapWithKeys(fn ($k) => [$k => $locked->{$k} instanceof \BackedEnum ? $locked->{$k}->value : $locked->{$k}])->all();
+            $audit->log('seller.details_changed', $locked, ['before' => $before, 'after' => $after]);
+        });
+
+        return new SellerProfileResource($seller->refresh()->load(['user:id,name,email', 'city', 'area'])->loadCount('products'));
     }
 
     public function review(Request $request, SellerProfile $seller, string $action, AuditLogger $audit, Alerts $alerts): SellerProfileResource

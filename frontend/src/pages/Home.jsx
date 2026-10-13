@@ -120,12 +120,12 @@ export default function Home() {
               {categories.map((c) => {
                 const Icon = categoryIcon(c.slug)
                 return (
-                  <Link key={c.id} to={`/category/${c.slug}`} className="card group flex items-center gap-3 p-4 transition hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-lift">
+                  <Link key={c.id} to={`/category/${c.slug}`} className="card group flex flex-col items-start gap-3 p-4 transition hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-lift min-[420px]:flex-row min-[420px]:items-center">
                     <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700 transition group-hover:bg-brand-700 group-hover:text-white">
                       <Icon className="size-5" aria-hidden="true" />
                     </span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-semibold text-stone-900">{c.name}</span>
+                    <span className="min-w-0 max-w-full">
+                      <span className="block text-sm font-semibold text-stone-900 min-[420px]:truncate">{c.name}</span>
                       <span className="block text-xs text-stone-500">{c.products_count} {c.products_count === 1 ? 'listing' : 'listings'}</span>
                     </span>
                   </Link>

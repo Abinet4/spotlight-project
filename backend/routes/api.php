@@ -66,6 +66,7 @@ Route::get('/config', fn () => response()->json([
         'per_km_santim' => Setting::deliveryPerKmSantim(),
         'max_km' => Setting::deliveryMaxKm(),
         'per_floor_santim' => Setting::deliveryPerFloorSantim(),
+        'stores_set_fee' => Setting::storesSetDeliveryFee(),
     ],
 ]));
 
@@ -204,6 +205,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
 
     Route::get('/sellers', [AdminSellerController::class, 'index']);
     Route::get('/sellers/{seller}', [AdminSellerController::class, 'show']);
+    Route::put('/sellers/{seller}', [AdminSellerController::class, 'update']);
     Route::post('/sellers/{seller}/{action}', [AdminSellerController::class, 'review'])
         ->whereIn('action', ['approve', 'reject', 'suspend', 'reinstate']);
 
