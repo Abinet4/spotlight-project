@@ -1,0 +1,24 @@
+# Keep local files out of the server image: secrets, installed packages (reinstalled without dev
+# tools), caches built on another machine, uploads and logs.
+.env
+.env.*
+!.env.example
+.git
+.try-local
+vendor
+node_modules
+tests
+storage/app/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/framework/testing
+storage/logs/*
+bootstrap/cache/*.php
+public/storage
+public/hot
+public/build
+*.sqlite
+*.log
+.phpunit.cache
+.phpunit.result.cache

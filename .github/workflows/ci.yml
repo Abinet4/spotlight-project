@@ -1,0 +1,120 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Jobs only read the code; nothing in CI may write to the repository.
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: marketplace_test
+          MYSQL_ROOT_PASSWORD: root
+        ports: ['3306:3306']
+        options: --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@d52fc211a0436f8839a587b3b5b8efddab4744ea # v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql, mbstring, gd, fileinfo, intl
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: cp .env.example .env && php artisan key:generate
+      - run: ./vendor/bin/pint --test
+      - name: Tests (SQLite)
+        run: php artisan test
+      - name: Tests (MySQL)
+        run: php artisan test
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: marketplace_test
+          DB_USERNAME: root
+          DB_PASSWORD: root
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+  # The API server image as Railway builds it (docs/DEPLOY-TEST.md), started like a fresh test site.
+  docker:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: marketplace
+          MYSQL_USER: mp
+          MYSQL_PASSWORD: secret
+          MYSQL_ROOT_PASSWORD: root
+        ports: ['3306:3306']
+        options: --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the API image
+        run: docker build -t spotlight-api backend
+      - name: Start it with demo data
+        run: |
+          docker run -d --name api --network host -e PORT=8080 -e APP_ENV=staging \
+            -e APP_KEY="base64:$(openssl rand -base64 32)" -e APP_URL=http://localhost:5173 -e API_URL=http://localhost:8080 \
+            -e DB_CONNECTION=mysql -e DB_URL=mysql://mp:secret@127.0.0.1:3306/marketplace \
+            -e ADMIN_EMAIL=ci@example.com -e 'ADMIN_PASSWORD=Ci-admin-pass-123!' \
+            -e SEED_DEMO=true -e 'DEMO_USER_PASSWORD=Ci-demo-pass-123!' spotlight-api
+          for i in $(seq 1 90); do curl -fs http://localhost:8080/up > /dev/null && break; sleep 2; done
+          docker logs api
+          curl -fs http://localhost:8080/up > /dev/null
+      - name: Demo listings have WebP photo copies served by the API
+        run: |
+          image=$(curl -fs http://localhost:8080/api/products | jq -r '.data[0].image')
+          echo "$image"
+          [[ "$image" == http://localhost:8080/storage/products/*-thumb.webp ]]
+          curl -fs -o /dev/null -w '%{content_type}\n' "$image" | grep -q image/webp
+      - name: Original photos are private and answers carry the security headers
+        run: |
+          image=$(curl -fs http://localhost:8080/api/products | jq -r '.data[0].image')
+          original="${image%-thumb.webp}.jpg"
+          echo "$original"
+          [ "$(curl -s -o /dev/null -w '%{http_code}' "$original")" = 404 ]
+          headers=$(curl -fsI http://localhost:8080/api/categories)
+          echo "$headers"
+          grep -qi "^content-security-policy: default-src 'none'" <<< "$headers"
+          grep -qi '^x-frame-options: DENY' <<< "$headers"
+          grep -qi '^x-content-type-options: nosniff' <<< "$headers"
+          root=$(curl -fsi http://localhost:8080/)
+          # (`! grep` would not stop the step under bash -e, hence the if.)
+          if grep -qi -e '^set-cookie' -e 'laravel' <<< "$root"; then echo "$root"; exit 1; fi
+      - name: Admin can sign in
+        run: |
+          curl -fs -X POST http://localhost:8080/api/auth/login -H 'Accept: application/json' -H 'Content-Type: application/json' \
+            -d '{"email":"ci@example.com","password":"Ci-admin-pass-123!"}' | jq -e '.token' > /dev/null
+      - name: A second start changes nothing
+        run: |
+          docker restart api
+          for i in $(seq 1 60); do curl -fs http://localhost:8080/up > /dev/null && break; sleep 2; done
+          docker logs api 2>&1 | grep -q 'Demo data was added on an earlier start; skipped.'
+          docker logs api 2>&1 | grep -q 'ci@example.com already has an account (admin); left unchanged.'
