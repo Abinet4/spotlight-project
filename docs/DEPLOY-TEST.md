@@ -21,9 +21,6 @@ You need: a GitHub login with access to `fikremariamF/spotlight-project`, a Rail
 trial credit and then a paid plan; Vercel's free Hobby plan is meant for non-commercial use. Check their
 pricing pages for current terms.
 
-The `main` branch is still empty while the feature branches wait to be merged, so both hosts are pointed
-at the branch `feat/test-deploy` below. After everything is merged into `main`, switch both to `main`.
-
 ## 1. Make two secrets on your PC
 
 In PowerShell, run this and keep the output (it is the app's encryption key, `APP_KEY`):
@@ -45,7 +42,7 @@ The site is on the public internet, so do not reuse the local demo passwords (`D
 1. railway.com, **New Project**, **Deploy from GitHub repo**, choose `spotlight-project`. Allow Railway's
    GitHub app to see the repository if asked. The first build fails because `main` is empty; that is fine.
 2. Open the new service, **Settings**:
-   - **Source**: Root Directory `/backend`, Branch `feat/test-deploy`.
+   - **Source**: Root Directory `/backend`, Branch `main`.
    - **Networking**: **Generate Domain** with port `8080`. Note the address, for
      example `https://spotlight-api-production.up.railway.app`.
    - **Region** (if offered): EU West, the closest to Addis Ababa.
@@ -101,8 +98,7 @@ yet and no other administrator exists. Later starts never reset the admin's pass
 2. **Root Directory**: `frontend`. The rest comes from `frontend/vercel.json` (Vite, `npm run build`, `dist`).
 3. **Environment Variables**: `VITE_API_URL` = the Railway address from step 2, for example
    `https://spotlight-api-production.up.railway.app` (no `/api` at the end).
-4. Deploy. If the first deploy builds `main` and fails, open **Settings**, **Git**, set **Production
-   Branch** to `feat/test-deploy`, then deploy that branch from the **Deployments** page.
+4. Deploy. The production branch should be `main` (**Settings**, **Git**, **Production Branch**).
 
 `VITE_API_URL` is built into the pages: after changing it, redeploy on Vercel.
 
@@ -161,6 +157,8 @@ The API's **Deploy Logs** on Railway explain a failed start in a line starting w
 | Too many sign-in attempts for everyone | See check 3 above about `TRUSTED_PROXIES`. |
 | Map stays blank, browser console mentions Content Security Policy | Tell the developer the blocked address; it goes in `frontend/vercel.json`. |
 | Railway says the app is not responding | The domain's port and the `PORT` variable must both be `8080`. |
+| `storage/app is not on a lasting disk (volume)` | The volume's **Mount Path** must be `/var/www/html/storage/app`. |
+| `AH00534: More than one MPM loaded` | Fixed in `docker/start.sh` (it keeps only `mpm_prefork`); redeploy from the latest `main`. |
 
 ## Going live later
 
