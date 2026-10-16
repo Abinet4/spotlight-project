@@ -41,6 +41,8 @@ if [ "$ROLE" = all ] || [ "$ROLE" = web ]; then
   # Sub-cities and categories on a new database; with SEED_DEMO=true also demo data, once.
   if [ "${SEED_DEMO:-false}" = true ]; then
     as_www php artisan marketplace:prepare --demo --no-interaction || fail "Demo data was not added (see the reason above)."
+    # Demo photos added before the photo disk was attached are gone after a redeploy: draw them again.
+    as_www php artisan marketplace:demo-pictures --no-interaction || say "Demo pictures were not redrawn (see the reason above)."
   else
     as_www php artisan marketplace:prepare --no-interaction
   fi

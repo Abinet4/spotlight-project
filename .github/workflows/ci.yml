@@ -118,6 +118,21 @@ jobs:
           for i in $(seq 1 60); do curl -fs http://localhost:8080/up > /dev/null && break; sleep 2; done
           docker logs api 2>&1 | grep -q 'Demo data was added on an earlier start; skipped.'
           docker logs api 2>&1 | grep -q 'ci@example.com already has an account (admin); left unchanged.'
+      - name: Demo photos lost from the disk are drawn again on the next start
+        run: |
+          # As on a first deploy whose photo disk was attached later: the database still lists the photos.
+          docker exec api rm -rf storage/app/public/products storage/app/private/products
+          image=$(curl -fs http://localhost:8080/api/products | jq -r '.data[0].image')
+          [ "$(curl -s -o /dev/null -w '%{http_code}' "$image")" = 404 ]
+          docker restart api
+          for i in $(seq 1 60); do curl -fs http://localhost:8080/up > /dev/null && break; sleep 2; done
+          docker logs api 2>&1 | grep -E 'Redrew [0-9]+ demo picture'
+          image=$(curl -fs http://localhost:8080/api/products | jq -r '.data[0].image')
+          curl -fs -o /dev/null -w '%{content_type}\n' "$image" | grep -q image/webp
+          since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          docker restart api
+          for i in $(seq 1 60); do curl -fs http://localhost:8080/up > /dev/null && break; sleep 2; done
+          docker logs --since "$since" api 2>&1 | grep -q 'Demo pictures are up to date.'
       - name: Starts even when the host turns on a second Apache MPM (as Railway does)
         run: |
           docker exec api sh -c 'cd /etc/apache2/mods-enabled && ln -s ../mods-available/mpm_event.load . && ln -s ../mods-available/mpm_event.conf .'
