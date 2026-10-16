@@ -60,6 +60,21 @@ keep_running() {
   done
 }
 
+# Apache refuses to start with more than one MPM, and some hosts (Railway) start the container with an
+# extra one enabled. PHP here needs prefork, so keep only that one.
+if [ "$ROLE" = all ] || [ "$ROLE" = web ]; then
+  for module in /etc/apache2/mods-enabled/mpm_*.load; do
+    [ -e "$module" ] || continue
+    name=$(basename "$module" .load)
+    [ "$name" = mpm_prefork ] && continue
+    say "Turning off Apache's $name (only mpm_prefork works with PHP here)."
+    rm -f "/etc/apache2/mods-enabled/$name.load" "/etc/apache2/mods-enabled/$name.conf"
+  done
+  [ -e /etc/apache2/mods-enabled/mpm_prefork.load ] || a2enmod -q mpm_prefork
+  # If Apache's settings are still wrong, show where modules are loaded from before it stops.
+  apache2ctl -t 2>/dev/null || grep -Rn "^[[:space:]]*LoadModule mpm_" /etc/apache2/apache2.conf /etc/apache2/*-enabled || true
+fi
+
 case "$ROLE" in
   all)
     keep_running php artisan queue:work --sleep=3 --tries=3 --max-time=3600 &
