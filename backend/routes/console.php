@@ -107,9 +107,10 @@ Artisan::command('marketplace:prepare {--demo : Also add the demo sellers and li
 
 Artisan::command('marketplace:demo-pictures', function (ImageVariants $variants) {
     // Only pictures the demo seeder generated (products/{id}/demo-*.jpg); seller photos are never touched.
+    // Redrawn: old plain demo pictures, and drawn ones whose files are gone (for example demo data added
+    // before the photo disk was attached, then lost on the next deploy).
     $images = ProductImage::query()
         ->where('path', 'like', 'products/%/demo-%')
-        ->where('path', 'not like', 'products/%/'.DemoSeeder::ART_PREFIX.'%')
         ->with('product:id,name,color')
         ->orderBy('id')
         ->get();
@@ -117,7 +118,13 @@ Artisan::command('marketplace:demo-pictures', function (ImageVariants $variants)
     $art = new DemoFurnitureArt;
     $redrawn = 0;
     foreach ($images as $image) {
-        if (! $image->product || ! preg_match('#^products/\d+/demo-[A-Za-z0-9]+\.jpg$#', $image->path)) {
+        if (! $image->product || ! preg_match('#^products/\d+/demo-[A-Za-z0-9-]+\.jpg$#', $image->path)) {
+            continue;
+        }
+        $drawn = str_starts_with(basename($image->path), DemoSeeder::ART_PREFIX);
+        $filesThere = Storage::disk(ProductImage::ORIGINALS_DISK)->exists($image->path)
+            && collect($image->copies())->every(fn (string $copy) => Storage::disk('public')->exists($copy));
+        if ($drawn && $filesThere) {
             continue;
         }
         $new = "products/{$image->product_id}/".DemoSeeder::ART_PREFIX.Str::random(8).'.jpg';
@@ -131,7 +138,7 @@ Artisan::command('marketplace:demo-pictures', function (ImageVariants $variants)
     $this->info($redrawn ? "Redrew {$redrawn} demo ".Str::plural('picture', $redrawn).'.' : 'Demo pictures are up to date.');
 
     return 0;
-})->purpose('Replace the old plain demo pictures with drawn furniture (demo data only)');
+})->purpose('Redraw demo pictures that are old plain ones or whose files are missing (demo data only)');
 
 Artisan::command('marketplace:image-variants {--all : Remake the copies of every photo, not only photos without them}', function (ImageVariants $variants) {
     // Safe to run again: by default only photos that have no smaller copies yet are processed.
