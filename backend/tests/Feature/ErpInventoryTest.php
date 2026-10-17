@@ -226,6 +226,7 @@ class ErpInventoryTest extends TestCase
         $this->assertSame([2], array_column($data['sales']['top_products'], 'units'));
         $this->assertNotEmpty($data['recent_movements']);
 
+        $this->getJson('/api/seller/summary')->assertOk()->assertJsonPath('data.stock', ['low' => 1, 'out' => 1]);
         $this->getJson('/api/seller/erp/overview?period=custom&from=2026-02-10&to=2026-01-01')->assertUnprocessable();
         $this->getJson('/api/seller/erp/overview?period=year')->assertUnprocessable();
 

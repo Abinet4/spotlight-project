@@ -3,10 +3,12 @@
 namespace App\Support\Erp;
 
 use App\Enums\OrderStatus;
+use App\Enums\ProductStatus;
 use App\Enums\StockType;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\SellerErpSetting;
 use App\Services\InventoryService;
 use Illuminate\Support\Collection;
 
@@ -37,6 +39,27 @@ class StockFigures
         $this->sold = $key(OrderItem::whereIn('product_id', $ids)->whereNull('quote_id')
             ->whereHas('order', fn ($q) => $q->where('status', OrderStatus::Delivered->value))
             ->selectRaw('product_id, variant_id, sum(quantity) as n')->groupBy('product_id', 'variant_id')->get());
+    }
+
+    /**
+     * Low and out-of-stock item counts for a store, in two queries (for the menu badge and to-do).
+     *
+     * @return array{low: int, out: int}
+     */
+    public static function counts(int $storeId): array
+    {
+        $level = SellerErpSetting::forSeller($storeId)->low_stock_level;
+        $listings = Product::where('seller_profile_id', $storeId)->where('stock_type', StockType::InStock->value)
+            ->where('status', '!=', ProductStatus::Archived->value);
+        $simple = (clone $listings)->whereDoesntHave('variants')
+            ->selectRaw('sum(case when stock_quantity = 0 then 1 else 0 end) as out_n, sum(case when stock_quantity > 0 and stock_quantity <= coalesce(min_stock_level, ?) then 1 else 0 end) as low_n', [$level])
+            ->first();
+        $options = ProductVariant::join('products', 'products.id', '=', 'product_variants.product_id')
+            ->whereIn('product_variants.product_id', (clone $listings)->select('products.id'))
+            ->selectRaw('sum(case when product_variants.stock_quantity = 0 then 1 else 0 end) as out_n, sum(case when product_variants.stock_quantity > 0 and product_variants.stock_quantity <= coalesce(product_variants.min_stock_level, products.min_stock_level, ?) then 1 else 0 end) as low_n', [$level])
+            ->first();
+
+        return ['low' => (int) $simple->low_n + (int) $options->low_n, 'out' => (int) $simple->out_n + (int) $options->out_n];
     }
 
     /**

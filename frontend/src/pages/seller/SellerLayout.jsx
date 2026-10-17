@@ -1,4 +1,4 @@
-import { Eye, LayoutDashboard, MessageCircle, Package, ShoppingBag, Star, Store, Wallet } from 'lucide-react'
+import { Boxes, Eye, History, LayoutDashboard, MessageCircle, Package, PieChart, Settings2, ShoppingBag, Star, Store, Wallet } from 'lucide-react'
 import { Outlet } from 'react-router-dom'
 import WorkArea, { useAreaSummary } from '../../components/WorkArea'
 import { useInbox } from '../../context/InboxContext'
@@ -12,6 +12,12 @@ function groups(store) {
       { to: '/messages', label: 'Messages', icon: MessageCircle, count: (s) => s.unread },
       { to: '/seller/reviews', label: 'Reviews', icon: Star, count: (s) => s.reviews.low_unanswered },
     ]],
+    ['ERP Management', [
+      { to: '/seller/erp', label: 'ERP overview', icon: PieChart, end: true },
+      { to: '/seller/erp/inventory', label: 'Inventory', icon: Boxes, count: (s) => (s.stock?.low || 0) + (s.stock?.out || 0) },
+      { to: '/seller/erp/movements', label: 'Stock history', icon: History },
+      { to: '/seller/erp/settings', label: 'ERP settings', icon: Settings2 },
+    ], { collapsible: true, defaultOpen: true }],
     ['Store', [
       { to: '/seller/balance', label: 'Balance', icon: Wallet },
       { to: '/seller/profile', label: 'Store profile', icon: Store },

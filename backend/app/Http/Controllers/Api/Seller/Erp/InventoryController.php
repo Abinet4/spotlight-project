@@ -367,7 +367,8 @@ class InventoryController extends Controller
             'reference_type' => $m->reference_type,
             'reference_id' => $m->reference_id,
             'note' => $m->note,
-            'by' => $m->user?->name,
+            // Order lines are done by the customer; the store sees the order, not who placed it.
+            'by' => str_starts_with($m->type, 'order_') ? null : $m->user?->name,
             'created_at' => $m->created_at?->toIso8601String(),
         ] + ($withProduct ? ['product' => $m->product ? ['id' => $m->product->id, 'name' => $m->product->name] : null] : []);
     }

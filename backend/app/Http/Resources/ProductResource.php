@@ -49,6 +49,7 @@ class ProductResource extends JsonResource
             'material' => $this->material,
             'color' => $this->color,
             'sku' => $this->when($this->withModeration, fn () => $this->sku),
+            'options_count' => $this->whenCounted('variants'),
             // Options a customer picks from, each with its own stock and price.
             'variants' => $this->whenLoaded('variants', fn () => $this->variants->map(fn ($v) => [
                 'id' => $v->id,

@@ -6,6 +6,7 @@ use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Review;
+use App\Support\Erp\StockFigures;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -35,6 +36,7 @@ class SummaryController extends Controller
                     ->where('created_at', '>=', now()->subDays(30))->count(),
             ],
             'balance' => BalanceController::summary($seller->id),
+            'stock' => StockFigures::counts($seller->id),
         ]]);
     }
 }

@@ -83,7 +83,8 @@ class CatalogController extends Controller
         $query = Product::query()
             ->visible()
             ->search($filters['q'] ?? null)
-            ->with(['primaryImage', 'category:id,name,slug', 'seller:id,store_name,slug,area_id', 'seller.area:id,name', 'area:id,name']);
+            ->with(['primaryImage', 'category:id,name,slug', 'seller:id,store_name,slug,area_id', 'seller.area:id,name', 'area:id,name'])
+            ->withCount('variants');
 
         if (! empty($filters['category'])) {
             $category = Category::active()->where('slug', $filters['category'])->first();

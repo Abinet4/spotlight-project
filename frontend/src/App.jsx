@@ -53,6 +53,11 @@ const SellerOrders = lazy(() => import('./pages/seller/SellerOrders').then((m) =
 const SellerReviews = lazy(() => import('./pages/seller/SellerReviews'))
 const SellerProductForm = lazy(() => import('./pages/seller/SellerProductForm'))
 const SellerProfile = lazy(() => import('./pages/seller/SellerProfile'))
+const ErpOverview = lazy(() => import('./pages/seller/erp/ErpOverview'))
+const ErpInventory = lazy(() => import('./pages/seller/erp/ErpInventory'))
+const ErpItem = lazy(() => import('./pages/seller/erp/ErpItem'))
+const ErpMovements = lazy(() => import('./pages/seller/erp/ErpMovements'))
+const ErpSettings = lazy(() => import('./pages/seller/erp/ErpSettings'))
 
 /** Messages are shared with customers: sellers see them inside the seller area, customers in the shop. */
 function SellerShellFor({ children }) {
@@ -99,6 +104,11 @@ export default function App() {
           <Route path="profile" element={<SellerProfile />} />
           <Route path="products/new" element={<SellerProductForm />} />
           <Route path="products/:id/edit" element={<SellerProductForm />} />
+          <Route path="erp" element={<ErpOverview />} />
+          <Route path="erp/inventory" element={<ErpInventory />} />
+          <Route path="erp/inventory/:id" element={<ErpItem />} />
+          <Route path="erp/movements" element={<ErpMovements />} />
+          <Route path="erp/settings" element={<ErpSettings />} />
         </Route>
 
         <Route path="admin" element={<RequireRole roles={['admin']}><AdminLayout /></RequireRole>}>

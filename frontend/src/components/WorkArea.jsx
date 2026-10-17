@@ -29,14 +29,51 @@ function isHere(link, pathname) {
   return (link.end ? pathname === link.to || pathname === `${link.to}/` : under(link.to)) || (link.also || []).some(under)
 }
 
+/** Open or closed state of expandable menu groups, remembered on this device when storage allows. */
+function useOpenGroups() {
+  const [open, setOpen] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('mp_menu_groups') || '{}')
+    } catch {
+      return {}
+    }
+  })
+  const toggle = (group, value) => setOpen((o) => {
+    const next = { ...o, [group]: value }
+    try {
+      localStorage.setItem('mp_menu_groups', JSON.stringify(next))
+    } catch {
+      // Private windows may block storage; the menu still works for this visit.
+    }
+    return next
+  })
+  return [open, toggle]
+}
+
 function Nav({ label, groups, counts }) {
   const { pathname } = useLocation()
+  const [open, toggle] = useOpenGroups()
   return (
     <nav aria-label={label} className="space-y-4">
-      {groups.map(([group, links]) => (
+      {groups.map(([group, links, options = {}]) => {
+        const inside = links.some((l) => isHere(l, pathname))
+        // An expandable group is always open while one of its pages is showing.
+        const expanded = !options.collapsible || inside || (open[group] ?? options.defaultOpen ?? false)
+        const listId = `menu-${group.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
+        return (
         <div key={group}>
-          <p className="mb-1 px-3 text-xs font-semibold tracking-wide text-stone-400 uppercase">{group}</p>
-          <ul>
+          {options.collapsible ? (
+            <button type="button" aria-expanded={expanded} aria-controls={listId} disabled={inside}
+              onClick={() => toggle(group, !expanded)}
+              className="mb-1 flex w-full items-center justify-between rounded-lg px-3 py-1 text-xs font-semibold tracking-wide text-stone-500 uppercase hover:bg-stone-100 disabled:cursor-default disabled:hover:bg-transparent">
+              <span>{group}</span>
+              <ChevronDown className={`size-3.5 transition ${expanded ? 'rotate-180' : ''}`} aria-hidden="true" />
+            </button>
+          ) : (
+            <p className="mb-1 px-3 text-xs font-semibold tracking-wide text-stone-400 uppercase">{group}</p>
+          )}
+          {expanded && (
+          <ul id={listId}>
             {links.map((link) => {
               const { to, label: text, icon: Icon, count } = link
               const n = counts && count ? count(counts) || 0 : 0
@@ -53,8 +90,10 @@ function Nav({ label, groups, counts }) {
               )
             })}
           </ul>
+          )}
         </div>
-      ))}
+        )
+      })}
     </nav>
   )
 }

@@ -1,6 +1,6 @@
 # Seller ERP: architecture notes and plan
 
-Status: Phase 1 in progress (2026-10-17). This file is the source of truth for how the ERP fits the
+Status: Phase 1 done (2026-10-17), draft PR from `feat/seller-erp`. Phases 2 to 5 follow. This file is the source of truth for how the ERP fits the
 existing marketplace; update it as phases land.
 
 ## What already exists (checked in the code, not assumed)
@@ -26,9 +26,10 @@ expenses, offline sales, invoices. These are what the ERP adds.
 
 1. **One product record.** The ERP's inventory item *is* the existing listing. No second product table.
    ERP-only fields (SKU, cost price, minimum stock, reorder quantity) are new columns on `products`.
-2. **`products.stock_quantity` stays the available quantity** that checkout already trusts. Everything that
-   changes it goes through one new `InventoryService`, which also writes a `stock_movements` row
-   with the quantity before and after. Reserved = units held by open orders (`order_items.reserved_quantity`),
+2. **`products.stock_quantity` stays the available quantity** that checkout already trusts. For a listing
+   with options it is the sum of the options' stock. Everything that changes stock goes through one
+   `InventoryService` (it locks the product row, so option and location counts change under the same lock),
+   which also writes a `stock_movements` row with the quantity after the change. Reserved = units held by open orders (`order_items.reserved_quantity`),
    sold = units in delivered orders and offline sales.
 3. **Locations without breaking checkout.** Each store gets a default location ("Main store"). Extra
    locations keep their own counts; the default location holds whatever is not elsewhere
@@ -47,7 +48,10 @@ expenses, offline sales, invoices. These are what the ERP adds.
 | Phase | Change |
 | --- | --- |
 | 1 | `products`: `sku` (unique per store), `cost_price_santim`, `min_stock_level`, `reorder_quantity` |
-| 1 | `order_items.unit_cost_santim` (cost at the time of sale, for profit later) |
+| 1 | `product_variants` (options of a listing: size, color, material, own SKU, price, cost, stock, levels; soft deleted) |
+| 1 | `cart_items.variant_id` (+ generated `variant_key`; unique per customer, listing and option) |
+| 1 | `order_items.variant_id`, `variant_label` (snapshot), `unit_cost_santim` (cost at the time of sale) |
+| 1 | `seller_erp_settings` (store's low-stock level, alerts on/off, SKU prefix) |
 | 1 | `warehouses` (store's locations, one default), `warehouse_stock` (count per non-default location) |
 | 1 | `stock_movements` (every change: type, quantity, before/after, location, linked order or document, who) |
 | 2 | `suppliers`, `purchase_orders`, `purchase_order_items`, `purchase_receipts` (+ items), `supplier_payments`, `stock_transfers` |
@@ -71,8 +75,17 @@ expenses, offline sales, invoices. These are what the ERP adds.
 
 ## Defaults picked where the request leaves room
 
-- **Variants (size, color, material):** each listing remains one stock item. Sellers who sell a sofa in
-  three colors keep three listings, as today. Per-variant stock would change the cart, checkout and
-  every order, so it is left for a later, separate change.
-- **Profit is "estimated".** It uses the average purchase cost per item. This is operational reporting,
-  not statutory accounting (no double-entry ledger or bank reconciliation).
+- **Options (size, color, material) live inside a listing** (user's choice on 2026-10-17). A listing
+  with options has one stock item per option; a listing without options is one stock item. Shoppers pick
+  an option on the product page; the cart, checkout and the order line carry it. Adding the first option
+  moves the listing's stock to it. An option with stock, or held by an open order, cannot be removed.
+  Up to 30 options per listing. An order placed before options existed releases its stock to the first option.
+- **Stock edits are checked for staleness.** The listing form and the stock-change form send the number the
+  store saw; if an order changed it meanwhile, the save is refused and the page reloads the current number.
+- **Low-stock alerts** fire once when an item drops to its level, and again at zero. Level: the option's,
+  else the listing's, else the store setting (default 2). Stores can turn alerts off.
+- **Profit is "estimated".** Phase 1 uses the cost price the store enters, frozen on each order line when the
+  order is placed; lines without a cost are left out of gross profit and shown as a warning. Purchase
+  receipts (phase 2) will keep the cost price up to date. This is operational reporting, not statutory
+  accounting (no double-entry ledger or bank reconciliation).
+- **Privacy:** stock history shows "Order" and the order number, never the customer's name.
