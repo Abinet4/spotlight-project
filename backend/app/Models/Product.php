@@ -67,6 +67,12 @@ class Product extends Model
         return $this->belongsTo(Category::class);
     }
 
+    /** The supplier the store usually buys this from. Private to the store. */
+    public function supplier(): BelongsTo
+    {
+        return $this->belongsTo(Supplier::class);
+    }
+
     public function area(): BelongsTo
     {
         return $this->belongsTo(Area::class);

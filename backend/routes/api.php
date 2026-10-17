@@ -30,7 +30,11 @@ use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\Seller\BalanceController;
 use App\Http\Controllers\Api\Seller\Erp\InventoryController as ErpInventoryController;
 use App\Http\Controllers\Api\Seller\Erp\OverviewController as ErpOverviewController;
+use App\Http\Controllers\Api\Seller\Erp\PurchaseController as ErpPurchaseController;
 use App\Http\Controllers\Api\Seller\Erp\SettingsController as ErpSettingsController;
+use App\Http\Controllers\Api\Seller\Erp\SupplierController as ErpSupplierController;
+use App\Http\Controllers\Api\Seller\Erp\TransferController as ErpTransferController;
+use App\Http\Controllers\Api\Seller\Erp\WarehouseController as ErpWarehouseController;
 use App\Http\Controllers\Api\Seller\OrderController as SellerOrderController;
 use App\Http\Controllers\Api\Seller\ProductController as SellerProductController;
 use App\Http\Controllers\Api\Seller\ProfileController as SellerProfileController;
@@ -214,8 +218,49 @@ Route::prefix('seller')->middleware(['auth:sanctum', 'role:seller'])->group(func
         Route::post('/inventory/{id}/adjust', [ErpInventoryController::class, 'adjust'])->whereNumber('id')->middleware('throttle:erp-writes');
         Route::post('/inventory/{id}/sku', [ErpInventoryController::class, 'generateSku'])->whereNumber('id');
         Route::get('/movements', [ErpInventoryController::class, 'movements']);
+        Route::get('/items', [ErpInventoryController::class, 'pick']);
         Route::get('/settings', [ErpSettingsController::class, 'show']);
         Route::put('/settings', [ErpSettingsController::class, 'update']);
+
+        Route::get('/warehouses', [ErpWarehouseController::class, 'index']);
+        Route::get('/warehouses/{id}', [ErpWarehouseController::class, 'show'])->whereNumber('id');
+        Route::middleware('throttle:erp-writes')->group(function () {
+            Route::post('/warehouses', [ErpWarehouseController::class, 'store']);
+            Route::put('/warehouses/{id}', [ErpWarehouseController::class, 'update'])->whereNumber('id');
+            Route::post('/warehouses/{id}/close', [ErpWarehouseController::class, 'close'])->whereNumber('id');
+            Route::post('/warehouses/{id}/reopen', [ErpWarehouseController::class, 'reopen'])->whereNumber('id');
+        });
+
+        Route::get('/transfers', [ErpTransferController::class, 'index']);
+        Route::get('/transfers/{id}', [ErpTransferController::class, 'show'])->whereNumber('id');
+        Route::middleware('throttle:erp-writes')->group(function () {
+            Route::post('/transfers', [ErpTransferController::class, 'store']);
+            Route::post('/transfers/{id}/receive', [ErpTransferController::class, 'receive'])->whereNumber('id');
+            Route::post('/transfers/{id}/cancel', [ErpTransferController::class, 'cancel'])->whereNumber('id');
+        });
+
+        Route::get('/suppliers', [ErpSupplierController::class, 'index']);
+        Route::get('/suppliers/{id}', [ErpSupplierController::class, 'show'])->whereNumber('id');
+        Route::middleware('throttle:erp-writes')->group(function () {
+            Route::post('/suppliers', [ErpSupplierController::class, 'store']);
+            Route::put('/suppliers/{id}', [ErpSupplierController::class, 'update'])->whereNumber('id');
+            Route::delete('/suppliers/{id}', [ErpSupplierController::class, 'destroy'])->whereNumber('id');
+            Route::post('/suppliers/{id}/invoices', [ErpSupplierController::class, 'storeInvoice'])->whereNumber('id');
+            Route::post('/supplier-invoices/{id}/void', [ErpSupplierController::class, 'voidInvoice'])->whereNumber('id');
+            Route::post('/suppliers/{id}/payments', [ErpSupplierController::class, 'storePayment'])->whereNumber('id');
+            Route::post('/supplier-payments/{id}/void', [ErpSupplierController::class, 'voidPayment'])->whereNumber('id');
+        });
+
+        Route::get('/purchases', [ErpPurchaseController::class, 'index']);
+        Route::get('/purchases/{id}', [ErpPurchaseController::class, 'show'])->whereNumber('id');
+        Route::middleware('throttle:erp-writes')->group(function () {
+            Route::post('/purchases', [ErpPurchaseController::class, 'store']);
+            Route::put('/purchases/{id}', [ErpPurchaseController::class, 'update'])->whereNumber('id');
+            Route::post('/purchases/{id}/order', [ErpPurchaseController::class, 'order'])->whereNumber('id');
+            Route::post('/purchases/{id}/cancel', [ErpPurchaseController::class, 'cancel'])->whereNumber('id');
+            Route::post('/purchases/{id}/close', [ErpPurchaseController::class, 'close'])->whereNumber('id');
+            Route::post('/purchases/{id}/receive', [ErpPurchaseController::class, 'receive'])->whereNumber('id');
+        });
     });
 });
 

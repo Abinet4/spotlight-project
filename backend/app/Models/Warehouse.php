@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * A place where a store keeps stock. The default location holds every available unit that is not
  * counted at another location (see InventoryService), so it has no warehouse_stock rows of its own.
  */
-#[Fillable(['name', 'code', 'address_line', 'phone', 'notes'])]
+#[Fillable(['name', 'code', 'address_line', 'contact_name', 'phone', 'notes'])]
 class Warehouse extends Model
 {
     protected function casts(): array

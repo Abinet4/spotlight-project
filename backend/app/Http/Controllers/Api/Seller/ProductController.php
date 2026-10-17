@@ -139,6 +139,9 @@ class ProductController extends Controller
             $changed = array_keys($product->getDirty());
             $product->save();
 
+            if ($product->stock_type === StockType::MadeToOrder && $product->wasChanged('stock_type')) {
+                $this->inventory->assertNothingOnTheWay($product, null, 'stock_type', 'This listing cannot become made to order yet');
+            }
             if ($product->stock_type === StockType::MadeToOrder) {
                 // Made to order keeps no stock: whatever is left at the main location is written off the form.
                 foreach ($product->variants()->get() as $variant) {
@@ -214,9 +217,13 @@ class ProductController extends Controller
     public function destroy(Request $request, int $id, AuditLogger $audit): JsonResponse
     {
         $product = $this->findOwned($request, $id);
-        // Soft delete keeps the row for future order history; images stay until a cleanup job runs.
-        $product->delete();
-        $audit->log('product.deleted', $product);
+        DB::transaction(function () use ($product, $audit) {
+            $product = $this->inventory->lock($product->seller_profile_id, $product->id);
+            $this->inventory->assertNothingOnTheWay($product, null, 'product', 'This listing cannot be deleted yet');
+            // Soft delete keeps the row for future order history; images stay until a cleanup job runs.
+            $product->delete();
+            $audit->log('product.deleted', $product);
+        });
 
         return response()->json(['message' => 'Listing deleted.']);
     }

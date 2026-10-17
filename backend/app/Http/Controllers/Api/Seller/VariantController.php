@@ -110,6 +110,7 @@ class VariantController extends Controller
             if ($held > 0) {
                 throw ValidationException::withMessages(['variant' => "{$held} of this option are in open orders. Remove it once those orders are delivered or cancelled."]);
             }
+            $this->inventory->assertNothingOnTheWay($product, $variant, 'variant', 'This option cannot be removed yet');
             $variant->delete();
             $audit->log('product.variant_removed', $product, ['variant_id' => $variant->id, 'label' => $variant->label()]);
 

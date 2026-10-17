@@ -15,9 +15,12 @@ class StockMovement extends Model
     // opening: count when tracking started. edit: changed on the listing form. count: stock count
     // correction. damaged / lost: written off. returned: back from a customer. found: extra units.
     // order_reserved / order_released: taken by an order and given back when it is cancelled.
+    // purchase_received: goods from a supplier. transfer_out / transfer_in: moved between locations;
+    // transfer_returned: a transfer cancelled on the way, back at the location it left.
     public const TYPES = [
         'opening', 'edit', 'count', 'damaged', 'lost', 'returned', 'found',
         'order_reserved', 'order_released',
+        'purchase_received', 'transfer_out', 'transfer_in', 'transfer_returned',
     ];
 
     /** Adjustments a store may record by hand, and which way each one moves stock. */

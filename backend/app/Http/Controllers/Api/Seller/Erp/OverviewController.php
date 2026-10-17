@@ -10,10 +10,13 @@ use App\Models\AuditLog;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\PurchaseOrder;
+use App\Models\PurchaseReceiptItem;
 use App\Models\StockMovement;
 use App\Services\InventoryService;
 use App\Support\Erp\Period;
 use App\Support\Erp\StockFigures;
+use App\Support\Erp\SupplierBalances;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -44,6 +47,7 @@ class OverviewController extends Controller
                 'pending_confirmation' => Order::where('seller_profile_id', $store->id)->visibleToSeller()
                     ->where('status', OrderStatus::PendingConfirmation->value)->count(),
             ],
+            'purchasing' => $this->purchasing($store->id, $period),
             'recent_movements' => StockMovement::where('seller_profile_id', $store->id)
                 ->with(['product:id,name,slug', 'warehouse:id,name', 'variant:id,size,color,material', 'order:id,number', 'user:id,name'])
                 ->latest('id')->limit(8)->get()->map(fn ($m) => InventoryController::movement($m, withProduct: true)),
@@ -81,6 +85,37 @@ class OverviewController extends Controller
             'low' => count(array_filter($tracked, fn ($i) => $i['state'] === 'low')),
             'out' => count(array_filter($tracked, fn ($i) => $i['state'] === 'out')),
             'alerts' => array_map(fn ($i) => array_intersect_key($i, array_flip(['product_id', 'variant_id', 'name', 'label', 'sku', 'available', 'held', 'low_level', 'reorder_quantity', 'state'])), array_slice($alerts, 0, 8)),
+        ];
+    }
+
+    /**
+     * Orders waiting for goods, money owed to suppliers (as of now) and goods received in the period.
+     *
+     * @return array<string, mixed>
+     */
+    private function purchasing(int $storeId, Period $period): array
+    {
+        $today = now(config('marketplace.timezone'))->toDateString();
+        $open = PurchaseOrder::where('seller_profile_id', $storeId)->whereIn('status', ['ordered', 'partially_received']);
+        $balances = SupplierBalances::forStore($storeId);
+        $received = PurchaseReceiptItem::join('purchase_receipts', 'purchase_receipts.id', '=', 'purchase_receipt_items.purchase_receipt_id')
+            ->where('purchase_receipts.seller_profile_id', $storeId)
+            // Dates compared as dates: SQLite keeps them with a time part.
+            ->whereDate('purchase_receipts.received_on', '>=', $period->from->toDateString())
+            ->whereDate('purchase_receipts.received_on', '<=', $period->to->toDateString())
+            ->selectRaw('sum(purchase_receipt_items.quantity * purchase_receipt_items.unit_cost_santim) as value, sum(purchase_receipt_items.quantity) as units')
+            ->first();
+
+        return [
+            'open_orders' => (clone $open)->count(),
+            'late_orders' => (clone $open)->whereDate('expected_date', '<', $today)->count(),
+            'open_value_santim' => (int) (clone $open)->sum('total_santim'),
+            'owed_santim' => $balances->totalOwed(),
+            'received_not_invoiced_santim' => $balances->totalReceivedNotInvoiced(),
+            'received_value_santim' => (int) $received->value,
+            'received_units' => (int) $received->units,
+            'recent' => PurchaseOrder::where('seller_profile_id', $storeId)->with('supplier:id,name')->latest('id')->limit(5)->get()
+                ->map(fn ($po) => PurchaseController::summary($po, $balances->order($po->id))),
         ];
     }
 

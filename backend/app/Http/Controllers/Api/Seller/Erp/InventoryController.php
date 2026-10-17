@@ -10,10 +10,12 @@ use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\SellerErpSetting;
 use App\Models\StockMovement;
+use App\Models\Supplier;
 use App\Models\Warehouse;
 use App\Services\AuditLogger;
 use App\Services\InventoryService;
 use App\Support\Erp\StockFigures;
+use App\Support\Erp\StoreLock;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -42,7 +44,7 @@ class InventoryController extends Controller
         $filters = $this->filters($request);
 
         $page = $this->query($store->id, $filters)
-            ->with(['variants', 'primaryImage', 'category:id,name'])
+            ->with(['variants', 'primaryImage', 'category:id,name', 'supplier:id,name'])
             ->paginate(min(100, (int) ($filters['per_page'] ?? 25)))->withQueryString();
         $figures = new StockFigures($page->getCollection(), $this->inventory);
 
@@ -55,7 +57,7 @@ class InventoryController extends Controller
     public function show(Request $request, int $id): JsonResponse
     {
         $store = $this->currentStore($request);
-        $product = $store->products()->with(['variants', 'primaryImage', 'category:id,name'])->findOrFail($id);
+        $product = $store->products()->with(['variants', 'primaryImage', 'category:id,name', 'supplier:id,name'])->findOrFail($id);
         $figures = new StockFigures(collect([$product]), $this->inventory);
         $row = $this->row($product, $figures);
 
@@ -85,6 +87,7 @@ class InventoryController extends Controller
             'cost_price' => ['sometimes', 'nullable', 'string', $money],
             'min_stock_level' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:100000'],
             'reorder_quantity' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:100000'],
+            'supplier_id' => ['sometimes', 'nullable', 'integer'],
         ], [
             'sku.regex' => 'Use letters, numbers, dots, dashes or slashes, starting with a letter or number.',
             'cost_price.regex' => 'Enter the cost in birr, for example 8000 or 8000.50.',
@@ -96,6 +99,16 @@ class InventoryController extends Controller
             if (! $variant && $this->inventory->hasVariants($product) && ! empty(array_intersect(array_keys($data), ['sku', 'min_stock_level', 'reorder_quantity']))) {
                 // Cost price may be set on the listing as a fallback for options without their own.
                 throw ValidationException::withMessages(['variant_id' => 'This listing has options. Set the SKU and stock levels on each option.']);
+            }
+            if (array_key_exists('supplier_id', $data)) {
+                // The usual supplier belongs to the listing, whichever option the form was on.
+                $product->supplier_id = $data['supplier_id'] === null ? null
+                    : (Supplier::where('seller_profile_id', $store->id)->find($data['supplier_id'])?->id
+                        ?? throw ValidationException::withMessages(['supplier_id' => 'Choose one of your suppliers.']));
+                if ($product->isDirty('supplier_id')) {
+                    $product->save();
+                    $audit->log('inventory.item_updated', $product, ['fields' => ['supplier_id']]);
+                }
             }
             $target = $variant ?? $product;
             if (array_key_exists('sku', $data)) {
@@ -144,6 +157,8 @@ class InventoryController extends Controller
         }
 
         DB::transaction(function () use ($request, $store, $id, $data, $audit) {
+            // Taken before the listing, so a location cannot be closed while units are added to it.
+            StoreLock::take($store->id);
             $product = $this->inventory->lock($store->id, $id);
             $variant = $this->inventory->variant($product, $data['variant_id'] ?? null);
             $warehouse = empty($data['warehouse_id'])
@@ -194,6 +209,43 @@ class InventoryController extends Controller
         });
 
         return $this->show($request, $id);
+    }
+
+    /**
+     * Stock items for pickers (purchase orders, transfers): listings kept in stock and their options,
+     * with units available in total and, given a location, there.
+     */
+    public function pick(Request $request): JsonResponse
+    {
+        $store = $this->currentStore($request);
+        $data = $request->validate([
+            'q' => ['nullable', 'string', 'max:100'],
+            'warehouse_id' => ['nullable', 'integer'],
+            'supplier_id' => ['nullable', 'integer'],
+        ]);
+        $warehouse = isset($data['warehouse_id']) ? Warehouse::where('seller_profile_id', $store->id)->findOrFail($data['warehouse_id']) : null;
+        $products = $this->query($store->id, ['q' => $data['q'] ?? null, 'sort' => 'name'])
+            ->where('products.stock_type', 'in_stock')
+            // The supplier's usual listings first.
+            ->when($data['supplier_id'] ?? null, fn ($q, $s) => $q->reorder()
+                ->orderByRaw('CASE WHEN products.supplier_id = ? THEN 0 ELSE 1 END', [$s])->orderBy('products.name')->orderBy('products.id'))
+            ->with(['variants', 'primaryImage'])->limit(30)->get();
+
+        $items = [];
+        foreach ($products as $p) {
+            foreach ($p->variants->isEmpty() ? [null] : $p->variants->all() as $v) {
+                $items[] = [
+                    'product_id' => $p->id, 'variant_id' => $v?->id, 'name' => $p->name, 'label' => $v?->label() ?: null,
+                    'sku' => $v ? $v->sku : $p->sku, 'image' => $p->primaryImage?->thumbUrl(),
+                    'available' => $this->inventory->available($p, $v),
+                    'at_location' => $warehouse ? $this->inventory->quantityAt($p, $v, $warehouse) : null,
+                    'cost_price_santim' => InventoryService::unitCost($p, $v),
+                    'supplier_id' => $p->supplier_id,
+                ];
+            }
+        }
+
+        return response()->json(['data' => array_slice($items, 0, 60)]);
     }
 
     /**
@@ -266,6 +318,7 @@ class InventoryController extends Controller
             'stock' => ['nullable', Rule::in(['low', 'out', 'ok', 'made_to_order'])],
             'status' => ['nullable', Rule::enum(ProductStatus::class)],
             'category_id' => ['nullable', 'integer'],
+            'supplier_id' => ['nullable', 'integer'],
             'sort' => ['nullable', Rule::in(self::SORTS)],
             'dir' => ['nullable', Rule::in(['asc', 'desc'])],
             'per_page' => ['nullable', 'integer', 'min:5', 'max:100'],
@@ -290,7 +343,8 @@ class InventoryController extends Controller
                     ->orWhereRaw("LOWER(color) LIKE ? ESCAPE '!'", [$like])->orWhereRaw("LOWER(size) LIKE ? ESCAPE '!'", [$like])));
         }
         $q->when($filters['status'] ?? null, fn ($w, $s) => $w->where('products.status', $s))
-            ->when($filters['category_id'] ?? null, fn ($w, $c) => $w->where('products.category_id', $c));
+            ->when($filters['category_id'] ?? null, fn ($w, $c) => $w->where('products.category_id', $c))
+            ->when($filters['supplier_id'] ?? null, fn ($w, $c) => $w->where('products.supplier_id', $c));
 
         $simple = fn ($w) => $w->whereDoesntHave('variants');
         match ($filters['stock'] ?? null) {
@@ -336,6 +390,7 @@ class InventoryController extends Controller
             'status' => $p->status->value,
             'stock_type' => $p->stock_type->value,
             'category' => $p->category?->name,
+            'supplier' => $p->relationLoaded('supplier') && $p->supplier ? ['id' => $p->supplier->id, 'name' => $p->supplier->name] : null,
             'image' => $p->primaryImage?->thumbUrl(),
             'price_santim' => $p->price_santim,
             'cost_price_santim' => $p->cost_price_santim,

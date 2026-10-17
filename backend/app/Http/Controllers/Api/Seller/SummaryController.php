@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api\Seller;
 use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Models\PurchaseOrder;
 use App\Models\Review;
+use App\Models\StockTransfer;
 use App\Support\Erp\StockFigures;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -37,6 +39,12 @@ class SummaryController extends Controller
             ],
             'balance' => BalanceController::summary($seller->id),
             'stock' => StockFigures::counts($seller->id),
+            'erp' => [
+                // Purchase orders past their expected date, and transfers still on their way.
+                'late_purchases' => PurchaseOrder::where('seller_profile_id', $seller->id)->whereIn('status', ['ordered', 'partially_received'])
+                    ->whereDate('expected_date', '<', now(config('marketplace.timezone'))->toDateString())->count(),
+                'transfers_in_transit' => StockTransfer::where('seller_profile_id', $seller->id)->where('status', 'in_transit')->count(),
+            ],
         ]]);
     }
 }

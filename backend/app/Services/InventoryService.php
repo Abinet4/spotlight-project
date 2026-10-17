@@ -7,8 +7,10 @@ use App\Enums\StockType;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\PurchaseOrderItem;
 use App\Models\SellerErpSetting;
 use App\Models\StockMovement;
+use App\Models\StockTransferItem;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Models\WarehouseStock;
@@ -53,6 +55,44 @@ class InventoryService
     public function hasVariants(Product $product): bool
     {
         return ProductVariant::where('product_id', $product->id)->exists();
+    }
+
+    /**
+     * Where arriving units go: the line's option, or for a line written before the listing had
+     * options, its first option (as cancelled orders do). A removed option cannot take stock.
+     */
+    public function inboundVariant(Product $product, ?int $variantId, string $what): ?ProductVariant
+    {
+        if ($variantId) {
+            return ProductVariant::where('product_id', $product->id)->find($variantId)
+                ?? throw ValidationException::withMessages(['items' => "An option of {$what} was removed, so it cannot take stock."]);
+        }
+
+        return ProductVariant::where('product_id', $product->id)->orderBy('sort_order')->orderBy('id')->first();
+    }
+
+    /**
+     * Refuse a change that would strand units still on their way to the store: ordered from a
+     * supplier and not received yet, or sent between locations and not arrived. With $variant,
+     * only that option's units count.
+     */
+    public function assertNothingOnTheWay(Product $product, ?ProductVariant $variant, string $field, string $what): void
+    {
+        // Lines written before the listing had options arrive as its first option, so they count for that one too.
+        $first = $variant ? ProductVariant::where('product_id', $product->id)->orderBy('sort_order')->orderBy('id')->value('id') : null;
+        $scope = fn ($q) => $q->where('product_id', $product->id)->when($variant, fn ($q) => $q->where(fn ($w) => $w
+            ->where('variant_id', $variant->id)->when($first === $variant->id, fn ($w) => $w->orWhereNull('variant_id'))));
+        $line = PurchaseOrderItem::where($scope)->whereColumn('received_quantity', '<', 'quantity')
+            ->whereHas('order', fn ($q) => $q->whereIn('status', ['ordered', 'partially_received']))
+            ->with('order:id,number')->first();
+        if ($line) {
+            throw ValidationException::withMessages([$field => "{$what}: purchase order {$line->order->number} is still waiting for units of it. Receive them, or close or cancel that order first."]);
+        }
+        $moving = StockTransferItem::where($scope)->whereHas('transfer', fn ($q) => $q->where('status', 'in_transit'))
+            ->with('transfer:id,number')->first();
+        if ($moving) {
+            throw ValidationException::withMessages([$field => "{$what}: transfer {$moving->transfer->number} is moving units of it between your locations. Receive or cancel that transfer first."]);
+        }
     }
 
     public function defaultWarehouse(int $sellerId): Warehouse
