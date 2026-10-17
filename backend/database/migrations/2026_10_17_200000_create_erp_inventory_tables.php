@@ -95,7 +95,8 @@ return new class extends Migration
             $t->foreignId('warehouse_id')->constrained()->restrictOnDelete();
             $t->foreignId('product_id')->constrained()->cascadeOnDelete();
             $t->foreignId('variant_id')->nullable()->constrained('product_variants')->cascadeOnDelete();
-            $t->unsignedBigInteger('variant_key')->storedAs('coalesce(variant_id, 0)');
+            // Virtual, not stored: MySQL refuses a cascading foreign key on a column a stored one is built from.
+            $t->unsignedBigInteger('variant_key')->virtualAs('coalesce(variant_id, 0)');
             $t->unsignedInteger('quantity')->default(0);
             $t->timestamps();
 
