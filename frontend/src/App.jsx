@@ -76,6 +76,8 @@ const ErpOrderSale = lazy(() => import('./pages/seller/erp/ErpOrderSale'))
 const ErpSalePrint = lazy(() => import('./pages/seller/erp/ErpSalePrint'))
 const ErpExpenses = lazy(() => import('./pages/seller/erp/ErpExpenses'))
 const ErpExpense = lazy(() => import('./pages/seller/erp/ErpExpense'))
+const ErpFinance = lazy(() => import('./pages/seller/erp/ErpFinance'))
+const ErpReports = lazy(() => import('./pages/seller/erp/ErpReports'))
 
 /** Messages are shared with customers: sellers see them inside the seller area, customers in the shop. */
 function SellerShellFor({ children }) {
@@ -148,6 +150,8 @@ export default function App() {
           <Route path="erp/sales/orders/:id" element={<ErpOrderSale />} />
           <Route path="erp/expenses" element={<ErpExpenses />} />
           <Route path="erp/expenses/:id" element={<ErpExpense />} />
+          <Route path="erp/finance" element={<ErpFinance />} />
+          <Route path="erp/reports" element={<ErpReports />} />
         </Route>
 
         <Route path="admin" element={<RequireRole roles={['admin']}><AdminLayout /></RequireRole>}>

@@ -1,4 +1,4 @@
-import { Banknote, Boxes, ClipboardList, Eye, History, LayoutDashboard, MessageCircle, Package, PieChart, Receipt, Settings2, ShoppingBag, Star, Store, Truck, Wallet, Warehouse } from 'lucide-react'
+import { Banknote, Boxes, ChartColumn, ClipboardList, Eye, FileSpreadsheet, History, LayoutDashboard, MessageCircle, Package, PieChart, Receipt, Settings2, ShoppingBag, Star, Store, Truck, Wallet, Warehouse } from 'lucide-react'
 import { Outlet } from 'react-router-dom'
 import WorkArea, { useAreaSummary } from '../../components/WorkArea'
 import { useInbox } from '../../context/InboxContext'
@@ -21,6 +21,8 @@ function groups(store) {
       { to: '/seller/erp/purchases', label: 'Purchases', icon: ClipboardList, count: (s) => s.erp?.late_purchases },
       { to: '/seller/erp/sales', label: 'Sales & invoices', icon: Receipt, count: (s) => s.erp?.overdue_sales },
       { to: '/seller/erp/expenses', label: 'Expenses', icon: Banknote },
+      { to: '/seller/erp/finance', label: 'Finance & profit', icon: ChartColumn },
+      { to: '/seller/erp/reports', label: 'Reports', icon: FileSpreadsheet },
       { to: '/seller/erp/settings', label: 'ERP settings', icon: Settings2 },
     ], { collapsible: true, defaultOpen: true }],
     ['Store', [

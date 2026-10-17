@@ -4,7 +4,7 @@ import { ErrorState, PageHeader, Pagination, Spinner } from '../../../components
 import { toQuery } from '../../../lib/format'
 import { useFetch } from '../../../lib/useFetch'
 import { MovementTable } from './ErpItem'
-import { MOVEMENT_LABELS } from './shared'
+import { CsvButton, MOVEMENT_LABELS } from './shared'
 
 export default function ErpMovements() {
   const [params, setParams] = useSearchParams()
@@ -17,7 +17,8 @@ export default function ErpMovements() {
 
   return (
     <>
-      <PageHeader title="Stock history" subtitle="Every change to available stock: orders, deliveries from suppliers, moves between locations, edits, counts and write-offs. Nothing here can be edited or deleted." />
+      <PageHeader title="Stock history" subtitle="Every change to available stock: orders, deliveries from suppliers, moves between locations, edits, counts and write-offs. Nothing here can be edited or deleted."
+        actions={<CsvButton url={`/seller/erp/movements.csv?${toQuery({ ...filters, page: '' })}`} filename={`stock-history${filters.from ? `-${filters.from}` : ''}${filters.to ? `-to-${filters.to}` : ''}.csv`} />} />
       <form className="mb-4 flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); set(dates) }}>
         <label className="text-sm">What
           <select className="input mt-1 w-auto" value={filters.type} onChange={(e) => set({ type: e.target.value })}>

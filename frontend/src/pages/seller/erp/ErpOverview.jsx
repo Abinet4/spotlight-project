@@ -53,6 +53,9 @@ const ACTIVITY = {
   'erp.expenses_exported': 'Downloaded expenses',
   'erp.expense_category_created': 'Added an expense category',
   'erp.expense_category_updated': 'Changed an expense category',
+  'erp.finance_exported': 'Downloaded the finance summary',
+  'erp.report_exported': 'Downloaded a report',
+  'inventory.movements_exported': 'Downloaded stock history',
 }
 
 export default function ErpOverview() {
@@ -60,6 +63,7 @@ export default function ErpOverview() {
   const res = useFetch(`/seller/erp/overview?${period.query}`)
   const d = res.data?.data
   const noCost = d ? d.sales.marketplace.sales_without_cost_santim + d.sales.offline.sales_without_cost_santim : 0
+  const f = d?.sales.finance
 
   return (
     <>
@@ -70,7 +74,7 @@ export default function ErpOverview() {
           <Stats items={[
             { label: 'Listings', value: d.stock.listings, hint: d.stock.items !== d.stock.listings ? `${d.stock.items} stock items with options` : undefined, to: '/seller/erp/inventory' },
             { label: 'Units available', value: d.stock.available, hint: d.stock.held ? `plus ${d.stock.held} held for open orders` : undefined },
-            { label: 'Stock value at cost', value: money(d.stock.value_cost_santim), hint: d.stock.missing_cost ? `${d.stock.missing_cost} items have no cost price` : 'available plus held units', tone: d.stock.missing_cost ? 'warn' : undefined, to: d.stock.missing_cost ? '/seller/erp/inventory' : undefined },
+            { label: 'Stock value at cost', value: money(d.stock.value_cost_santim), hint: d.stock.missing_cost ? `${d.stock.missing_cost} items have no cost price` : d.stock.hidden_units ? `includes ${d.stock.hidden_units} units in hidden listings` : 'available plus held units', tone: d.stock.missing_cost ? 'warn' : undefined, to: d.stock.missing_cost ? '/seller/erp/inventory' : '/seller/erp/reports?r=valuation' },
             { label: 'Stock value at selling price', value: money(d.stock.value_price_santim) },
             { label: 'Low stock', value: d.stock.low, tone: d.stock.low ? 'warn' : undefined, to: d.stock.low ? '/seller/erp/inventory?stock=low' : undefined },
             { label: 'Out of stock', value: d.stock.out, tone: d.stock.out ? 'bad' : undefined, to: d.stock.out ? '/seller/erp/inventory?stock=out' : undefined },
@@ -82,13 +86,15 @@ export default function ErpOverview() {
             { label: 'Marketplace (delivered)', value: money(d.sales.marketplace.items_santim), hint: `${d.sales.marketplace.orders} orders, items only`, to: `/seller/erp/sales?${period.query}&source=marketplace` },
             { label: 'Shop sales', value: money(d.sales.offline.items_santim), hint: `${d.sales.offline.sales} sales, items only`, to: `/seller/erp/sales?${period.query}&source=offline` },
             d.sales.totals.returns_santim > 0 && { label: 'Returns', value: money(d.sales.totals.returns_santim), hint: `${d.sales.returns.units} units back` },
-            { label: 'Cost of goods sold', value: money(d.sales.marketplace.cost_of_goods_santim + d.sales.offline.cost_of_goods_santim), hint: d.sales.totals.lines_without_cost ? `${d.sales.totals.lines_without_cost} lines without a cost price` : undefined, tone: d.sales.totals.lines_without_cost ? 'warn' : undefined },
+            { label: 'Cost of goods sold', value: money(f.cost_of_goods_santim), hint: d.sales.totals.lines_without_cost ? `${d.sales.totals.lines_without_cost} lines without a cost price` : undefined, tone: d.sales.totals.lines_without_cost ? 'warn' : undefined },
             { label: 'Gross profit (estimate)', value: money(d.sales.totals.gross_profit_santim), hint: noCost ? `leaves out ${money(noCost)} of sales with no cost` : d.sales.returns.returns ? 'item sales minus their cost, after returns' : 'item sales minus their cost' },
             { label: 'Commission', value: money(d.sales.marketplace.commission_santim), hint: 'marketplace orders' },
             { label: 'Delivery charged', value: money(d.sales.totals.delivery_santim) },
+            { label: 'Expenses', value: money(f.expenses_santim), to: d.range ? `/seller/erp/expenses?period=custom&from=${d.range.from}&to=${d.range.to}` : undefined },
+            { label: 'Estimated net profit', value: money(f.net_profit_santim), hint: noCost ? 'leaves out items without a cost' : 'after commission and expenses', tone: f.net_profit_santim < 0 ? 'bad' : noCost ? 'warn' : undefined, to: `/seller/erp/finance?period=custom&from=${d.range.from}&to=${d.range.to}` },
             { label: 'Open orders', value: d.orders.open, hint: d.orders.pending_confirmation ? `${d.orders.pending_confirmation} waiting for you` : undefined, to: '/seller/orders' },
           ]} />
-          <p className="mt-2 text-xs text-stone-500">Marketplace orders count on the day they were delivered, shop sales on their sale date and returns on the day the goods came back. Profit uses the cost prices you entered; it is an estimate, not accounting.</p>
+          <p className="mt-2 text-xs text-stone-500">Marketplace orders count on the day they were delivered, shop sales on their sale date and returns on the day the goods came back. Profit uses the cost prices you entered; it is an estimate, not accounting. <Link to="/seller/erp/finance" className="underline">Finance & profit</Link> has the full working.</p>
 
           <h2 className="mt-6 mb-2 text-sm font-semibold text-stone-500">Buying from suppliers</h2>
           <Stats items={[

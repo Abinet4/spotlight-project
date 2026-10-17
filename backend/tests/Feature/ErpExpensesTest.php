@@ -107,6 +107,10 @@ class ErpExpensesTest extends TestCase
         $csv = $this->get('/api/seller/erp/expenses.csv')->assertOk()->streamedContent();
         $this->assertStringContainsString('EX-00001,"Warehouse rent","October rent, Bole warehouse","Ato Girma",bank_transfer,,15000.00,yes', $csv);
         $this->assertStringContainsString('850.50', $csv);
+        // Text people typed cannot run as a spreadsheet formula.
+        $this->spend(['description' => '=HYPERLINK("http://x.test","click")', 'paid_to' => '@cmd', 'reference' => '-2+3'])->assertCreated();
+        $csv = $this->get('/api/seller/erp/expenses.csv')->assertOk()->streamedContent();
+        $this->assertStringContainsString('"\'=HYPERLINK(""http://x.test"",""click"")",\'@cmd,bank_transfer,\'-2+3,', $csv);
     }
 
     public function test_receipt_files_are_checked_by_content_and_kept_private(): void

@@ -114,12 +114,12 @@ export default function WorkArea({ label, groups, counts, children }) {
   useEffect(() => setMenuOpen(false), [pathname])
 
   return (
-    <div className="container-page py-5 lg:grid lg:grid-cols-[12.5rem_minmax(0,1fr)] lg:gap-8 lg:py-6">
-      <aside className="hidden lg:block">
+    <div className="container-page py-5 lg:grid lg:grid-cols-[12.5rem_minmax(0,1fr)] lg:gap-8 lg:py-6 print:block print:max-w-none print:p-0">
+      <aside className="hidden lg:block print:hidden">
         <div className="sticky top-20"><Nav label={label} groups={groups} counts={counts} /></div>
       </aside>
 
-      <div className="mb-4 lg:hidden">
+      <div className="mb-4 lg:hidden print:hidden">
         <button type="button" className="btn-secondary w-full justify-between" aria-expanded={menuOpen} aria-controls={menuId} onClick={() => setMenuOpen((o) => !o)}>
           <span className="flex items-center gap-2">
             {here && <here.icon className="size-4" aria-hidden="true" />}

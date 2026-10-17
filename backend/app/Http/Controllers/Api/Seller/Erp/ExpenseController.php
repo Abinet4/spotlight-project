@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Seller\Erp;
 
+use App\Http\Controllers\Api\Admin\ReportController;
 use App\Http\Controllers\Api\Seller\Concerns\ResolvesStore;
 use App\Http\Controllers\Controller;
 use App\Models\Expense;
@@ -154,8 +155,8 @@ class ExpenseController extends Controller
             $this->query($store->id, $period, $filters)->with('category:id,name')->orderBy('spent_on')->orderBy('id')
                 ->chunk(500, function ($rows) use ($out) {
                     foreach ($rows as $e) {
-                        fputcsv($out, [$e->spent_on->toDateString(), $e->number, $e->category?->name, $e->description, $e->paid_to, $e->payment_method,
-                            $e->reference, Money::toBirr($e->amount_santim), $e->attachment_path ? 'yes' : 'no'], escape: '');
+                        fputcsv($out, [$e->spent_on->toDateString(), $e->number, ReportController::cell($e->category?->name), ReportController::cell($e->description),
+                            ReportController::cell($e->paid_to), $e->payment_method, ReportController::cell($e->reference), Money::toBirr($e->amount_santim), $e->attachment_path ? 'yes' : 'no'], escape: '');
                     }
                 });
             fclose($out);

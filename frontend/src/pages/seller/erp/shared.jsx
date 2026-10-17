@@ -156,9 +156,11 @@ export function Change({ n }) {
 }
 
 const PERIODS = [['today', 'Today'], ['7d', '7 days'], ['30d', '30 days'], ['custom', 'Custom']]
+// For money over longer spans: calendar months and the year so far.
+const LONG_PERIODS = [['month', 'This month'], ['last_month', 'Last month'], ['30d', '30 days'], ['year', 'This year'], ['custom', 'Custom']]
 
 /**
- * Today / 7 days / 30 days / custom dates, kept in the address bar so a refresh or a shared link
+ * Today / 7 days / 30 days / custom dates (or, with `long`, months and the year), kept in the address bar so a refresh or a shared link
  * shows the same range. Returns the query string for the API.
  */
 export function usePeriod(defaultPeriod = '30d') {
@@ -167,16 +169,17 @@ export function usePeriod(defaultPeriod = '30d') {
   const from = params.get('from') || ''
   const to = params.get('to') || ''
   const query = toQuery(period === 'custom' ? { period, from, to } : { period })
-  const set = (next) => setParams(toQuery({ ...Object.fromEntries(params), ...next }), { replace: true })
+  // A new range starts again from the first page.
+  const set = (next) => setParams(toQuery({ ...Object.fromEntries(params), page: '', ...next }), { replace: true })
   return { period, from, to, query, set }
 }
 
-export function PeriodPicker({ value }) {
+export function PeriodPicker({ value, long = false }) {
   const [form, setForm] = useState({ from: value.from, to: value.to })
   return (
     <div className="flex flex-wrap items-end gap-2">
-      <div role="group" aria-label="Period" className="inline-flex rounded-xl border border-stone-300 bg-white p-0.5">
-        {PERIODS.map(([key, label]) => (
+      <div role="group" aria-label="Period" className="inline-flex flex-wrap rounded-xl border border-stone-300 bg-white p-0.5">
+        {(long ? LONG_PERIODS : PERIODS).map(([key, label]) => (
           <button key={key} type="button" aria-pressed={value.period === key}
             onClick={() => value.set({ period: key, ...(key === 'custom' ? form : { from: '', to: '' }) })}
             className={`rounded-lg px-3 py-1.5 text-sm ${value.period === key ? 'bg-brand-700 font-semibold text-white' : 'text-stone-700 hover:bg-stone-100'}`}>

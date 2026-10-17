@@ -7,7 +7,8 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 /**
- * A date range in Addis Ababa days: today, the last 7 or 30 days, or custom from/to.
+ * A date range in Addis Ababa days: today, the last 7 or 30 days, this month, last month, this year
+ * so far, or custom from/to.
  */
 final class Period
 {
@@ -20,7 +21,7 @@ final class Period
     public static function fromRequest(Request $request, string $default = '30d'): self
     {
         $data = $request->validate([
-            'period' => ['nullable', 'in:today,7d,30d,custom'],
+            'period' => ['nullable', 'in:today,7d,30d,month,last_month,year,custom'],
             'from' => ['nullable', 'date_format:Y-m-d'],
             'to' => ['nullable', 'date_format:Y-m-d'],
         ]);
@@ -32,6 +33,9 @@ final class Period
             'today' => [$today, $today],
             '7d' => [$today->subDays(6), $today],
             '30d' => [$today->subDays(29), $today],
+            'month' => [$today->startOfMonth(), $today],
+            'last_month' => [$today->subMonthNoOverflow()->startOfMonth(), $today->subMonthNoOverflow()->endOfMonth()->startOfDay()],
+            'year' => [$today->startOfYear(), $today],
             'custom' => [
                 isset($data['from']) ? CarbonImmutable::createFromFormat('Y-m-d', $data['from'], $tz)->startOfDay() : $today->subDays(29),
                 isset($data['to']) ? CarbonImmutable::createFromFormat('Y-m-d', $data['to'], $tz)->startOfDay() : $today,

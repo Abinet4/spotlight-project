@@ -70,7 +70,7 @@ expenses, offline sales, invoices. These are what the ERP adds.
    invoices and payments, balances owed, a printable purchase order.
 3. **Sales, invoices, expenses.** (Done.) Sales list built from marketplace orders plus offline sales, printable
    invoices and receipts, returns into stock; expenses by category with attachments.
-4. **Finance and reports.** Gross sales, returns and refunds, commission, cost of goods sold, expenses,
+4. **Finance and reports.** (Done.) Gross sales, returns and refunds, commission, cost of goods sold, expenses,
    gross and estimated net profit, owed to suppliers, payouts; CSV exports with date ranges (Addis Ababa days).
 5. **Hardening.** Cross-store access tests on every endpoint, stock reconciliation, phone layouts, deploy checks.
 
@@ -169,3 +169,42 @@ expenses, offline sales, invoices. These are what the ERP adds.
   and no caching. One per expense; it cannot be swapped.
 - **Upgrading.** The migration only adds tables. Rolling it back is refused once any shop sale, return or expense
   exists, so recorded money is never dropped by accident.
+
+### Phase 4 rules
+
+- **Nothing is stored.** Finance & profit and the reports are worked out from the records each time: orders,
+  shop sales, payments, returns, expenses, supplier invoices and payments, and the marketplace ledger. No table was
+  added and no existing record is changed, so the numbers always match the pages they come from.
+- **Each sale counts once.** A marketplace order counts on the day it was delivered, at what the customer was
+  charged (items and delivery), however it was paid. The online sale credited to the store's account and the payout
+  of that money are not sales again: they appear only under "your account with the marketplace" and "money in".
+- **The statement:** gross sales (items before discounts) - discounts - returns (goods) = net item sales;
+  - item sales without a cost price - cost of goods sold = gross profit; + delivery charged (less delivery given
+  back) - commission - marketplace adjustments - operating expenses = estimated net operating profit.
+  Gross profit is the same figure as the sales report and the ERP overview.
+- **Cost of goods sold** is the cost price frozen on each sold line, less the cost of units brought back into stock.
+  Lines without a cost price are left out of profit and the page says how much, while their commission and the
+  expenses still count, so profit errs low, never high. Stock bought from suppliers is a cost only when it is sold;
+  it is never an expense too.
+- **Commission** is what delivered orders were charged (on items only), the same amount the ledger holds. Marketplace
+  adjustments charged to the store reduce profit; credits add to it.
+- **Owed now:** what customers owe on shop sales (and credit the store holds for them), what the store owes
+  suppliers (bill or goods received, less payments; deposits ahead shown apart), and the balance with the
+  marketplace from the ledger, the same figure as the Balance page. Paid online orders not delivered yet are shown
+  apart: they are not owed to the store until delivered, and not spendable until paid out.
+- **Money in and out** lists what was recorded as received (cash collected on delivered cash orders, shop sale
+  payments, payouts) and paid (money given back on returns, supplier payments, expenses, payments to the
+  marketplace) by date. It is labelled as not a bank or cash balance.
+- **Periods** are Addis Ababa days: today, 7 or 30 days, this month, last month, this year, or custom (up to a
+  year), by day, week (Monday to Sunday, cut to the range) or month.
+- **Reports** (10): sales by day, week or month with marketplace and shop apart; product performance; inventory
+  valuation (on hand = available + held, at cost and at price, hidden listings included); low and out of stock;
+  stock movements by kind; purchase history (drafts and cancelled orders left out); supplier balances; expenses by
+  category; gross and net profit; returns, cancellations and refunds (customer account name only, never phone or
+  address). Each sorts by any column (empty values last), pages 50 rows with totals over all rows, prints every row
+  (up to 2,000; the CSV has all), and downloads as CSV in the same order. Stock history has its own CSV with its
+  filters.
+- **CSV files** write typed text (names, notes, reasons) so a spreadsheet cannot run it as a formula, and money as
+  plain numbers in birr (negative amounts included). Every download is in the activity log.
+- **Not accounting.** This is operational reporting for running the store. It has no double-entry ledger, bank
+  reconciliation or tax rules, and the pages say it is an estimate.

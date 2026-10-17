@@ -103,6 +103,12 @@ final class SupplierBalances
         return array_sum(array_map(fn ($s) => max(0, $s['owed_santim']), $this->suppliers));
     }
 
+    /** Deposits paid to suppliers beyond what they have billed so far. */
+    public function totalPaidAhead(): int
+    {
+        return array_sum(array_map(fn ($s) => max(0, -$s['owed_santim']), $this->suppliers));
+    }
+
     public function totalReceivedNotInvoiced(): int
     {
         return array_sum(array_column($this->suppliers, 'received_not_invoiced_santim'));

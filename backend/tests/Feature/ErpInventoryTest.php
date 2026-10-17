@@ -228,7 +228,8 @@ class ErpInventoryTest extends TestCase
 
         $this->getJson('/api/seller/summary')->assertOk()->assertJsonPath('data.stock', ['low' => 1, 'out' => 1]);
         $this->getJson('/api/seller/erp/overview?period=custom&from=2026-02-10&to=2026-01-01')->assertUnprocessable();
-        $this->getJson('/api/seller/erp/overview?period=year')->assertUnprocessable();
+        $this->getJson('/api/seller/erp/overview?period=decade')->assertUnprocessable();
+        $this->getJson('/api/seller/erp/overview?period=year')->assertOk()->assertJsonPath('data.range.from', now(config('marketplace.timezone'))->startOfYear()->toDateString());
 
         // Another store sees none of it.
         $this->as($this->approvedSeller()->user)->getJson('/api/seller/erp/overview')->assertOk()

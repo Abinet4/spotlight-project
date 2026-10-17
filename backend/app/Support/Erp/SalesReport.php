@@ -21,7 +21,8 @@ use App\Models\SaleReturnItem;
 final class SalesReport
 {
     /** @return array<string, mixed> */
-    public static function for(int $storeId, Period $period): array
+    /** @param  int|null  $productLimit  how many product rows to return; null for all */
+    public static function for(int $storeId, Period $period, ?int $productLimit = 300): array
     {
         [$start, $end] = $period->bounds();
         $from = $period->from->toDateString();
@@ -121,7 +122,7 @@ final class SalesReport
             'offline' => $offline,
             'returns' => $returned,
             'days' => collect($days)->map(fn ($d, $date) => ['date' => $date, 'items_santim' => $d['marketplace_santim'] + $d['offline_santim']] + $d)->values()->all(),
-            'products' => self::products($orders->pluck('id')->all(), $sales->pluck('id')->all(), $returns->pluck('id')->all()),
+            'products' => self::products($orders->pluck('id')->all(), $sales->pluck('id')->all(), $returns->pluck('id')->all(), $productLimit),
         ];
     }
 
@@ -131,7 +132,7 @@ final class SalesReport
      *
      * @return list<array<string, mixed>>
      */
-    private static function products(array $orderIds, array $saleIds, array $returnIds): array
+    private static function products(array $orderIds, array $saleIds, array $returnIds, ?int $limit): array
     {
         $rows = [];
         $add = function ($productId, $variantId, string $source, int $units, int $money, int $cost, bool $costed) use (&$rows) {
@@ -189,6 +190,6 @@ final class SalesReport
         $rows = array_values($rows);
         usort($rows, fn ($a, $b) => ($a['product_id'] === null) <=> ($b['product_id'] === null) ?: $b['units'] <=> $a['units'] ?: $b['net_santim'] <=> $a['net_santim']);
 
-        return array_slice($rows, 0, 300);
+        return $limit === null ? $rows : array_slice($rows, 0, $limit);
     }
 }

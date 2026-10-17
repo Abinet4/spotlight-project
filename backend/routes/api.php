@@ -29,9 +29,11 @@ use App\Http\Controllers\Api\QuoteController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\Seller\BalanceController;
 use App\Http\Controllers\Api\Seller\Erp\ExpenseController as ErpExpenseController;
+use App\Http\Controllers\Api\Seller\Erp\FinanceController as ErpFinanceController;
 use App\Http\Controllers\Api\Seller\Erp\InventoryController as ErpInventoryController;
 use App\Http\Controllers\Api\Seller\Erp\OverviewController as ErpOverviewController;
 use App\Http\Controllers\Api\Seller\Erp\PurchaseController as ErpPurchaseController;
+use App\Http\Controllers\Api\Seller\Erp\ReportController as ErpReportController;
 use App\Http\Controllers\Api\Seller\Erp\SaleController as ErpSaleController;
 use App\Http\Controllers\Api\Seller\Erp\SettingsController as ErpSettingsController;
 use App\Http\Controllers\Api\Seller\Erp\SupplierController as ErpSupplierController;
@@ -49,6 +51,7 @@ use App\Payments\FakeGateway;
 use App\Payments\PaymentGateway;
 use App\Services\DistancePricing;
 use App\Services\PaymentService;
+use App\Support\Erp\Reports;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/config', fn () => response()->json([
@@ -220,6 +223,7 @@ Route::prefix('seller')->middleware(['auth:sanctum', 'role:seller'])->group(func
         Route::post('/inventory/{id}/adjust', [ErpInventoryController::class, 'adjust'])->whereNumber('id')->middleware('throttle:erp-writes');
         Route::post('/inventory/{id}/sku', [ErpInventoryController::class, 'generateSku'])->whereNumber('id');
         Route::get('/movements', [ErpInventoryController::class, 'movements']);
+        Route::get('/movements.csv', [ErpInventoryController::class, 'exportMovements']);
         Route::get('/items', [ErpInventoryController::class, 'pick']);
         Route::get('/settings', [ErpSettingsController::class, 'show']);
         Route::put('/settings', [ErpSettingsController::class, 'update']);
@@ -293,6 +297,12 @@ Route::prefix('seller')->middleware(['auth:sanctum', 'role:seller'])->group(func
             Route::post('/expense-categories', [ErpExpenseController::class, 'storeCategory']);
             Route::put('/expense-categories/{id}', [ErpExpenseController::class, 'updateCategory'])->whereNumber('id');
         });
+
+        Route::get('/finance', [ErpFinanceController::class, 'show']);
+        Route::get('/finance.csv', [ErpFinanceController::class, 'export']);
+        Route::get('/reports', [ErpReportController::class, 'index']);
+        Route::get('/reports/{report}.csv', [ErpReportController::class, 'export'])->whereIn('report', array_keys(Reports::definitions()));
+        Route::get('/reports/{report}', [ErpReportController::class, 'show'])->whereIn('report', array_keys(Reports::definitions()));
     });
 });
 

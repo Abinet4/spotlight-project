@@ -339,6 +339,8 @@ class ErpSalesTest extends TestCase
         $this->assertStringContainsString('"Delivery to Gerji"', $csv);
         $this->assertStringContainsString('return,RT-00001,'.$paid['number'].',Almaz', $csv);
         $this->assertStringNotContainsString('Old chair', $csv);
+        // Returns go out as negative quantities and amounts.
+        $this->assertMatchesRegularExpression('/return,RT-00001,[^\n]*,-1,-10000\.00,6000\.00,yes/', $csv);
 
         $overview = $this->getJson('/api/seller/erp/overview')->assertOk()->json('data.sales');
         $this->assertSame([1, 2, 1], [$overview['marketplace']['orders'], $overview['offline']['sales'], $overview['returns']['returns']]);

@@ -6,6 +6,7 @@ use App\Models\OfflineSale;
 use App\Models\OfflineSalePayment;
 use App\Models\SaleReturn;
 use App\Models\SaleReturnItem;
+use Carbon\CarbonImmutable;
 
 /**
  * Money and returns of offline sales, in a few queries for any number of sales.
@@ -53,6 +54,28 @@ final class SaleFigures
     public static function balance(OfflineSale $sale, array $m): int
     {
         return $sale->isVoided() ? 0 : $sale->total_santim - $m['credited_santim'] - ($m['paid_santim'] - $m['refunded_santim']);
+    }
+
+    /**
+     * What customers owe the store on its offline sales as of now, how many of those sales are past
+     * their pay-by date, and the credit the store holds for customers (returns credited beyond what
+     * was given back).
+     *
+     * @return array{owe_santim: int, owing_sales: int, overdue_sales: int, credit_santim: int}
+     */
+    public static function customers(int $storeId): array
+    {
+        $open = OfflineSale::where('seller_profile_id', $storeId)->where('status', 'completed')->get(['id', 'status', 'total_santim', 'due_date']);
+        $money = self::money($open->pluck('id')->all());
+        $today = CarbonImmutable::now(config('marketplace.timezone'))->toDateString();
+        $owing = $open->filter(fn ($s) => self::balance($s, $money[$s->id]) > 0);
+
+        return [
+            'owe_santim' => (int) $owing->sum(fn ($s) => self::balance($s, $money[$s->id])),
+            'owing_sales' => $owing->count(),
+            'overdue_sales' => $owing->filter(fn ($s) => $s->due_date && $s->due_date->toDateString() < $today)->count(),
+            'credit_santim' => (int) -$open->sum(fn ($s) => min(0, self::balance($s, $money[$s->id]))),
+        ];
     }
 
     /**

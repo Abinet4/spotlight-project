@@ -258,31 +258,65 @@ class InventoryController extends Controller
     public function movements(Request $request): JsonResponse
     {
         $store = $this->currentStore($request);
-        $data = $request->validate([
+        $data = $this->movementFilters($request) + $request->validate(['page' => ['nullable', 'integer', 'min:1']]);
+        $page = $this->movementQuery($store->id, $data)->latest('id')->paginate(30)->withQueryString();
+
+        return response()->json([
+            'data' => $page->getCollection()->map(fn ($m) => self::movement($m, withProduct: true))->values(),
+            'meta' => ['current_page' => $page->currentPage(), 'last_page' => $page->lastPage(), 'total' => $page->total()],
+        ]);
+    }
+
+    /** Stock history with the same filters, oldest first, for a spreadsheet. */
+    public function exportMovements(Request $request, AuditLogger $audit): StreamedResponse
+    {
+        $store = $this->currentStore($request);
+        $data = $this->movementFilters($request);
+        $audit->log('inventory.movements_exported', $store, array_filter($data));
+        $tz = config('marketplace.timezone');
+        $text = ReportController::cell(...);
+
+        return response()->streamDownload(function () use ($store, $data, $tz, $text) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['date_time', 'listing', 'option', 'location', 'type', 'change', 'available_after', 'at_location_after', 'order', 'by', 'note'], escape: '');
+            $this->movementQuery($store->id, $data)->chunkById(500, function ($rows) use ($out, $tz, $text) {
+                foreach ($rows as $m) {
+                    $r = self::movement($m, withProduct: true);
+                    fputcsv($out, [
+                        $m->created_at?->setTimezone($tz)->format('Y-m-d H:i'), $text($r['product']['name'] ?? ''), $text($r['variant']), $text($r['warehouse']),
+                        $r['type'], $r['quantity'], $r['available_after'], $r['location_after'], $r['order']['number'] ?? '', $text($r['by']), $text($r['note']),
+                    ], escape: '');
+                }
+            });
+            fclose($out);
+        }, 'stock-history-'.now($tz)->toDateString().'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /** @return array<string, mixed> */
+    private function movementFilters(Request $request): array
+    {
+        return $request->validate([
             'product_id' => ['nullable', 'integer'],
             'variant_id' => ['nullable', 'integer'],
             'warehouse_id' => ['nullable', 'integer'],
             'type' => ['nullable', Rule::in(StockMovement::TYPES)],
             'from' => ['nullable', 'date_format:Y-m-d'],
             'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
-            'page' => ['nullable', 'integer', 'min:1'],
         ]);
+    }
+
+    private function movementQuery(int $storeId, array $data): Builder
+    {
         $tz = config('marketplace.timezone');
 
-        $page = StockMovement::where('seller_profile_id', $store->id)
+        return StockMovement::where('seller_profile_id', $storeId)
             ->when($data['product_id'] ?? null, fn ($q, $v) => $q->where('product_id', $v))
             ->when($data['variant_id'] ?? null, fn ($q, $v) => $q->where('variant_id', $v))
             ->when($data['warehouse_id'] ?? null, fn ($q, $v) => $q->where('warehouse_id', $v))
             ->when($data['type'] ?? null, fn ($q, $v) => $q->where('type', $v))
             ->when($data['from'] ?? null, fn ($q, $v) => $q->where('created_at', '>=', CarbonImmutable::createFromFormat('Y-m-d', $v, $tz)->startOfDay()->utc()))
             ->when($data['to'] ?? null, fn ($q, $v) => $q->where('created_at', '<=', CarbonImmutable::createFromFormat('Y-m-d', $v, $tz)->endOfDay()->utc()))
-            ->with(['product:id,name,slug', 'warehouse:id,name', 'variant:id,size,color,material', 'order:id,number', 'user:id,name'])
-            ->latest('id')->paginate(30)->withQueryString();
-
-        return response()->json([
-            'data' => $page->getCollection()->map(fn ($m) => self::movement($m, withProduct: true))->values(),
-            'meta' => ['current_page' => $page->currentPage(), 'last_page' => $page->lastPage(), 'total' => $page->total()],
-        ]);
+            ->with(['product:id,name,slug', 'warehouse:id,name', 'variant:id,size,color,material', 'order:id,number', 'user:id,name']);
     }
 
     /**

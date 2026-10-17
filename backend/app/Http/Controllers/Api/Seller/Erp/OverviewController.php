@@ -13,6 +13,7 @@ use App\Models\PurchaseOrder;
 use App\Models\PurchaseReceiptItem;
 use App\Models\StockMovement;
 use App\Services\InventoryService;
+use App\Support\Erp\Finance;
 use App\Support\Erp\Period;
 use App\Support\Erp\SalesReport;
 use App\Support\Erp\StockFigures;
@@ -57,30 +58,43 @@ class OverviewController extends Controller
         ]]);
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * Stock now. Hidden (archived) listings are left out of the counts and alerts, but units they
+     * still hold are the store's goods, so they count in the stock value.
+     *
+     * @return array<string, mixed>
+     */
     private function stock(int $storeId): array
     {
-        $products = Product::where('seller_profile_id', $storeId)->where('status', '!=', ProductStatus::Archived->value)
-            ->with('variants')->get();
+        $products = Product::where('seller_profile_id', $storeId)->with('variants')->get();
         $figures = new StockFigures($products, $this->inventory);
         $items = [];
+        $hidden = [];
         foreach ($products as $p) {
             foreach ($figures->items($p) as $it) {
-                $items[] = $it + ['product_id' => $p->id, 'name' => $p->name];
+                $it += ['product_id' => $p->id, 'name' => $p->name];
+                if ($p->status === ProductStatus::Archived) {
+                    $hidden[] = $it;
+                } else {
+                    $items[] = $it;
+                }
             }
         }
         $tracked = array_filter($items, fn ($i) => $i['tracked']);
+        $hiddenTracked = array_filter($hidden, fn ($i) => $i['tracked'] && $i['available'] + $i['held'] > 0);
         $alerts = array_values(array_filter($tracked, fn ($i) => in_array($i['state'], ['low', 'out'], true)));
         usort($alerts, fn ($a, $b) => $a['available'] <=> $b['available'] ?: strcmp($a['name'], $b['name']));
+        $valued = [...$tracked, ...$hiddenTracked];
 
         return [
-            'listings' => $products->count(),
+            'listings' => $products->where('status', '!=', ProductStatus::Archived)->count(),
             'items' => count($items),
             'available' => array_sum(array_column($tracked, 'available')),
             'held' => array_sum(array_column($tracked, 'held')),
-            'value_cost_santim' => array_sum(array_map(fn ($i) => (int) $i['value_cost_santim'], $tracked)),
-            'value_price_santim' => array_sum(array_column($tracked, 'value_price_santim')),
-            'missing_cost' => count(array_filter($tracked, fn ($i) => $i['cost_price_santim'] === null)),
+            'value_cost_santim' => array_sum(array_map(fn ($i) => (int) $i['value_cost_santim'], $valued)),
+            'value_price_santim' => array_sum(array_column($valued, 'value_price_santim')),
+            'missing_cost' => count(array_filter($valued, fn ($i) => $i['cost_price_santim'] === null)),
+            'hidden_units' => array_sum(array_map(fn ($i) => $i['available'] + $i['held'], $hiddenTracked)),
             'low' => count(array_filter($tracked, fn ($i) => $i['state'] === 'low')),
             'out' => count(array_filter($tracked, fn ($i) => $i['state'] === 'out')),
             'alerts' => array_map(fn ($i) => array_intersect_key($i, array_flip(['product_id', 'variant_id', 'name', 'label', 'sku', 'available', 'held', 'low_level', 'reorder_quantity', 'state'])), array_slice($alerts, 0, 8)),
@@ -126,6 +140,7 @@ class OverviewController extends Controller
     private function sales(int $storeId, Period $period): array
     {
         $report = SalesReport::for($storeId, $period);
+        $finance = Finance::for($storeId, $period, 'month')['total'];
         $top = array_values(array_filter($report['products'], fn ($p) => $p['product_id'] !== null && $p['units'] > 0));
 
         return [
@@ -133,6 +148,8 @@ class OverviewController extends Controller
             'offline' => $report['offline'],
             'returns' => $report['returns'],
             'totals' => $report['totals'],
+            // The same figures as Finance & profit, so both pages agree.
+            'finance' => array_intersect_key($finance, array_flip(['cost_of_goods_santim', 'gross_profit_santim', 'commission_santim', 'adjustments_santim', 'expenses_santim', 'net_profit_santim', 'sales_without_cost_santim', 'lines_without_cost'])),
             'days' => $report['days'],
             'top_products' => array_map(fn ($p) => [
                 'product_id' => $p['product_id'], 'variant_id' => $p['variant_id'], 'name' => $p['name'], 'label' => $p['label'],
