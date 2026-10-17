@@ -12,7 +12,7 @@ export default function ErpSettings() {
   const [busy, setBusy] = useState(false)
   const current = res.data?.data
   useEffect(() => {
-    if (current) setV({ low_stock_level: String(current.low_stock_level), low_stock_alerts: current.low_stock_alerts, sku_prefix: current.sku_prefix || '' })
+    if (current) setV({ low_stock_level: String(current.low_stock_level), low_stock_alerts: current.low_stock_alerts, cost_from_purchases: current.cost_from_purchases, sku_prefix: current.sku_prefix || '' })
   }, [current])
 
   if (res.loading && !v) return <Spinner />
@@ -25,7 +25,7 @@ export default function ErpSettings() {
     setErrors({})
     setMessage(null)
     try {
-      const r = await api.put('/seller/erp/settings', { low_stock_level: Number(v.low_stock_level), low_stock_alerts: v.low_stock_alerts, sku_prefix: v.sku_prefix.trim() || null })
+      const r = await api.put('/seller/erp/settings', { low_stock_level: Number(v.low_stock_level), low_stock_alerts: v.low_stock_alerts, cost_from_purchases: v.cost_from_purchases, sku_prefix: v.sku_prefix.trim() || null })
       res.setData(r.data)
       toast.success('Settings saved')
     } catch (err) {
@@ -48,6 +48,10 @@ export default function ErpSettings() {
         <label className="flex items-start gap-2 text-sm">
           <input type="checkbox" className="mt-0.5 size-4 accent-brand-700" checked={v.low_stock_alerts} onChange={(e) => setV({ ...v, low_stock_alerts: e.target.checked })} />
           <span>Tell me when an item gets low or runs out<span className="block text-xs text-stone-500">In your alerts, and by email if email alerts are on in Alert settings.</span></span>
+        </label>
+        <label className="flex items-start gap-2 text-sm">
+          <input type="checkbox" className="mt-0.5 size-4 accent-brand-700" checked={v.cost_from_purchases} onChange={(e) => setV({ ...v, cost_from_purchases: e.target.checked })} />
+          <span>Update cost prices when goods arrive<span className="block text-xs text-stone-500">The new cost is the average of the units you had and the units received, including their share of delivery charges and discounts. Turn off to keep the cost prices you type in.</span></span>
         </label>
         <Field label="SKU prefix" name="sku_prefix" error={errors.sku_prefix} hint="Letters and numbers, up to 10. Used when you create SKUs, for example BF-00012.">
           <input id="sku_prefix" className="input w-40 uppercase" maxLength={10} value={v.sku_prefix} onChange={(e) => setV({ ...v, sku_prefix: e.target.value })} placeholder="BF" />

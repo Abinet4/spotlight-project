@@ -6,37 +6,7 @@ import { ErrorState, PageHeader, Spinner, StatusBadge } from '../../../component
 import { api, parseError } from '../../../lib/api'
 import { formatDateTime } from '../../../lib/format'
 import { useFetch } from '../../../lib/useFetch'
-import { ADJUSTMENTS, Change, MOVEMENT_LABELS, StockBadge, money } from './shared'
-
-const birr = (santim) => (santim === null || santim === undefined ? '' : (santim / 100).toFixed(2).replace(/\.00$/, ''))
-
-/** Shared submit helper: sends, shows the error under the form, hands back the fresh item. */
-function useSubmit(onDone) {
-  const [busy, setBusy] = useState(false)
-  const [errors, setErrors] = useState({})
-  async function submit(request, success) {
-    setBusy(true)
-    setErrors({})
-    try {
-      const r = await request()
-      onDone(r.data)
-      if (success) toast.success(success)
-      return true
-    } catch (err) {
-      const p = parseError(err)
-      setErrors(Object.keys(p.fields).length ? p.fields : { form: p.message })
-      return false
-    } finally {
-      setBusy(false)
-    }
-  }
-  return { busy, errors, submit }
-}
-
-function Err({ errors }) {
-  const first = Object.values(errors)[0]
-  return first ? <p role="alert" className="text-xs font-medium text-red-700">{Array.isArray(first) ? first[0] : first}</p> : null
-}
+import { ADJUSTMENTS, Change, Err, MOVEMENT_LABELS, StockBadge, birr, money, useSubmit } from './shared'
 
 function DetailsForm({ productId, item, onDone, readOnly }) {
   const [v, setV] = useState({
@@ -163,6 +133,8 @@ export default function ErpItem() {
         </>} />
       {readOnly && <p className="mb-4 rounded-lg bg-stone-100 px-4 py-3 text-sm text-stone-700">Your store cannot change records right now. You can still look at them.</p>}
 
+      <UsualSupplier productId={p.id} supplier={p.supplier} onDone={onDone} readOnly={readOnly} />
+
       {p.has_variants && (
         <section className="card mb-4 p-4">
           <h2 className="mb-2 font-semibold text-stone-900">Listing cost price</h2>
@@ -215,6 +187,28 @@ export default function ErpItem() {
   )
 }
 
+/** The supplier this listing is usually bought from: listed first when you add items to their orders. */
+function UsualSupplier({ productId, supplier, onDone, readOnly }) {
+  const list = useFetch('/seller/erp/suppliers?brief=1')
+  const [value, setValue] = useState(supplier ? String(supplier.id) : '')
+  const { busy, errors, submit } = useSubmit(onDone)
+  const options = (list.data?.data || []).filter((x) => x.is_active || String(x.id) === value)
+  if (!supplier && !readOnly && list.data && options.length === 0) return null
+  return (
+    <form noValidate className="card mb-4 flex flex-wrap items-end gap-2 p-4" onSubmit={(e) => { e.preventDefault(); submit(() => api.put(`/seller/erp/inventory/${productId}`, { supplier_id: value ? Number(value) : null }), 'Saved') }}>
+      <label className="text-sm text-stone-700" htmlFor="usual-supplier">Usual supplier
+        <select id="usual-supplier" className="input mt-1 w-64 max-w-full" value={value} disabled={readOnly} onChange={(e) => setValue(e.target.value)}>
+          <option value="">None</option>
+          {options.map((x) => <option key={x.id} value={x.id}>{x.name}{x.is_active ? '' : ' (inactive)'}</option>)}
+        </select>
+      </label>
+      {!readOnly && value !== (supplier ? String(supplier.id) : '') && <button type="submit" className="btn-secondary" disabled={busy}>Save</button>}
+      {supplier && <Link to={`/seller/erp/suppliers/${supplier.id}`} className="btn-ghost">See supplier</Link>}
+      <Err errors={errors} />
+    </form>
+  )
+}
+
 function ListingCost({ productId, cost, onDone, readOnly }) {
   const [value, setValue] = useState(birr(cost))
   const { busy, errors, submit } = useSubmit(onDone)
@@ -244,7 +238,7 @@ export function MovementTable({ movements, withProduct = false }) {
                 {MOVEMENT_LABELS[m.type] || m.type}{!withProduct && m.variant && <span className="text-stone-500"> · {m.variant}</span>}
                 {m.order && <> · <Link to={`/seller/orders/${m.order.id}`} className="text-brand-700 hover:underline">{m.order.number}</Link></>}
                 {m.warehouse && <span className="text-stone-500"> · {m.warehouse}</span>}
-                {m.note && <span className="block text-xs text-stone-500">{m.note}</span>}
+                {m.note && <span className="block text-xs text-stone-500">{m.reference_type === 'stock_transfer' ? <Link to={`/seller/erp/transfers/${m.reference_id}`} className="hover:underline">{m.note}</Link> : m.note}</span>}
               </td>
               <td data-label="Change" className="py-2 pr-3 text-right"><Change n={m.quantity} /></td>
               <td data-label="After" className="py-2 pr-3 text-right tabular-nums">{m.available_after}</td>

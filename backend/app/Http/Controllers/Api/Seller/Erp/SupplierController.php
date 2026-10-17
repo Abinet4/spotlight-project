@@ -42,7 +42,13 @@ class SupplierController extends Controller
             'owing' => ['nullable', 'boolean'],
             'sort' => ['nullable', Rule::in(['name', 'owed', 'recent'])],
             'page' => ['nullable', 'integer', 'min:1'],
+            'brief' => ['nullable', 'boolean'],
         ]);
+        // Every supplier's name, for pickers: no figures, no paging.
+        if ($request->boolean('brief')) {
+            return response()->json(['data' => Supplier::where('seller_profile_id', $store->id)->orderBy('name')->limit(2000)
+                ->get(['id', 'name', 'is_active', 'payment_days'])->map(fn ($s) => ['id' => $s->id, 'name' => $s->name, 'is_active' => $s->is_active, 'payment_days' => $s->payment_days])]);
+        }
         $suppliers = Supplier::where('seller_profile_id', $store->id)
             ->when(trim((string) ($data['q'] ?? '')), function ($q, $term) {
                 $like = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], mb_strtolower($term)).'%';

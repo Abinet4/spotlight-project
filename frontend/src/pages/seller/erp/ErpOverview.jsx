@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { ErrorState, PageHeader, Spinner, Stats } from '../../../components/ui'
 import { formatDateTime } from '../../../lib/format'
 import { useFetch } from '../../../lib/useFetch'
-import { Change, DayBars, MOVEMENT_LABELS, PeriodPicker, StockBadge, money, usePeriod } from './shared'
+import { Badge, Change, DayBars, MOVEMENT_LABELS, PO_STATUS, PeriodPicker, StockBadge, money, usePeriod } from './shared'
 
 const ACTIVITY = {
   'inventory.adjusted': 'Recorded a stock change',
@@ -18,6 +18,26 @@ const ACTIVITY = {
   'product.variant_added': 'Added an option',
   'product.variant_updated': 'Changed an option',
   'product.variant_removed': 'Removed an option',
+  'erp.warehouse_created': 'Added a location',
+  'erp.warehouse_updated': 'Changed a location',
+  'erp.warehouse_closed': 'Closed a location',
+  'erp.warehouse_reopened': 'Reopened a location',
+  'erp.transfer_created': 'Moved stock between locations',
+  'erp.transfer_received': 'Received a transfer',
+  'erp.transfer_cancelled': 'Cancelled a transfer',
+  'erp.supplier_created': 'Added a supplier',
+  'erp.supplier_updated': 'Changed a supplier',
+  'erp.supplier_deleted': 'Deleted a supplier',
+  'erp.purchase_created': 'Created a purchase order',
+  'erp.purchase_updated': 'Changed a purchase order',
+  'erp.purchase_ordered': 'Sent a purchase order',
+  'erp.purchase_cancelled': 'Cancelled a purchase order',
+  'erp.purchase_closed': 'Stopped waiting for the rest of an order',
+  'erp.purchase_received': 'Received goods from a supplier',
+  'erp.invoice_recorded': 'Recorded a supplier invoice',
+  'erp.invoice_voided': 'Voided a supplier invoice',
+  'erp.payment_recorded': 'Recorded a payment to a supplier',
+  'erp.payment_voided': 'Voided a payment to a supplier',
 }
 
 export default function ErpOverview() {
@@ -50,6 +70,29 @@ export default function ErpOverview() {
             { label: 'Open orders', value: d.orders.open, hint: d.orders.pending_confirmation ? `${d.orders.pending_confirmation} waiting for you` : undefined, to: '/seller/orders' },
           ]} />
           <p className="mt-2 text-xs text-stone-500">Each order counts once, on the day it was delivered. Profit uses the cost prices you entered; it is an estimate, not accounting.</p>
+
+          <h2 className="mt-6 mb-2 text-sm font-semibold text-stone-500">Buying from suppliers</h2>
+          <Stats items={[
+            { label: 'Orders waiting for goods', value: d.purchasing.open_orders, hint: d.purchasing.open_orders ? `worth ${money(d.purchasing.open_value_santim)}` : undefined, to: '/seller/erp/purchases?status=open' },
+            { label: 'Late orders', value: d.purchasing.late_orders, tone: d.purchasing.late_orders ? 'bad' : undefined, to: d.purchasing.late_orders ? '/seller/erp/purchases?status=late' : undefined },
+            { label: 'You owe suppliers', value: money(d.purchasing.owed_santim), tone: d.purchasing.owed_santim ? 'warn' : undefined, to: '/seller/erp/suppliers?show=owing&sort=owed' },
+            { label: 'Received, no invoice yet', value: money(d.purchasing.received_not_invoiced_santim) },
+            { label: 'Goods received in the period', value: money(d.purchasing.received_value_santim), hint: `${d.purchasing.received_units} units at cost` },
+          ]} />
+          {d.purchasing.recent.length > 0 && (
+            <section className="card mt-3 p-4">
+              <div className="mb-2 flex items-center justify-between"><h2 className="font-semibold text-stone-900">Latest purchase orders</h2><Link to="/seller/erp/purchases" className="text-sm font-semibold text-brand-700 hover:underline">All</Link></div>
+              <ul className="divide-y divide-stone-100 text-sm">
+                {d.purchasing.recent.map((o) => (
+                  <li key={o.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                    <span className="min-w-0 flex-1"><Link to={`/seller/erp/purchases/${o.id}`} className="font-semibold text-brand-700 hover:underline">{o.number}</Link> <span className="text-stone-600">{o.supplier?.name}</span></span>
+                    <Badge map={PO_STATUS} value={o.status} late={o.late} />
+                    <span className="w-28 text-right font-semibold tabular-nums">{money(o.total_santim)}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           <div className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-2">
             <section className="card p-4">

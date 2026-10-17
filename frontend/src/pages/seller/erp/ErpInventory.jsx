@@ -12,12 +12,13 @@ const SORTS = [['updated', 'Recently changed'], ['name', 'Name'], ['stock', 'Uni
 export default function ErpInventory() {
   const [params, setParams] = useSearchParams()
   const filters = {
-    q: params.get('q') || '', stock: params.get('stock') || '', status: params.get('status') || '',
+    q: params.get('q') || '', stock: params.get('stock') || '', status: params.get('status') || '', supplier_id: params.get('supplier_id') || '',
     sort: params.get('sort') || 'updated', dir: params.get('dir') || '', page: params.get('page') || '',
   }
   const [q, setQ] = useState(filters.q)
   const query = toQuery(filters)
   const res = useFetch(`/seller/erp/inventory?${query}`)
+  const suppliers = useFetch('/seller/erp/suppliers?brief=1')
   const set = (next) => setParams(toQuery({ ...filters, page: '', ...next }))
   const rows = res.data?.data || []
 
@@ -40,6 +41,14 @@ export default function ErpInventory() {
             <button key={key || 'all'} type="button" aria-pressed={filters.stock === key} onClick={() => set({ stock: key })}
               className={`chip ${filters.stock === key ? 'border-brand-600 bg-brand-50 font-semibold text-brand-800' : ''}`}>{label}</button>
           ))}
+          {suppliers.data?.data?.length > 0 && (
+            <label className="flex items-center gap-2 text-sm text-stone-600">Supplier
+              <select className="input w-auto max-w-[12rem] py-1.5" value={filters.supplier_id} onChange={(e) => set({ supplier_id: e.target.value })}>
+                <option value="">Any</option>
+                {suppliers.data.data.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+              </select>
+            </label>
+          )}
           <label className="ml-auto flex items-center gap-2 text-sm text-stone-600">Sort
             <select className="input w-auto py-1.5" value={filters.sort} onChange={(e) => set({ sort: e.target.value, dir: '' })}>
               {SORTS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
@@ -53,8 +62,8 @@ export default function ErpInventory() {
       </div>
 
       {res.loading && !res.data ? <Spinner /> : res.error ? <ErrorState error={res.error} onRetry={res.reload} /> : rows.length === 0 ? (
-        <EmptyState title={filters.q || filters.stock ? 'Nothing matches' : 'No listings yet'}>
-          {filters.q || filters.stock ? 'Try another search or filter.' : <>Stock items are your listings. <Link to="/seller/products/new" className="font-semibold text-brand-700 underline">Add a listing</Link> to start.</>}
+        <EmptyState title={filters.q || filters.stock || filters.supplier_id ? 'Nothing matches' : 'No listings yet'}>
+          {filters.q || filters.stock || filters.supplier_id ? 'Try another search or filter.' : <>Stock items are your listings. <Link to="/seller/products/new" className="font-semibold text-brand-700 underline">Add a listing</Link> to start.</>}
         </EmptyState>
       ) : (
         <div className="card relative overflow-x-auto">

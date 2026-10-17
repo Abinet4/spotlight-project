@@ -457,7 +457,8 @@ class PurchasingService
             $balances = SupplierBalances::forStore($store->id, [$supplier->id]);
             if ($po) {
                 $figures = $balances->order($po->id);
-                $room = max($po->total_santim, $figures['payable_santim']) - $figures['paid_santim'];
+                // While goods are still coming a deposit can go up to the order total; after that, only what is owed.
+                $room = ($po->status->isOpen() ? max($po->total_santim, $figures['payable_santim']) : $figures['payable_santim']) - $figures['paid_santim'];
                 if ($amount > $room) {
                     throw ValidationException::withMessages(['amount' => $room > 0
                         ? 'This is more than is left to pay on '.$po->number.' ('.Money::toBirr($room).' birr).'

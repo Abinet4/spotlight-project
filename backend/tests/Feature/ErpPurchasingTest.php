@@ -12,6 +12,7 @@ use App\Models\StockMovement;
 use App\Models\Supplier;
 use App\Models\SupplierPayment;
 use App\Models\Warehouse;
+use App\Support\Money;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Testing\TestResponse;
@@ -100,7 +101,7 @@ class ErpPurchasingTest extends TestCase
 
         // A future date or one before the order is refused.
         $po2 = $this->sent(Supplier::sole()->id);
-        $this->receive($po2['id'], [$po2['items'][0]['id'] => 1], ['received_on' => now()->addDays(3)->toDateString()])->assertUnprocessable()->assertJsonValidationErrors('received_on');
+        $this->receive($po2['id'], [$po2['items'][0]['id'] => 1], ['received_on' => now(config('marketplace.timezone'))->addDays(3)->toDateString()])->assertUnprocessable()->assertJsonValidationErrors('received_on');
     }
 
     public function test_cost_updates_can_be_turned_off_and_unknown_costs_take_the_landed_cost(): void
@@ -129,7 +130,7 @@ class ErpPurchasingTest extends TestCase
         $post(['items' => [['quantity' => 0] + $line]])->assertUnprocessable();
         $post(['items' => [['unit_cost' => '12.345'] + $line]])->assertUnprocessable();
         $post(['items' => [['unit_cost' => '-5'] + $line]])->assertUnprocessable();
-        $post(['order_date' => now()->addDays(2)->toDateString()])->assertUnprocessable()->assertJsonValidationErrors('order_date');
+        $post(['order_date' => now(config('marketplace.timezone'))->addDays(2)->toDateString()])->assertUnprocessable()->assertJsonValidationErrors('order_date');
         $post(['order_date' => '2026-10-10', 'expected_date' => '2026-10-09'])->assertUnprocessable()->assertJsonValidationErrors('expected_date');
 
         // Only this store's listings, suppliers and locations.
@@ -165,7 +166,7 @@ class ErpPurchasingTest extends TestCase
 
         $this->postJson("/api/seller/erp/purchases/{$po['id']}/order")->assertOk();
         $this->postJson("/api/seller/erp/purchases/{$po['id']}/order")->assertUnprocessable();
-        $this->putJson("/api/seller/erp/purchases/{$po['id']}", ['expected_date' => now()->addDays(5)->toDateString(), 'notes' => 'Call before',
+        $this->putJson("/api/seller/erp/purchases/{$po['id']}", ['expected_date' => now(config('marketplace.timezone'))->addDays(5)->toDateString(), 'notes' => 'Call before',
             'items' => [['product_id' => $chair->id, 'quantity' => 99, 'unit_cost' => '1']]])->assertOk()
             ->assertJsonPath('data.notes', 'Call before')->assertJsonCount(2, 'data.items')->assertJsonPath('data.total_santim', 710_000);
     }
@@ -190,6 +191,14 @@ class ErpPurchasingTest extends TestCase
             ->assertJsonPath('data.status', 'received')->assertJsonPath('data.closed_short', true)->assertJsonPath('data.items.0.outstanding', 0);
         $this->receive($po['id'], [$po['items'][0]['id'] => 1])->assertUnprocessable();
         $this->assertSame(53, $this->sofa->fresh()->stock_quantity);
+
+        // Nothing more is coming, so a payment can cover what arrived but no longer the whole order.
+        $closed = $this->getJson("/api/seller/erp/purchases/{$po['id']}")->json('data');
+        $this->assertGreaterThan($closed['payable_santim'], $closed['total_santim']);
+        $pay = fn ($santim) => $this->postJson("/api/seller/erp/suppliers/{$supplier}/payments", ['purchase_order_id' => $po['id'], 'amount' => Money::toBirr($santim), 'method' => 'cash']);
+        $pay($closed['payable_santim'] + 1)->assertUnprocessable()->assertJsonValidationErrors('amount');
+        $pay($closed['payable_santim'])->assertCreated();
+        $pay(1)->assertUnprocessable()->assertJsonPath('errors.amount.0', "{$closed['number']} is fully paid.");
     }
 
     public function test_balances_count_received_goods_until_the_invoice_replaces_them(): void
@@ -211,7 +220,7 @@ class ErpPurchasingTest extends TestCase
         $pay(['amount' => '20000', 'request_id' => 'pay-1'])->assertCreated();
         $this->assertSame(1, SupplierPayment::count());
         $this->assertSame(3_100_000, $owed()['owed_santim']);
-        $pay(['amount' => '1', 'paid_on' => now()->addDay()->toDateString()])->assertUnprocessable()->assertJsonValidationErrors('paid_on');
+        $pay(['amount' => '1', 'paid_on' => now(config('marketplace.timezone'))->addDay()->toDateString()])->assertUnprocessable()->assertJsonValidationErrors('paid_on');
         $pay(['amount' => '1', 'method' => 'gold'])->assertUnprocessable()->assertJsonValidationErrors('method');
 
         // The supplier's invoice (with a discount) replaces the received value.
@@ -219,7 +228,7 @@ class ErpPurchasingTest extends TestCase
             ->assertJsonPath('data.due_date', '2026-11-14');
         $this->assertSame([5_000_000, 3_000_000, 0], $figures());
         $bill(['invoice_number' => 'inv-1 ', 'amount' => '10'])->assertUnprocessable()->assertJsonValidationErrors('invoice_number');
-        $bill(['invoice_number' => 'INV-2', 'amount' => '10', 'invoice_date' => now()->addDays(2)->toDateString()])->assertUnprocessable()->assertJsonValidationErrors('invoice_date');
+        $bill(['invoice_number' => 'INV-2', 'amount' => '10', 'invoice_date' => now(config('marketplace.timezone'))->addDays(2)->toDateString()])->assertUnprocessable()->assertJsonValidationErrors('invoice_date');
         $bill(['invoice_number' => 'INV-2', 'amount' => '10', 'invoice_date' => '2026-10-15', 'due_date' => '2026-10-14'])->assertUnprocessable()->assertJsonValidationErrors('due_date');
         $draft = $this->order($supplier);
         $bill(['invoice_number' => 'INV-2', 'amount' => '10', 'purchase_order_id' => $draft['id']])->assertUnprocessable()->assertJsonValidationErrors('purchase_order_id');
@@ -274,6 +283,9 @@ class ErpPurchasingTest extends TestCase
         $this->assertDatabaseMissing('suppliers', ['id' => $spare]);
 
         $this->order($id);
+        // The order carries the supplier's full details, for printing.
+        $this->getJson('/api/seller/erp/purchases/'.PurchaseOrder::sole()->id)->assertOk()
+            ->assertJsonPath('data.supplier.contact_person', 'Kebede')->assertJsonPath('data.supplier.tin', '0012345678');
         $this->deleteJson("/api/seller/erp/suppliers/{$id}")->assertUnprocessable();
         $this->putJson("/api/seller/erp/suppliers/{$id}", ['name' => 'Merkato Wood', 'is_active' => false])->assertOk()->assertJsonPath('data.is_active', false);
         $this->postJson('/api/seller/erp/purchases', ['supplier_id' => $id, 'items' => [['product_id' => $this->sofa->id, 'quantity' => 1, 'unit_cost' => '1']]])
@@ -282,6 +294,9 @@ class ErpPurchasingTest extends TestCase
         $this->getJson('/api/seller/erp/suppliers?status=inactive')->assertOk()->assertJsonCount(1, 'data');
         $this->getJson('/api/seller/erp/suppliers?q=kebede')->assertOk()->assertJsonCount(1, 'data');
         $this->getJson('/api/seller/erp/suppliers?q=%25')->assertOk()->assertJsonCount(0, 'data');
+        // Names only, inactive ones included, for pickers.
+        $this->getJson('/api/seller/erp/suppliers?brief=1')->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.is_active', false)->assertJsonMissingPath('data.0.owed_santim');
 
         // The usual supplier of a listing, set from inventory.
         $this->putJson("/api/seller/erp/inventory/{$this->sofa->id}", ['supplier_id' => $id])->assertOk()->assertJsonPath('data.supplier.name', 'Merkato Wood');
@@ -327,7 +342,7 @@ class ErpPurchasingTest extends TestCase
     public function test_overview_and_lists_show_what_is_open_late_and_owed(): void
     {
         $supplier = $this->supplier();
-        $late = $this->sent($supplier, ['order_date' => now()->subDays(10)->toDateString(), 'expected_date' => now()->subDays(2)->toDateString()]);
+        $late = $this->sent($supplier, ['order_date' => now(config('marketplace.timezone'))->subDays(10)->toDateString(), 'expected_date' => now(config('marketplace.timezone'))->subDays(2)->toDateString()]);
         $this->sent($supplier);
         $this->order($supplier);
         $this->receive($late['id'], [$late['items'][0]['id'] => 2])->assertOk();

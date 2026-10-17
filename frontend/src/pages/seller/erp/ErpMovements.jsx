@@ -8,15 +8,16 @@ import { MOVEMENT_LABELS } from './shared'
 
 export default function ErpMovements() {
   const [params, setParams] = useSearchParams()
-  const filters = { product_id: params.get('product_id') || '', type: params.get('type') || '', from: params.get('from') || '', to: params.get('to') || '', page: params.get('page') || '' }
+  const filters = { product_id: params.get('product_id') || '', warehouse_id: params.get('warehouse_id') || '', type: params.get('type') || '', from: params.get('from') || '', to: params.get('to') || '', page: params.get('page') || '' }
   const [dates, setDates] = useState({ from: filters.from, to: filters.to })
   const res = useFetch(`/seller/erp/movements?${toQuery(filters)}`)
+  const places = useFetch('/seller/erp/warehouses')
   const set = (next) => setParams(toQuery({ ...filters, page: '', ...next }))
   const rows = res.data?.data || []
 
   return (
     <>
-      <PageHeader title="Stock history" subtitle="Every change to available stock: orders, cancellations, edits, counts and write-offs. Nothing here can be edited or deleted." />
+      <PageHeader title="Stock history" subtitle="Every change to available stock: orders, deliveries from suppliers, moves between locations, edits, counts and write-offs. Nothing here can be edited or deleted." />
       <form className="mb-4 flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); set(dates) }}>
         <label className="text-sm">What
           <select className="input mt-1 w-auto" value={filters.type} onChange={(e) => set({ type: e.target.value })}>
@@ -24,6 +25,14 @@ export default function ErpMovements() {
             {Object.entries(MOVEMENT_LABELS).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
           </select>
         </label>
+        {places.data?.data?.length > 1 && (
+          <label className="text-sm">Location
+            <select className="input mt-1 w-auto" value={filters.warehouse_id} onChange={(e) => set({ warehouse_id: e.target.value })}>
+              <option value="">All locations</option>
+              {places.data.data.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
+          </label>
+        )}
         <label className="text-sm">From<input type="date" className="input mt-1 w-auto" value={dates.from} onChange={(e) => setDates({ ...dates, from: e.target.value })} /></label>
         <label className="text-sm">To<input type="date" className="input mt-1 w-auto" value={dates.to} onChange={(e) => setDates({ ...dates, to: e.target.value })} /></label>
         <button type="submit" className="btn-secondary">Show</button>

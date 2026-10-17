@@ -75,7 +75,8 @@ class PurchaseController extends Controller
         $receipts = PurchaseReceipt::where('purchase_order_id', $po->id)->with(['items.orderItem:id,description', 'warehouse:id,name', 'creator:id,name'])->get();
         $landed = PurchasingService::landedUnitCosts($po, $po->items);
 
-        return response()->json(['data' => self::summary($po, $figures) + [
+        // array_merge, not +: the full supplier replaces the summary's name-only one.
+        return response()->json(['data' => array_merge(self::summary($po, $figures), [
             'supplier' => SupplierController::data($po->supplier),
             'warehouse' => ['id' => $po->warehouse->id, 'name' => $po->warehouse->name, 'address_line' => $po->warehouse->address_line, 'is_active' => $po->warehouse->is_active],
             'supplier_reference' => $po->supplier_reference,
@@ -102,7 +103,7 @@ class PurchaseController extends Controller
             'payments' => SupplierPayment::where('purchase_order_id', $po->id)->with('order:id,number')->orderBy('id')->get()->map(fn ($p) => SupplierController::payment($p)),
             // For the printed order.
             'store' => ['name' => $store->store_name, 'phone' => $store->phone, 'tin' => $store->tin_number, 'address' => $store->address_line],
-        ]]);
+        ])]);
     }
 
     public function store(Request $request): JsonResponse
