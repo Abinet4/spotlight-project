@@ -41,6 +41,9 @@ class Product extends Model
             'price_santim' => 'integer',
             'delivery_fee_santim' => 'integer',
             'stock_quantity' => 'integer',
+            'cost_price_santim' => 'integer',
+            'min_stock_level' => 'integer',
+            'reorder_quantity' => 'integer',
             'production_days' => 'integer',
             'price_negotiable' => 'boolean',
             'custom_order_available' => 'boolean',
@@ -72,6 +75,12 @@ class Product extends Model
     public function images(): HasMany
     {
         return $this->hasMany(ProductImage::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    /** Options a customer can pick from, in the store's order. */
+    public function variants(): HasMany
+    {
+        return $this->hasMany(ProductVariant::class)->orderBy('sort_order')->orderBy('id');
     }
 
     public function favoritedBy(): BelongsToMany

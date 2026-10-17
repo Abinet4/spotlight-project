@@ -134,7 +134,7 @@ class CatalogController extends Controller
     {
         $query = Product::visible()
             ->where('slug', $slug)
-            ->with(['images', 'category:id,name,slug', 'seller.area', 'seller.city', 'area:id,name']);
+            ->with(['images', 'category:id,name,slug', 'seller.area', 'seller.city', 'area:id,name', 'variants']);
 
         $this->withFavoriteFlag($request, $query);
 

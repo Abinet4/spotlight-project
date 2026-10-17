@@ -28,11 +28,15 @@ use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\QuoteController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\Seller\BalanceController;
+use App\Http\Controllers\Api\Seller\Erp\InventoryController as ErpInventoryController;
+use App\Http\Controllers\Api\Seller\Erp\OverviewController as ErpOverviewController;
+use App\Http\Controllers\Api\Seller\Erp\SettingsController as ErpSettingsController;
 use App\Http\Controllers\Api\Seller\OrderController as SellerOrderController;
 use App\Http\Controllers\Api\Seller\ProductController as SellerProductController;
 use App\Http\Controllers\Api\Seller\ProfileController as SellerProfileController;
 use App\Http\Controllers\Api\Seller\ReviewController as SellerReviewController;
 use App\Http\Controllers\Api\Seller\SummaryController as SellerSummaryController;
+use App\Http\Controllers\Api\Seller\VariantController as SellerVariantController;
 use App\Models\Setting;
 use App\Payments\ChapaGateway;
 use App\Payments\FakeGateway;
@@ -180,6 +184,9 @@ Route::prefix('seller')->middleware(['auth:sanctum', 'role:seller'])->group(func
     Route::post('/products/{id}/archive', [SellerProductController::class, 'archive'])->whereNumber('id');
     Route::post('/products/{id}/images', [SellerProductController::class, 'uploadImages'])->whereNumber('id')->middleware('throttle:uploads');
     Route::delete('/products/{id}/images/{imageId}', [SellerProductController::class, 'deleteImage'])->whereNumber(['id', 'imageId']);
+    Route::post('/products/{id}/variants', [SellerVariantController::class, 'store'])->whereNumber('id');
+    Route::put('/products/{id}/variants/{variantId}', [SellerVariantController::class, 'update'])->whereNumber(['id', 'variantId']);
+    Route::delete('/products/{id}/variants/{variantId}', [SellerVariantController::class, 'destroy'])->whereNumber(['id', 'variantId']);
 
     Route::post('/conversations/{id}/quotes', [QuoteController::class, 'store'])->whereNumber('id')->middleware('throttle:messages');
     Route::post('/quotes/{id}/withdraw', [QuoteController::class, 'withdraw'])->whereNumber('id');
@@ -196,6 +203,20 @@ Route::prefix('seller')->middleware(['auth:sanctum', 'role:seller'])->group(func
 
     Route::get('/reviews', [SellerReviewController::class, 'index']);
     Route::post('/reviews/{id}/reply', [SellerReviewController::class, 'reply'])->whereNumber('id');
+
+    // ERP: the store's own stock, purchasing and money records
+    Route::prefix('erp')->group(function () {
+        Route::get('/overview', ErpOverviewController::class);
+        Route::get('/inventory', [ErpInventoryController::class, 'index']);
+        Route::get('/inventory.csv', [ErpInventoryController::class, 'export']);
+        Route::get('/inventory/{id}', [ErpInventoryController::class, 'show'])->whereNumber('id');
+        Route::put('/inventory/{id}', [ErpInventoryController::class, 'update'])->whereNumber('id');
+        Route::post('/inventory/{id}/adjust', [ErpInventoryController::class, 'adjust'])->whereNumber('id')->middleware('throttle:erp-writes');
+        Route::post('/inventory/{id}/sku', [ErpInventoryController::class, 'generateSku'])->whereNumber('id');
+        Route::get('/movements', [ErpInventoryController::class, 'movements']);
+        Route::get('/settings', [ErpSettingsController::class, 'show']);
+        Route::put('/settings', [ErpSettingsController::class, 'update']);
+    });
 });
 
 // Administration
