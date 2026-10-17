@@ -38,12 +38,28 @@ const ACTIVITY = {
   'erp.invoice_voided': 'Voided a supplier invoice',
   'erp.payment_recorded': 'Recorded a payment to a supplier',
   'erp.payment_voided': 'Voided a payment to a supplier',
+  'erp.sale_recorded': 'Recorded a shop sale',
+  'erp.sale_updated': 'Changed a shop sale',
+  'erp.sale_voided': 'Voided a shop sale',
+  'erp.sale_payment_recorded': 'Recorded a payment from a customer',
+  'erp.sale_payment_voided': 'Voided a payment from a customer',
+  'erp.sale_returned': 'Recorded a return',
+  'erp.sale_return_voided': 'Undid a return',
+  'erp.sales_exported': 'Downloaded sales',
+  'erp.expense_recorded': 'Recorded an expense',
+  'erp.expense_updated': 'Changed an expense',
+  'erp.expense_attached': 'Attached a receipt',
+  'erp.expense_voided': 'Voided an expense',
+  'erp.expenses_exported': 'Downloaded expenses',
+  'erp.expense_category_created': 'Added an expense category',
+  'erp.expense_category_updated': 'Changed an expense category',
 }
 
 export default function ErpOverview() {
   const period = usePeriod('30d')
   const res = useFetch(`/seller/erp/overview?${period.query}`)
   const d = res.data?.data
+  const noCost = d ? d.sales.marketplace.sales_without_cost_santim + d.sales.offline.sales_without_cost_santim : 0
 
   return (
     <>
@@ -60,16 +76,19 @@ export default function ErpOverview() {
             { label: 'Out of stock', value: d.stock.out, tone: d.stock.out ? 'bad' : undefined, to: d.stock.out ? '/seller/erp/inventory?stock=out' : undefined },
           ]} />
 
-          <h2 className="mt-6 mb-2 text-sm font-semibold text-stone-500">Marketplace sales, {d.range.from === d.range.to ? d.range.from : `${d.range.from} to ${d.range.to}`}</h2>
+          <h2 className="mt-6 mb-2 text-sm font-semibold text-stone-500">Sales, {d.range.from === d.range.to ? d.range.from : `${d.range.from} to ${d.range.to}`}</h2>
           <Stats items={[
-            { label: 'Item sales (delivered)', value: money(d.sales.marketplace.items_santim), hint: `${d.sales.marketplace.orders} orders` },
-            { label: 'Cost of goods sold', value: money(d.sales.marketplace.cost_of_goods_santim), hint: d.sales.marketplace.lines_without_cost ? `${d.sales.marketplace.lines_without_cost} lines without a cost price` : undefined, tone: d.sales.marketplace.lines_without_cost ? 'warn' : undefined },
-            { label: 'Gross profit (estimate)', value: money(d.sales.marketplace.gross_profit_santim), hint: d.sales.marketplace.sales_without_cost_santim ? `leaves out ${money(d.sales.marketplace.sales_without_cost_santim)} of sales with no cost` : 'item sales minus their cost' },
-            { label: 'Commission', value: money(d.sales.marketplace.commission_santim) },
-            { label: 'Delivery fees charged', value: money(d.sales.marketplace.delivery_santim) },
+            { label: 'Net sales', value: money(d.sales.totals.net_santim), hint: 'items and delivery, less returns', to: `/seller/erp/sales?${period.query}` },
+            { label: 'Marketplace (delivered)', value: money(d.sales.marketplace.items_santim), hint: `${d.sales.marketplace.orders} orders, items only`, to: `/seller/erp/sales?${period.query}&source=marketplace` },
+            { label: 'Shop sales', value: money(d.sales.offline.items_santim), hint: `${d.sales.offline.sales} sales, items only`, to: `/seller/erp/sales?${period.query}&source=offline` },
+            d.sales.totals.returns_santim > 0 && { label: 'Returns', value: money(d.sales.totals.returns_santim), hint: `${d.sales.returns.units} units back` },
+            { label: 'Cost of goods sold', value: money(d.sales.marketplace.cost_of_goods_santim + d.sales.offline.cost_of_goods_santim), hint: d.sales.totals.lines_without_cost ? `${d.sales.totals.lines_without_cost} lines without a cost price` : undefined, tone: d.sales.totals.lines_without_cost ? 'warn' : undefined },
+            { label: 'Gross profit (estimate)', value: money(d.sales.totals.gross_profit_santim), hint: noCost ? `leaves out ${money(noCost)} of sales with no cost` : d.sales.returns.returns ? 'item sales minus their cost, after returns' : 'item sales minus their cost' },
+            { label: 'Commission', value: money(d.sales.marketplace.commission_santim), hint: 'marketplace orders' },
+            { label: 'Delivery charged', value: money(d.sales.totals.delivery_santim) },
             { label: 'Open orders', value: d.orders.open, hint: d.orders.pending_confirmation ? `${d.orders.pending_confirmation} waiting for you` : undefined, to: '/seller/orders' },
           ]} />
-          <p className="mt-2 text-xs text-stone-500">Each order counts once, on the day it was delivered. Profit uses the cost prices you entered; it is an estimate, not accounting.</p>
+          <p className="mt-2 text-xs text-stone-500">Marketplace orders count on the day they were delivered, shop sales on their sale date and returns on the day the goods came back. Profit uses the cost prices you entered; it is an estimate, not accounting.</p>
 
           <h2 className="mt-6 mb-2 text-sm font-semibold text-stone-500">Buying from suppliers</h2>
           <Stats items={[
@@ -102,7 +121,7 @@ export default function ErpOverview() {
 
             <section className="card p-4">
               <h2 className="mb-3 font-semibold text-stone-900">Best sellers</h2>
-              {d.sales.top_products.length === 0 ? <p className="text-sm text-stone-500">No deliveries in this period.</p> : (
+              {d.sales.top_products.length === 0 ? <p className="text-sm text-stone-500">No sales in this period.</p> : (
                 <ol className="divide-y divide-stone-100 text-sm">
                   {d.sales.top_products.map((t) => (
                     <li key={`${t.product_id}-${t.variant_id}`} className="flex items-center justify-between gap-3 py-2">

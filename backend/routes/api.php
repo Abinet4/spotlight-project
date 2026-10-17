@@ -28,9 +28,11 @@ use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\QuoteController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\Seller\BalanceController;
+use App\Http\Controllers\Api\Seller\Erp\ExpenseController as ErpExpenseController;
 use App\Http\Controllers\Api\Seller\Erp\InventoryController as ErpInventoryController;
 use App\Http\Controllers\Api\Seller\Erp\OverviewController as ErpOverviewController;
 use App\Http\Controllers\Api\Seller\Erp\PurchaseController as ErpPurchaseController;
+use App\Http\Controllers\Api\Seller\Erp\SaleController as ErpSaleController;
 use App\Http\Controllers\Api\Seller\Erp\SettingsController as ErpSettingsController;
 use App\Http\Controllers\Api\Seller\Erp\SupplierController as ErpSupplierController;
 use App\Http\Controllers\Api\Seller\Erp\TransferController as ErpTransferController;
@@ -260,6 +262,36 @@ Route::prefix('seller')->middleware(['auth:sanctum', 'role:seller'])->group(func
             Route::post('/purchases/{id}/cancel', [ErpPurchaseController::class, 'cancel'])->whereNumber('id');
             Route::post('/purchases/{id}/close', [ErpPurchaseController::class, 'close'])->whereNumber('id');
             Route::post('/purchases/{id}/receive', [ErpPurchaseController::class, 'receive'])->whereNumber('id');
+        });
+
+        Route::get('/sales', [ErpSaleController::class, 'index']);
+        Route::get('/sales/report', [ErpSaleController::class, 'report']);
+        Route::get('/sales.csv', [ErpSaleController::class, 'export']);
+        Route::get('/sales/offline/{id}', [ErpSaleController::class, 'showOffline'])->whereNumber('id');
+        Route::get('/sales/orders/{id}', [ErpSaleController::class, 'showOrder'])->whereNumber('id');
+        Route::middleware('throttle:erp-writes')->group(function () {
+            Route::post('/sales', [ErpSaleController::class, 'store']);
+            Route::put('/sales/offline/{id}', [ErpSaleController::class, 'update'])->whereNumber('id');
+            Route::post('/sales/offline/{id}/void', [ErpSaleController::class, 'void'])->whereNumber('id');
+            Route::post('/sales/offline/{id}/payments', [ErpSaleController::class, 'storePayment'])->whereNumber('id');
+            Route::post('/sale-payments/{id}/void', [ErpSaleController::class, 'voidPayment'])->whereNumber('id');
+            Route::post('/sales/offline/{id}/returns', [ErpSaleController::class, 'storeOfflineReturn'])->whereNumber('id');
+            Route::post('/sales/orders/{id}/returns', [ErpSaleController::class, 'storeOrderReturn'])->whereNumber('id');
+            Route::post('/sale-returns/{id}/void', [ErpSaleController::class, 'voidReturn'])->whereNumber('id');
+        });
+
+        Route::get('/expenses', [ErpExpenseController::class, 'index']);
+        Route::get('/expenses.csv', [ErpExpenseController::class, 'export']);
+        Route::get('/expenses/{id}', [ErpExpenseController::class, 'show'])->whereNumber('id');
+        Route::get('/expenses/{id}/attachment', [ErpExpenseController::class, 'attachment'])->whereNumber('id');
+        Route::get('/expense-categories', [ErpExpenseController::class, 'categories']);
+        Route::middleware('throttle:erp-writes')->group(function () {
+            Route::post('/expenses', [ErpExpenseController::class, 'store']);
+            Route::put('/expenses/{id}', [ErpExpenseController::class, 'update'])->whereNumber('id');
+            Route::post('/expenses/{id}/attachment', [ErpExpenseController::class, 'attach'])->whereNumber('id');
+            Route::post('/expenses/{id}/void', [ErpExpenseController::class, 'void'])->whereNumber('id');
+            Route::post('/expense-categories', [ErpExpenseController::class, 'storeCategory']);
+            Route::put('/expense-categories/{id}', [ErpExpenseController::class, 'updateCategory'])->whereNumber('id');
         });
     });
 });

@@ -17,10 +17,13 @@ class StockMovement extends Model
     // order_reserved / order_released: taken by an order and given back when it is cancelled.
     // purchase_received: goods from a supplier. transfer_out / transfer_in: moved between locations;
     // transfer_returned: a transfer cancelled on the way, back at the location it left.
+    // offline_sale / offline_sale_voided: sold outside the marketplace, and put back when that sale is
+    // voided. sale_returned / sale_return_voided: a customer brought units back, and that return undone.
     public const TYPES = [
         'opening', 'edit', 'count', 'damaged', 'lost', 'returned', 'found',
         'order_reserved', 'order_released',
         'purchase_received', 'transfer_out', 'transfer_in', 'transfer_returned',
+        'offline_sale', 'offline_sale_voided', 'sale_returned', 'sale_return_voided',
     ];
 
     /** Adjustments a store may record by hand, and which way each one moves stock. */

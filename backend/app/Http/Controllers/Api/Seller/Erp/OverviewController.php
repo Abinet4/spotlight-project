@@ -8,13 +8,13 @@ use App\Http\Controllers\Api\Seller\Concerns\ResolvesStore;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Order;
-use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseReceiptItem;
 use App\Models\StockMovement;
 use App\Services\InventoryService;
 use App\Support\Erp\Period;
+use App\Support\Erp\SalesReport;
 use App\Support\Erp\StockFigures;
 use App\Support\Erp\SupplierBalances;
 use Illuminate\Http\JsonResponse;
@@ -22,8 +22,8 @@ use Illuminate\Http\Request;
 
 /**
  * The ERP dashboard. Stock figures are as of now; sales figures cover the chosen period and
- * count marketplace orders once, on the day they were delivered. Profit here is an estimate
- * from the cost prices the store entered, not accounting.
+ * count marketplace orders once, on the day they were delivered, and offline sales on their sale
+ * date. Profit here is an estimate from the cost prices the store entered, not accounting.
  */
 class OverviewController extends Controller
 {
@@ -35,12 +35,11 @@ class OverviewController extends Controller
     {
         $store = $this->currentStore($request);
         $period = Period::fromRequest($request);
-        [$start, $end] = $period->bounds();
 
         return response()->json(['data' => [
             'range' => $period->toArray(),
             'stock' => $this->stock($store->id),
-            'sales' => $this->sales($store->id, $period, $start, $end),
+            'sales' => $this->sales($store->id, $period),
             'orders' => [
                 'open' => Order::where('seller_profile_id', $store->id)->visibleToSeller()
                     ->whereNotIn('status', [OrderStatus::Delivered->value, OrderStatus::Cancelled->value])->count(),
@@ -119,51 +118,26 @@ class OverviewController extends Controller
         ];
     }
 
-    /** @return array<string, mixed> */
-    private function sales(int $storeId, Period $period, $start, $end): array
+    /**
+     * Marketplace and offline sales for the period, less returns (see SalesReport).
+     *
+     * @return array<string, mixed>
+     */
+    private function sales(int $storeId, Period $period): array
     {
-        $delivered = Order::where('seller_profile_id', $storeId)->where('status', OrderStatus::Delivered->value)
-            ->whereBetween('delivered_at', [$start, $end]);
-        $orderIds = (clone $delivered)->pluck('id');
-        $lines = OrderItem::whereIn('order_id', $orderIds);
-
-        $days = array_fill_keys($period->days(), ['orders' => 0, 'items_santim' => 0]);
-        foreach ((clone $delivered)->get(['id', 'delivered_at', 'items_total_santim']) as $o) {
-            $day = $period->dayOf($o->delivered_at);
-            if (isset($days[$day])) {
-                $days[$day]['orders']++;
-                $days[$day]['items_santim'] += $o->items_total_santim;
-            }
-        }
-
-        $items = (int) (clone $delivered)->sum('items_total_santim');
-        $costed = (clone $lines)->whereNotNull('unit_cost_santim')->selectRaw('sum(unit_cost_santim * quantity) as c, sum(line_total_santim) as r')->first();
-        $cogs = (int) $costed->c;
-        $withoutCost = (clone $lines)->whereNull('unit_cost_santim')->count();
-        $uncostedSales = (int) (clone $lines)->whereNull('unit_cost_santim')->sum('line_total_santim');
-        $commission = (int) (clone $delivered)->sum('commission_santim');
-        $delivery = (int) (clone $delivered)->sum('delivery_fee_santim');
-
-        $top = (clone $lines)->whereNull('quote_id')->whereNotNull('product_id')
-            ->selectRaw('product_id, variant_id, max(name) as name, max(variant_label) as variant_label, sum(quantity) as units, sum(line_total_santim) as revenue')
-            ->groupBy('product_id', 'variant_id')->orderByDesc('units')->orderByDesc('revenue')->limit(5)->get()
-            ->map(fn ($r) => ['product_id' => (int) $r->product_id, 'variant_id' => $r->variant_id ? (int) $r->variant_id : null, 'name' => $r->name,
-                'label' => $r->variant_label, 'units' => (int) $r->units, 'revenue_santim' => (int) $r->revenue]);
+        $report = SalesReport::for($storeId, $period);
+        $top = array_values(array_filter($report['products'], fn ($p) => $p['product_id'] !== null && $p['units'] > 0));
 
         return [
-            'marketplace' => [
-                'orders' => $orderIds->count(),
-                'items_santim' => $items,
-                'delivery_santim' => $delivery,
-                'commission_santim' => $commission,
-                'cost_of_goods_santim' => $cogs,
-                'lines_without_cost' => $withoutCost,
-                'sales_without_cost_santim' => $uncostedSales,
-                // Only lines with a known cost: sales of items without a cost price are left out, not counted as profit.
-                'gross_profit_santim' => (int) $costed->r - $cogs,
-            ],
-            'days' => collect($days)->map(fn ($d, $date) => ['date' => $date] + $d)->values(),
-            'top_products' => $top,
+            'marketplace' => $report['marketplace'],
+            'offline' => $report['offline'],
+            'returns' => $report['returns'],
+            'totals' => $report['totals'],
+            'days' => $report['days'],
+            'top_products' => array_map(fn ($p) => [
+                'product_id' => $p['product_id'], 'variant_id' => $p['variant_id'], 'name' => $p['name'], 'label' => $p['label'],
+                'units' => $p['units'], 'revenue_santim' => $p['revenue_santim'],
+            ], array_slice($top, 0, 5)),
         ];
     }
 }

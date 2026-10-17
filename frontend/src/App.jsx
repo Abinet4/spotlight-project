@@ -69,6 +69,13 @@ const ErpPurchases = lazy(() => import('./pages/seller/erp/ErpPurchases'))
 const ErpPurchase = lazy(() => import('./pages/seller/erp/ErpPurchase'))
 const ErpPurchaseForm = lazy(() => import('./pages/seller/erp/ErpPurchaseForm'))
 const ErpPurchasePrint = lazy(() => import('./pages/seller/erp/ErpPurchasePrint'))
+const ErpSales = lazy(() => import('./pages/seller/erp/ErpSales'))
+const ErpSaleNew = lazy(() => import('./pages/seller/erp/ErpSaleNew'))
+const ErpSale = lazy(() => import('./pages/seller/erp/ErpSale'))
+const ErpOrderSale = lazy(() => import('./pages/seller/erp/ErpOrderSale'))
+const ErpSalePrint = lazy(() => import('./pages/seller/erp/ErpSalePrint'))
+const ErpExpenses = lazy(() => import('./pages/seller/erp/ErpExpenses'))
+const ErpExpense = lazy(() => import('./pages/seller/erp/ErpExpense'))
 
 /** Messages are shared with customers: sellers see them inside the seller area, customers in the shop. */
 function SellerShellFor({ children }) {
@@ -81,6 +88,8 @@ export default function App() {
     <Routes>
       {/* A printable page without the site around it. */}
       <Route path="seller/erp/purchases/:id/print" element={<RequireRole roles={['seller']}><Suspense fallback={<Spinner />}><ErpPurchasePrint /></Suspense></RequireRole>} />
+      <Route path="seller/erp/sales/offline/:id/print" element={<RequireRole roles={['seller']}><Suspense fallback={<Spinner />}><ErpSalePrint /></Suspense></RequireRole>} />
+      <Route path="seller/erp/sales/orders/:id/print" element={<RequireRole roles={['seller']}><Suspense fallback={<Spinner />}><ErpSalePrint marketplace /></Suspense></RequireRole>} />
       <Route element={<Layout />}>
         <Route index element={<Home />} />
         <Route path="search" element={<Catalog />} />
@@ -133,6 +142,12 @@ export default function App() {
           <Route path="erp/purchases/new" element={<ErpPurchaseForm />} />
           <Route path="erp/purchases/:id" element={<ErpPurchase />} />
           <Route path="erp/purchases/:id/edit" element={<ErpPurchaseForm />} />
+          <Route path="erp/sales" element={<ErpSales />} />
+          <Route path="erp/sales/new" element={<ErpSaleNew />} />
+          <Route path="erp/sales/offline/:id" element={<ErpSale />} />
+          <Route path="erp/sales/orders/:id" element={<ErpOrderSale />} />
+          <Route path="erp/expenses" element={<ErpExpenses />} />
+          <Route path="erp/expenses/:id" element={<ErpExpense />} />
         </Route>
 
         <Route path="admin" element={<RequireRole roles={['admin']}><AdminLayout /></RequireRole>}>

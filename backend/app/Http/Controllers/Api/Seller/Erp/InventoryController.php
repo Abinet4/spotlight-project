@@ -222,10 +222,12 @@ class InventoryController extends Controller
             'q' => ['nullable', 'string', 'max:100'],
             'warehouse_id' => ['nullable', 'integer'],
             'supplier_id' => ['nullable', 'integer'],
+            // A sale can also be of a made-to-order listing; buying and moving stock cannot.
+            'for' => ['nullable', Rule::in(['stock', 'sale'])],
         ]);
         $warehouse = isset($data['warehouse_id']) ? Warehouse::where('seller_profile_id', $store->id)->findOrFail($data['warehouse_id']) : null;
         $products = $this->query($store->id, ['q' => $data['q'] ?? null, 'sort' => 'name'])
-            ->where('products.stock_type', 'in_stock')
+            ->when(($data['for'] ?? 'stock') === 'stock', fn ($q) => $q->where('products.stock_type', 'in_stock'))
             // The supplier's usual listings first.
             ->when($data['supplier_id'] ?? null, fn ($q, $s) => $q->reorder()
                 ->orderByRaw('CASE WHEN products.supplier_id = ? THEN 0 ELSE 1 END', [$s])->orderBy('products.name')->orderBy('products.id'))
@@ -240,6 +242,8 @@ class InventoryController extends Controller
                     'available' => $this->inventory->available($p, $v),
                     'at_location' => $warehouse ? $this->inventory->quantityAt($p, $v, $warehouse) : null,
                     'cost_price_santim' => InventoryService::unitCost($p, $v),
+                    'price_santim' => $v ? $v->priceSantim($p) : (int) $p->price_santim,
+                    'stock_type' => $p->stock_type->value,
                     'supplier_id' => $p->supplier_id,
                 ];
             }

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useConfig } from '../../../context/ConfigContext'
 import { api } from '../../../lib/api'
 import { newIdempotencyKey } from '../../../lib/format'
 import { Badge, Err, PAY_METHODS, ReasonForm, birr, cleanBirr, money, toSantim, useSubmit } from './shared'
@@ -67,6 +68,7 @@ export function InvoiceForm({ supplierId, orders = [], orderId = null, onDone, o
 export function PaymentForm({ supplierId, orders = [], orderId = null, suggested = null, onDone, onCancel }) {
   const [v, setV] = useState({ purchase_order_id: orderId ?? '', amount: suggested > 0 ? birr(suggested) : '', paid_on: today(), method: 'bank_transfer', reference: '', note: '' })
   const [requestId, setRequestId] = useState(newIdempotencyKey)
+  const brand = useConfig().name
   const { busy, errors, submit } = useSubmit()
   const set = (k) => (e) => setV({ ...v, [k]: e.target.value })
   const amount = toSantim(v.amount)
@@ -112,7 +114,7 @@ export function PaymentForm({ supplierId, orders = [], orderId = null, suggested
           <input id="pay-note" className="input mt-1" maxLength={255} value={v.note} onChange={set('note')} placeholder="Optional" />
         </label>
       </div>
-      <p className="text-xs text-stone-500">This records a payment you already made. Betoch does not send money to suppliers.</p>
+      <p className="text-xs text-stone-500">This records a payment you already made. {brand} does not send money to suppliers.</p>
       <Err errors={errors} />
       <div className="flex justify-end gap-2">
         {onCancel && <button type="button" className="btn-ghost" onClick={onCancel} disabled={busy}>Close</button>}

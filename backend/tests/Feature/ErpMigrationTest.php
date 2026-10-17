@@ -18,8 +18,12 @@ class ErpMigrationTest extends TestCase
 
     private const MIGRATION = 'database/migrations/2026_10_17_200000_create_erp_inventory_tables.php';
 
-    // Part 2 builds on part 1's tables, so it is rolled back first and migrated after.
-    private const PATHS = [self::MIGRATION, 'database/migrations/2026_10_18_200000_create_erp_purchasing_tables.php'];
+    // Parts 2 and 3 build on part 1's tables, so they are rolled back first and migrated after.
+    private const PATHS = [
+        self::MIGRATION,
+        'database/migrations/2026_10_18_200000_create_erp_purchasing_tables.php',
+        'database/migrations/2026_10_19_200000_create_erp_sales_and_expenses_tables.php',
+    ];
 
     public function test_existing_data_is_kept_and_backfilled_and_rollback_restores_the_old_shape(): void
     {

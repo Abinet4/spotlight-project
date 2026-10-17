@@ -221,6 +221,14 @@ function ListingCost({ productId, cost, onDone, readOnly }) {
   )
 }
 
+/** Where a stock change's note leads: the transfer, shop sale or marketplace sale it came from. */
+function noteLink(m) {
+  if (m.reference_type === 'stock_transfer') return `/seller/erp/transfers/${m.reference_id}`
+  if (m.reference_type === 'offline_sale') return `/seller/erp/sales/offline/${m.reference_id}`
+  if (m.reference_type === 'sale_return' && m.order) return `/seller/erp/sales/orders/${m.order.id}`
+  return null
+}
+
 export function MovementTable({ movements, withProduct = false }) {
   if (!movements.length) return <p className="text-sm text-stone-500">No stock changes yet.</p>
   return (
@@ -238,7 +246,7 @@ export function MovementTable({ movements, withProduct = false }) {
                 {MOVEMENT_LABELS[m.type] || m.type}{!withProduct && m.variant && <span className="text-stone-500"> · {m.variant}</span>}
                 {m.order && <> · <Link to={`/seller/orders/${m.order.id}`} className="text-brand-700 hover:underline">{m.order.number}</Link></>}
                 {m.warehouse && <span className="text-stone-500"> · {m.warehouse}</span>}
-                {m.note && <span className="block text-xs text-stone-500">{m.reference_type === 'stock_transfer' ? <Link to={`/seller/erp/transfers/${m.reference_id}`} className="hover:underline">{m.note}</Link> : m.note}</span>}
+                {m.note && <span className="block text-xs text-stone-500">{noteLink(m) ? <Link to={noteLink(m)} className="hover:underline">{m.note}</Link> : m.note}</span>}
               </td>
               <td data-label="Change" className="py-2 pr-3 text-right"><Change n={m.quantity} /></td>
               <td data-label="After" className="py-2 pr-3 text-right tabular-nums">{m.available_after}</td>

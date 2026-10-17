@@ -5,9 +5,11 @@ namespace App\Support\Erp;
 use App\Enums\OrderStatus;
 use App\Enums\ProductStatus;
 use App\Enums\StockType;
+use App\Models\OfflineSaleItem;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\SaleReturnItem;
 use App\Models\SellerErpSetting;
 use App\Services\InventoryService;
 use Illuminate\Support\Collection;
@@ -36,9 +38,23 @@ class StockFigures
         $this->held = $key(OrderItem::whereIn('product_id', $ids)->where('reserved_quantity', '>', 0)
             ->whereHas('order', fn ($q) => $q->whereNotIn('status', [OrderStatus::Delivered->value, OrderStatus::Cancelled->value]))
             ->selectRaw('product_id, variant_id, sum(reserved_quantity) as n')->groupBy('product_id', 'variant_id')->get());
-        $this->sold = $key(OrderItem::whereIn('product_id', $ids)->whereNull('quote_id')
+        // Sold: delivered marketplace orders and offline sales, less units customers brought back.
+        $sold = $key(OrderItem::whereIn('product_id', $ids)->whereNull('quote_id')
             ->whereHas('order', fn ($q) => $q->where('status', OrderStatus::Delivered->value))
             ->selectRaw('product_id, variant_id, sum(quantity) as n')->groupBy('product_id', 'variant_id')->get());
+        $offline = $key(OfflineSaleItem::whereIn('product_id', $ids)
+            ->whereHas('sale', fn ($q) => $q->where('status', 'completed'))
+            ->selectRaw('product_id, variant_id, sum(quantity) as n')->groupBy('product_id', 'variant_id')->get());
+        $returned = $key(SaleReturnItem::whereIn('product_id', $ids)
+            ->whereHas('saleReturn', fn ($q) => $q->where('status', 'recorded'))
+            ->selectRaw('product_id, variant_id, sum(quantity) as n')->groupBy('product_id', 'variant_id')->get());
+        foreach ($offline as $k => $n) {
+            $sold[$k] = ($sold[$k] ?? 0) + $n;
+        }
+        foreach ($returned as $k => $n) {
+            $sold[$k] = max(0, ($sold[$k] ?? 0) - $n);
+        }
+        $this->sold = $sold;
     }
 
     /**

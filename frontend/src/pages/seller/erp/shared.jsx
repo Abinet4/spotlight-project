@@ -85,6 +85,10 @@ export const MOVEMENT_LABELS = {
   transfer_out: 'Moved out',
   transfer_in: 'Moved in',
   transfer_returned: 'Transfer cancelled',
+  offline_sale: 'Sold (shop sale)',
+  offline_sale_voided: 'Shop sale voided',
+  sale_returned: 'Returned by customer',
+  sale_return_voided: 'Return undone',
 }
 
 export const PO_STATUS = {
@@ -99,6 +103,12 @@ export const TRANSFER_STATUS = {
   in_transit: ['On the way', 'bg-amber-100 text-amber-800'],
   received: ['Received', 'bg-emerald-100 text-emerald-800'],
   cancelled: ['Cancelled', 'bg-stone-200 text-stone-700'],
+}
+
+export const SALE_STATUS = {
+  completed: ['Completed', 'bg-emerald-100 text-emerald-800'],
+  voided: ['Voided', 'bg-stone-200 text-stone-700'],
+  recorded: ['Recorded', 'bg-emerald-100 text-emerald-800'],
 }
 
 export function Badge({ map, value, late = false }) {
@@ -248,8 +258,9 @@ export function DayBars({ days, format = (v) => v, label }) {
 /**
  * Search the store's in-stock listings and options to add to a purchase order or a transfer.
  * `atLocation` shows the units at that location; `supplierId` lists that supplier's usual items first.
+ * `forSale` also lists made-to-order listings and shows the selling price.
  */
-export function ItemPicker({ onPick, added = [], warehouseId, supplierId, label = 'Add items', disabled = false }) {
+export function ItemPicker({ onPick, added = [], warehouseId, supplierId, label = 'Add items', disabled = false, forSale = false }) {
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const [term, setTerm] = useState('')
@@ -257,7 +268,7 @@ export function ItemPicker({ onPick, added = [], warehouseId, supplierId, label 
     const t = setTimeout(() => setTerm(q.trim()), 250)
     return () => clearTimeout(t)
   }, [q])
-  const res = useFetch(open ? `/seller/erp/items?${toQuery({ q: term, warehouse_id: warehouseId, supplier_id: supplierId })}` : null)
+  const res = useFetch(open ? `/seller/erp/items?${toQuery({ q: term, warehouse_id: warehouseId, supplier_id: supplierId, for: forSale ? 'sale' : '' })}` : null)
   const rows = res.data?.data || []
 
   if (!open) {
@@ -276,7 +287,7 @@ export function ItemPicker({ onPick, added = [], warehouseId, supplierId, label 
       <div className="mt-2 max-h-72 overflow-y-auto" aria-live="polite">
         {res.loading && !res.data ? <p className="p-3 text-sm text-stone-500">Searching...</p>
           : res.error ? <p role="alert" className="p-3 text-sm text-red-700">{res.error.message}</p>
-            : rows.length === 0 ? <p className="p-3 text-sm text-stone-500">{term ? 'Nothing matches. Only in-stock listings can be added.' : 'You have no in-stock listings yet.'}</p> : (
+            : rows.length === 0 ? <p className="p-3 text-sm text-stone-500">{forSale ? (term ? 'Nothing matches.' : 'You have no listings yet.') : term ? 'Nothing matches. Only in-stock listings can be added.' : 'You have no in-stock listings yet.'}</p> : (
               <ul className="divide-y divide-stone-100 rounded-lg bg-white">
                 {rows.map((it) => {
                   const on = added.includes(itemKey(it))
@@ -288,8 +299,11 @@ export function ItemPicker({ onPick, added = [], warehouseId, supplierId, label 
                         <span className="min-w-0 flex-1">
                           <span className="block truncate font-medium text-stone-900">{itemName(it)}</span>
                           <span className="block text-xs text-stone-500">
-                            {[it.sku, it.at_location !== null && it.at_location !== undefined ? `${it.at_location} here` : null, `${it.available} available`,
-                              it.cost_price_santim !== null ? `cost ${money(it.cost_price_santim)}` : null, supplierId && it.supplier_id === supplierId ? 'usual supplier' : null].filter(Boolean).join(' · ')}
+                            {(forSale && it.stock_type === 'made_to_order'
+                              ? [it.sku, 'made to order', money(it.price_santim)]
+                              : [it.sku, it.at_location !== null && it.at_location !== undefined ? `${it.at_location} here` : null, `${it.available} available`,
+                                forSale ? money(it.price_santim) : it.cost_price_santim !== null ? `cost ${money(it.cost_price_santim)}` : null,
+                                supplierId && it.supplier_id === supplierId ? 'usual supplier' : null]).filter(Boolean).join(' · ')}
                           </span>
                         </span>
                         <span className="text-xs font-semibold text-brand-700">{on ? 'Added' : 'Add'}</span>

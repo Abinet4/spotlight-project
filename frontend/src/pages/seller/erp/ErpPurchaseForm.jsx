@@ -149,7 +149,7 @@ function PurchaseForm({ id, po, initial, suppliers, places }) {
                     <input id={`po-d-${i}`} className="input mt-0.5" inputMode="decimal" value={l.discount} placeholder="0" onChange={(e) => setLine(i, 'discount', e.target.value)} />
                   </label>
                   <p className="text-xs text-stone-600">Line total<span className="mt-1.5 block text-sm font-semibold text-stone-900 tabular-nums">{lineTotals[i] === null ? '-' : money(lineTotals[i])}</span></p>
-                  <button type="button" className="icon-btn justify-self-end" aria-label={`Remove ${itemName(l)}`} onClick={() => setV({ ...v, lines: v.lines.filter((_, j) => j !== i) })}><X className="size-4" aria-hidden="true" /></button>
+                  <button type="button" className="icon-btn col-span-2 justify-self-end sm:col-span-1" aria-label={`Remove ${itemName(l)}`} onClick={() => setV({ ...v, lines: v.lines.filter((_, j) => j !== i) })}><X className="size-4" aria-hidden="true" /></button>
                 </li>
               ))}
             </ul>
