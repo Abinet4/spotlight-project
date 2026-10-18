@@ -58,6 +58,7 @@ expenses, offline sales, invoices. These are what the ERP adds.
 | 2 | `warehouses.contact_name`, `seller_erp_settings.cost_from_purchases` (default on), `products.supplier_id` (usual supplier, nullable) |
 | 3 | `offline_sales` (+ items, payments), `sale_returns` (+ items, for shop sales or marketplace orders), `expense_categories`, `expenses` (with private receipt file) |
 | 4 | No new tables: reports are computed from the records above |
+| 5 | No new tables. Undoing the phase 1 to 3 migrations now stops while stores have records in those tables |
 
 ## Phases
 
@@ -72,7 +73,7 @@ expenses, offline sales, invoices. These are what the ERP adds.
    invoices and receipts, returns into stock; expenses by category with attachments.
 4. **Finance and reports.** (Done.) Gross sales, returns and refunds, commission, cost of goods sold, expenses,
    gross and estimated net profit, owed to suppliers, payouts; CSV exports with date ranges (Addis Ababa days).
-5. **Hardening.** Cross-store access tests on every endpoint, stock reconciliation, phone layouts, deploy checks.
+5. **Hardening.** (Done.) Cross-store access tests on every endpoint, stock reconciliation, phone layouts, deploy checks.
 
 ## Defaults picked where the request leaves room
 
@@ -208,3 +209,28 @@ expenses, offline sales, invoices. These are what the ERP adds.
   plain numbers in birr (negative amounts included). Every download is in the activity log.
 - **Not accounting.** This is operational reporting for running the store. It has no double-entry ledger, bank
   reconciliation or tax rules, and the pages say it is an estimate.
+
+### Phase 5 rules
+
+- **Every ERP address is checked against another store.** A test lists every ERP route and fails when a new one
+  is added without a check. For each record (69 routes, 39 with an id) another store gets "not found" and nothing
+  changes, while the owner can open it. Ids sent inside a form (a supplier, a location, an order line) are checked
+  the same way. Guests, customers and the admin get no ERP access; a suspended store can read but not change.
+- **Bad input is refused, never a server error.** Dates must be real days between 2000 and 2099 (`from` before
+  `to`); numbers, lists and file uploads have limits; repeated lines in one form are refused. Receipt files are
+  checked by their content, not their name (PDF, JPG, PNG, WebP up to 5 MB; no SVG or HTML).
+- **Stock only goes back if it came out.** A return can put units back in stock only for lines that took stock
+  when sold. Made-to-order lines and custom quotes can be returned for money only.
+- **Same lock order everywhere.** Every ERP change locks the store first, then the record (supplier, sale, purchase,
+  listing), so two changes at the same moment wait for each other instead of deadlocking.
+- **Limits:** 60 ERP changes and 30 spreadsheet downloads a minute per person.
+- **Activity log** records changed listing fields (from and to), cost prices changed by a delivery, and the
+  payments voided with a shop sale.
+- **Spreadsheet cells** that start with = + - @ (also after spaces or in full-width form), a tab or a line break
+  are written as text.
+- **Undoing the migrations** (`migrate:rollback`) stops with a message while stores have options, extra locations,
+  stock history beyond the opening counts, cost prices, suppliers, purchases, sales, returns or expenses, so a
+  rollback cannot silently delete them.
+- **Tested** with long random runs of orders, payments, cancellations, deliveries, returns, shop sales, deliveries
+  from suppliers, transfers and counts (4 seeds, 140 steps each), checking every stock figure after each step; with
+  online payments through the test payment page; and by upgrading a copy of the live setup on MySQL 8.
