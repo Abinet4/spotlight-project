@@ -80,9 +80,9 @@ class TransferController extends Controller
         $store = $this->currentStore($request, writable: true);
         $data = $request->validate([
             'items' => ['nullable', 'array', 'max:'.StockTransferService::MAX_LINES],
-            'items.*.id' => ['required', 'integer'],
+            'items.*.id' => ['required', 'integer', 'distinct'],
             'items.*.received_quantity' => ['required', 'integer', 'min:0', 'max:100000'],
-        ]);
+        ], ['items.*.id.distinct' => 'Each line can be listed once.']);
         $received = collect($data['items'] ?? [])->mapWithKeys(fn ($i) => [(int) $i['id'] => (int) $i['received_quantity']])->all();
         $this->transfers->receive($store->id, $id, $received, $request->user());
 

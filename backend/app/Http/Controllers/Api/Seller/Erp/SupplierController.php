@@ -12,6 +12,7 @@ use App\Models\SupplierInvoice;
 use App\Models\SupplierPayment;
 use App\Services\AuditLogger;
 use App\Services\PurchasingService;
+use App\Support\Dates;
 use App\Support\Erp\StoreLock;
 use App\Support\Erp\SupplierBalances;
 use Carbon\CarbonImmutable;
@@ -170,6 +171,8 @@ class SupplierController extends Controller
         $store = $this->currentStore($request, writable: true);
 
         DB::transaction(function () use ($store, $id, $audit) {
+            // The store lock first, so a purchase order being saved for this supplier cannot slip in meanwhile.
+            StoreLock::take($store->id);
             $supplier = Supplier::where('seller_profile_id', $store->id)->lockForUpdate()->findOrFail($id);
             if ($supplier->purchaseOrders()->exists() || $supplier->invoices()->exists() || $supplier->payments()->exists()) {
                 throw ValidationException::withMessages(['supplier' => 'This supplier has orders, invoices or payments on record. Mark it inactive instead.']);
@@ -188,8 +191,8 @@ class SupplierController extends Controller
         $data = $request->validate([
             'purchase_order_id' => ['nullable', 'integer'],
             'invoice_number' => ['required', 'string', 'max:60', 'regex:/\S/'],
-            'invoice_date' => ['nullable', 'date_format:Y-m-d'],
-            'due_date' => ['nullable', 'date_format:Y-m-d'],
+            'invoice_date' => Dates::rules(),
+            'due_date' => Dates::rules(),
             'amount' => ['required', 'string', self::MONEY],
             'note' => ['nullable', 'string', 'max:255'],
         ], ['amount.regex' => 'Enter the amount in birr, for example 25000 or 25000.50.']);
@@ -213,7 +216,7 @@ class SupplierController extends Controller
         $data = $request->validate([
             'purchase_order_id' => ['nullable', 'integer'],
             'amount' => ['required', 'string', self::MONEY],
-            'paid_on' => ['nullable', 'date_format:Y-m-d'],
+            'paid_on' => Dates::rules(),
             'method' => ['required', Rule::in(SupplierPayment::METHODS)],
             'reference' => ['nullable', 'string', 'max:100'],
             'note' => ['nullable', 'string', 'max:255'],

@@ -222,7 +222,8 @@ class SalesService
                     reference: ['type' => 'offline_sale', 'id' => $sale->id], note: "{$sale->number} voided");
             }
 
-            OfflineSalePayment::where('offline_sale_id', $sale->id)->where('status', 'recorded')->update([
+            $payments = OfflineSalePayment::where('offline_sale_id', $sale->id)->where('status', 'recorded')->get(['id', 'amount_santim']);
+            OfflineSalePayment::whereKey($payments->modelKeys())->update([
                 'status' => 'voided', 'voided_at' => now(), 'void_reason' => mb_substr("Sale {$sale->number} voided: {$reason}", 0, 255),
                 'voided_by' => $actor->id, 'updated_at' => now(),
             ]);
@@ -231,7 +232,8 @@ class SalesService
             $sale->void_reason = $reason;
             $sale->voided_by = $actor->id;
             $sale->save();
-            $this->audit->log('erp.sale_voided', $sale, ['number' => $sale->number, 'total_santim' => $sale->total_santim]);
+            $this->audit->log('erp.sale_voided', $sale, ['number' => $sale->number, 'total_santim' => $sale->total_santim,
+                'payments_voided' => $payments->map(fn ($p) => ['id' => $p->id, 'amount_santim' => $p->amount_santim])->all()]);
 
             return $sale;
         });
@@ -241,6 +243,8 @@ class SalesService
     public function recordPayment(SellerProfile $store, int $saleId, array $data, User $actor): OfflineSalePayment
     {
         return DB::transaction(function () use ($store, $saleId, $data, $actor) {
+            // The store lock first: a form id is unique per store, so two sales' payments must not race on one.
+            StoreLock::take($store->id);
             $sale = $this->sale($store->id, $saleId);
             if (! empty($data['request_id'])) {
                 $earlier = OfflineSalePayment::where('seller_profile_id', $store->id)->where('request_id', $data['request_id'])->first();
@@ -405,6 +409,10 @@ class SalesService
                 if (! $w['restock']) {
                     continue;
                 }
+                // Only units that left stock when sold can go back: not made-to-order lines or custom quotes.
+                if (! ($sale ? $line->stock_taken : (int) $line->reserved_quantity > 0)) {
+                    throw ValidationException::withMessages(['items' => "{$w['name']} did not come out of stock when it was sold (made to order or a custom quote), so it cannot go back into stock. Untick \"back in stock\" for it."]);
+                }
                 $product = $products[$line->product_id] ?? null;
                 if (! $product || $product->trashed()) {
                     throw ValidationException::withMessages(['items' => $line->product_id
@@ -530,7 +538,9 @@ class SalesService
                 if (! $product) {
                     continue;
                 }
-                $variant = $item->variant_id ? ProductVariant::withTrashed()->where('product_id', $product->id)->find($item->variant_id) : null;
+                // Restocked before the listing had options: those units moved to its first option.
+                $variant = $item->variant_id ? ProductVariant::withTrashed()->where('product_id', $product->id)->find($item->variant_id)
+                    : $this->inventory->inboundVariant($product, null, $item->description);
                 $here = $this->inventory->quantityAt($product, $variant, $warehouse);
                 if ($here < $item->quantity) {
                     throw ValidationException::withMessages(['reason' => "Only {$here} of {$item->description} are at {$warehouse->name} now, so this return cannot be undone. Move the units back there, or count the stock first."]);

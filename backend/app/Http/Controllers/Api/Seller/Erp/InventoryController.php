@@ -14,6 +14,7 @@ use App\Models\Supplier;
 use App\Models\Warehouse;
 use App\Services\AuditLogger;
 use App\Services\InventoryService;
+use App\Support\Dates;
 use App\Support\Erp\StockFigures;
 use App\Support\Erp\StoreLock;
 use App\Support\Money;
@@ -94,6 +95,8 @@ class InventoryController extends Controller
         ]);
 
         DB::transaction(function () use ($store, $id, $data, $audit) {
+            // The store lock first: SKUs are unique across all of the store's listings and options.
+            StoreLock::take($store->id);
             $product = $this->inventory->lock($store->id, $id);
             $variant = $this->inventory->variant($product, $data['variant_id'] ?? null);
             if (! $variant && $this->inventory->hasVariants($product) && ! empty(array_intersect(array_keys($data), ['sku', 'min_stock_level', 'reorder_quantity']))) {
@@ -106,8 +109,9 @@ class InventoryController extends Controller
                     : (Supplier::where('seller_profile_id', $store->id)->find($data['supplier_id'])?->id
                         ?? throw ValidationException::withMessages(['supplier_id' => 'Choose one of your suppliers.']));
                 if ($product->isDirty('supplier_id')) {
+                    $from = $product->getOriginal('supplier_id');
                     $product->save();
-                    $audit->log('inventory.item_updated', $product, ['fields' => ['supplier_id']]);
+                    $audit->log('inventory.item_updated', $product, ['fields' => ['supplier_id'], 'changes' => ['supplier_id' => ['from' => $from, 'to' => $product->supplier_id]]]);
                 }
             }
             $target = $variant ?? $product;
@@ -128,9 +132,11 @@ class InventoryController extends Controller
             }
             $changed = $target->getDirty();
             if ($changed) {
+                // Old and new values: cost price drives profit and stock value, so a change must be traceable.
+                $changes = collect($changed)->map(fn ($to, $field) => ['from' => $target->getOriginal($field), 'to' => $to])->all();
                 // Plain save: these fields are private to the store and never send a listing back to review.
                 $target->save();
-                $audit->log('inventory.item_updated', $product, ['variant_id' => $variant?->id, 'fields' => array_keys($changed)]);
+                $audit->log('inventory.item_updated', $product, ['variant_id' => $variant?->id, 'fields' => array_keys($changed), 'changes' => $changes]);
             }
         });
 
@@ -186,6 +192,7 @@ class InventoryController extends Controller
         $store = $this->currentStore($request, writable: true);
 
         DB::transaction(function () use ($store, $id, $audit) {
+            StoreLock::take($store->id);
             $product = $this->inventory->lock($store->id, $id);
             $prefix = SellerErpSetting::forSeller($store->id)->sku_prefix ?: 'BF';
             $base = strtoupper($prefix).'-'.str_pad((string) $product->id, 5, '0', STR_PAD_LEFT);
@@ -300,8 +307,7 @@ class InventoryController extends Controller
             'variant_id' => ['nullable', 'integer'],
             'warehouse_id' => ['nullable', 'integer'],
             'type' => ['nullable', Rule::in(StockMovement::TYPES)],
-            'from' => ['nullable', 'date_format:Y-m-d'],
-            'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
+            ...Dates::range($request),
         ]);
     }
 

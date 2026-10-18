@@ -10,6 +10,7 @@ use App\Models\PurchaseReceipt;
 use App\Models\SupplierInvoice;
 use App\Models\SupplierPayment;
 use App\Services\PurchasingService;
+use App\Support\Dates;
 use App\Support\Erp\SupplierBalances;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
@@ -33,8 +34,7 @@ class PurchaseController extends Controller
             'status' => ['nullable', Rule::in([...array_column(PurchaseOrderStatus::cases(), 'value'), 'open', 'late'])],
             'supplier_id' => ['nullable', 'integer'],
             'q' => ['nullable', 'string', 'max:60'],
-            'from' => ['nullable', 'date_format:Y-m-d'],
-            'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
+            ...Dates::range($request),
             'page' => ['nullable', 'integer', 'min:1'],
         ]);
         $today = CarbonImmutable::now(config('marketplace.timezone'))->toDateString();
@@ -123,7 +123,7 @@ class PurchaseController extends Controller
             $this->purchasing->saveDraft($store, $id, $this->validated($request), $request->user());
         } else {
             $data = $request->validate([
-                'expected_date' => ['sometimes', 'nullable', 'date_format:Y-m-d'],
+                'expected_date' => ['sometimes', ...Dates::rules()],
                 'supplier_reference' => ['sometimes', 'nullable', 'string', 'max:60'],
                 'notes' => ['sometimes', 'nullable', 'string', 'max:1000'],
             ]);
@@ -167,7 +167,7 @@ class PurchaseController extends Controller
             'items.*.item_id' => ['required', 'integer'],
             'items.*.quantity' => ['required', 'integer', 'min:0', 'max:100000'],
             'warehouse_id' => ['nullable', 'integer'],
-            'received_on' => ['nullable', 'date_format:Y-m-d'],
+            'received_on' => Dates::rules(),
             'note' => ['nullable', 'string', 'max:255'],
             'request_id' => ['nullable', 'string', 'max:64'],
         ]);
@@ -182,8 +182,8 @@ class PurchaseController extends Controller
         return $request->validate([
             'supplier_id' => ['required', 'integer'],
             'warehouse_id' => ['nullable', 'integer'],
-            'order_date' => ['nullable', 'date_format:Y-m-d'],
-            'expected_date' => ['nullable', 'date_format:Y-m-d'],
+            'order_date' => Dates::rules(),
+            'expected_date' => Dates::rules(),
             'supplier_reference' => ['nullable', 'string', 'max:60'],
             'discount' => ['nullable', 'string', self::MONEY],
             'charges' => ['nullable', 'string', self::MONEY],

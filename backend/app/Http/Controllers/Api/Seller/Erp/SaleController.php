@@ -16,6 +16,7 @@ use App\Models\SaleReturnItem;
 use App\Models\SellerProfile;
 use App\Services\AuditLogger;
 use App\Services\SalesService;
+use App\Support\Dates;
 use App\Support\Erp\Period;
 use App\Support\Erp\SaleFigures;
 use App\Support\Erp\SalesReport;
@@ -200,8 +201,8 @@ class SaleController extends Controller
         $store = $this->currentStore($request, writable: true);
         $data = $request->validate([
             'warehouse_id' => ['nullable', 'integer'],
-            'sale_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:2000-01-01'],
-            'due_date' => ['nullable', 'date_format:Y-m-d'],
+            'sale_date' => Dates::rules(),
+            'due_date' => Dates::rules(),
             'items' => ['required', 'array', 'min:1', 'max:'.SalesService::MAX_LINES],
             'items.*.product_id' => ['nullable', 'integer'],
             'items.*.variant_id' => ['nullable', 'integer'],
@@ -244,7 +245,7 @@ class SaleController extends Controller
         $store = $this->currentStore($request, writable: true);
         $data = $request->validate([
             'amount' => ['required', 'string', self::MONEY],
-            'paid_on' => ['nullable', 'date_format:Y-m-d'],
+            'paid_on' => Dates::rules(),
             'method' => ['required', Rule::in(OfflineSalePayment::METHODS)],
             'reference' => ['nullable', 'string', 'max:100'],
             'note' => ['nullable', 'string', 'max:255'],
@@ -306,7 +307,7 @@ class SaleController extends Controller
                 'line_total_santim' => $i->line_total_santim,
                 'returned' => $returned[$i->id] ?? 0,
                 'returnable' => $i->quantity - ($returned[$i->id] ?? 0),
-                'stock_item' => $i->product_id !== null && $i->quote_id === null,
+                'stock_item' => $i->product_id !== null && $i->quote_id === null && (int) $i->reserved_quantity > 0,
             ])->values(),
             'items_total_santim' => $order->items_total_santim,
             'delivery_santim' => (int) $order->delivery_fee_santim,
@@ -347,7 +348,7 @@ class SaleController extends Controller
             'items.*.quantity' => ['required', 'integer', 'min:0', 'max:10000'],
             'items.*.restock' => ['nullable', 'boolean'],
             'warehouse_id' => ['nullable', 'integer'],
-            'returned_on' => ['nullable', 'date_format:Y-m-d'],
+            'returned_on' => Dates::rules(),
             'reason' => ['required', 'string', 'min:3', 'max:500'],
             'delivery_credit' => ['nullable', 'string', self::MONEY],
             'refund' => ['nullable', 'string', self::MONEY],
@@ -363,7 +364,7 @@ class SaleController extends Controller
             'customer_name' => ['nullable', 'string', 'max:100'],
             'customer_phone' => ['nullable', 'string', 'max:20', 'regex:/^\+?[0-9 ]{7,19}$/'],
             'customer_tin' => ['nullable', 'string', 'max:20', 'regex:/^[0-9]+$/'],
-            'due_date' => ['nullable', 'date_format:Y-m-d'],
+            'due_date' => Dates::rules(),
             'note' => ['nullable', 'string', 'max:500'],
         ];
     }

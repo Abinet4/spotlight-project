@@ -309,6 +309,7 @@ class PurchasingService
             $receipt->save();
 
             $units = 0;
+            $costs = [];
             foreach ($wanted as $itemId => $quantity) {
                 $item = $items[$itemId];
                 $product = $products[$item->product_id] ?? null;
@@ -324,8 +325,8 @@ class PurchasingService
 
                 $this->inventory->change($product, $variant, $warehouse, $quantity, 'purchase_received', $actor,
                     reference: ['type' => 'purchase_receipt', 'id' => $receipt->id], note: "{$po->number}, {$receipt->number}");
-                if ($settings->cost_from_purchases) {
-                    $this->averageCost($product, $variant, $before, $quantity, $unit);
+                if ($settings->cost_from_purchases && ($cost = $this->averageCost($product, $variant, $before, $quantity, $unit))) {
+                    $costs[] = ['product_id' => $product->id, 'variant_id' => $variant?->id] + $cost;
                 }
 
                 $line = new PurchaseReceiptItem;
@@ -349,7 +350,7 @@ class PurchasingService
 
             $this->audit->log('erp.purchase_received', $po, [
                 'number' => $po->number, 'receipt' => $receipt->number, 'receipt_id' => $receipt->id,
-                'warehouse_id' => $warehouse->id, 'units' => $units,
+                'warehouse_id' => $warehouse->id, 'units' => $units, 'cost_prices_changed' => $costs,
             ]);
 
             return $receipt;
@@ -436,10 +437,16 @@ class PurchasingService
     public function recordPayment(SellerProfile $store, int $supplierId, array $data, User $actor): SupplierPayment
     {
         return DB::transaction(function () use ($store, $supplierId, $data, $actor) {
+            // The store lock first: a form id is unique per store, so two suppliers' payments must not race on one.
+            StoreLock::take($store->id);
             $supplier = $this->supplier($store->id, $supplierId, lock: true);
             if (! empty($data['request_id'])) {
                 $earlier = SupplierPayment::where('seller_profile_id', $store->id)->where('request_id', $data['request_id'])->first();
                 if ($earlier) {
+                    if ($earlier->supplier_id !== $supplier->id) {
+                        throw ValidationException::withMessages(['amount' => 'This form was already used for another supplier. Reload the page.']);
+                    }
+
                     return $earlier;
                 }
             }
@@ -637,21 +644,28 @@ class PurchasingService
      * New cost price = units already available at the old cost plus the units received at their
      * landed cost, averaged. With no known cost or no units left, the new cost is the landed cost.
      */
-    private function averageCost(Product $product, ?ProductVariant $variant, int $before, int $quantity, int $unit): void
+    /** @return array{from: int|null, to: int}|null the cost price before and after, when it changed */
+    private function averageCost(Product $product, ?ProductVariant $variant, int $before, int $quantity, int $unit): ?array
     {
         $old = InventoryService::unitCost($product, $variant);
         $new = $old === null || $before <= 0 ? $unit : (int) round(($before * $old + $quantity * $unit) / ($before + $quantity));
         if ($variant) {
-            if ($variant->cost_price_santim !== $new) {
-                ProductVariant::whereKey($variant->id)->update(['cost_price_santim' => $new]);
-                $variant->forceFill(['cost_price_santim' => $new])->syncOriginalAttribute('cost_price_santim');
+            if ($variant->cost_price_santim === $new) {
+                return null;
             }
+            $from = $variant->cost_price_santim;
+            ProductVariant::whereKey($variant->id)->update(['cost_price_santim' => $new]);
+            $variant->forceFill(['cost_price_santim' => $new])->syncOriginalAttribute('cost_price_santim');
 
-            return;
+            return ['from' => $from, 'to' => $new];
         }
-        if ($product->cost_price_santim !== $new) {
-            Product::withTrashed()->whereKey($product->id)->update(['cost_price_santim' => $new]);
-            $product->forceFill(['cost_price_santim' => $new])->syncOriginalAttribute('cost_price_santim');
+        if ($product->cost_price_santim === $new) {
+            return null;
         }
+        $from = $product->cost_price_santim;
+        Product::withTrashed()->whereKey($product->id)->update(['cost_price_santim' => $new]);
+        $product->forceFill(['cost_price_santim' => $new])->syncOriginalAttribute('cost_price_santim');
+
+        return ['from' => $from, 'to' => $new];
     }
 }

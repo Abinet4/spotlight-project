@@ -9,6 +9,7 @@ use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Services\AuditLogger;
 use App\Services\ExpenseService;
+use App\Support\Dates;
 use App\Support\Erp\Period;
 use App\Support\Money;
 use Illuminate\Database\Eloquent\Builder;
@@ -76,7 +77,7 @@ class ExpenseController extends Controller
         $store = $this->currentStore($request, writable: true);
         $data = $request->validate([
             'expense_category_id' => ['required', 'integer'],
-            'spent_on' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:2000-01-01'],
+            'spent_on' => Dates::rules(),
             'amount' => ['required', 'string', self::MONEY],
             'description' => ['required', 'string', 'min:2', 'max:255'],
             'paid_to' => ['nullable', 'string', 'max:120'],
