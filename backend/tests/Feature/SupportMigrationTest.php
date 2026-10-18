@@ -67,11 +67,17 @@ class SupportMigrationTest extends TestCase
         return DB::getDriverName() === 'sqlite' ? DB::select('PRAGMA foreign_key_check') : [];
     }
 
+    /** Only the support migrations: the ERP migrations sort after them but are not part of this. */
     private function rollBackSupport(): void
     {
-        $last = DB::table('migrations')->orderByDesc('id')->limit(2)->pluck('migration')->sort()->values()->all();
-        $this->assertSame(self::SUPPORT_MIGRATIONS, $last, 'the support migrations are the latest two');
-        Artisan::call('migrate:rollback', ['--step' => 2]);
+        $this->assertSame(2, DB::table('migrations')->whereIn('migration', self::SUPPORT_MIGRATIONS)->count());
+        Artisan::call('migrate:rollback', ['--path' => self::paths(self::SUPPORT_MIGRATIONS)]);
+        $this->assertSame(0, DB::table('migrations')->whereIn('migration', self::SUPPORT_MIGRATIONS)->count());
+    }
+
+    private static function paths(array $migrations): array
+    {
+        return array_map(fn ($m) => "database/migrations/{$m}.php", $migrations);
     }
 
     public function test_store_chats_quotes_carts_and_orders_survive_both_ways(): void
@@ -106,7 +112,7 @@ class SupportMigrationTest extends TestCase
         ['quote' => $id] = $this->relayOffer($ticket, $this->admin(), $this->seller);
 
         try {
-            Artisan::call('migrate:rollback', ['--step' => 1]);
+            Artisan::call('migrate:rollback', ['--path' => self::paths([self::SUPPORT_MIGRATIONS[1]])]);
             $this->fail('The rollback should have been refused.');
         } catch (\RuntimeException $e) {
             $this->assertStringContainsString('sent through support', $e->getMessage());

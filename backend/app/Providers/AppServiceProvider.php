@@ -9,9 +9,11 @@ use App\Payments\PaymentGateway;
 use App\Sms\AfroMessageGateway;
 use App\Sms\LogSmsGateway;
 use App\Sms\SmsGateway;
+use App\Support\RetryingDatabaseStore;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -44,6 +46,24 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Same as Laravel's database cache, with deadlocked writes tried again (see the class).
+        Cache::extend('database', function ($app, array $config) {
+            $store = new RetryingDatabaseStore(
+                $app['db']->connection($config['connection'] ?? null),
+                $config['table'],
+                $this->getPrefix($config),
+                $config['lock_table'] ?? 'cache_locks',
+                $config['lock_lottery'] ?? [2, 100],
+                $config['lock_timeout'] ?? 86400,
+                $this->getSerializableClasses($config),
+            );
+
+            return $this->repository(
+                $store->setLockConnection($app['db']->connection($config['lock_connection'] ?? $config['connection'] ?? null)),
+                $config,
+            );
+        });
+
         // Surface lazy loading and silently discarded attributes during development and tests.
         Model::shouldBeStrict(! $this->app->isProduction());
 
@@ -83,6 +103,10 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('addresses', fn (Request $request) => Limit::perHour(30)->by('a|'.$request->user()?->id));
 
         // Profile edits (including email changes) are rare; this also slows down probing which emails exist.
+        // Stock adjustments and other ERP records: generous for a busy shop, but not a script.
+        RateLimiter::for('erp-writes', fn (Request $request) => Limit::perMinute(60)->by('e|'.$request->user()?->id));
+        // Spreadsheet downloads read whole tables; a few a minute is plenty for a person.
+        RateLimiter::for('erp-exports', fn (Request $request) => Limit::perMinute(30)->by('x|'.$request->user()?->id));
         RateLimiter::for('account', fn (Request $request) => Limit::perHour(30)->by('p|'.$request->user()?->id));
 
         RateLimiter::for('catalog', fn (Request $request) => Limit::perMinute(config('marketplace.catalog.requests_per_minute'))->by($request->user()?->id ?: $request->ip()));
