@@ -9,6 +9,7 @@ use App\Models\Payment;
 use App\Models\Refund;
 use App\Models\SellerLedgerEntry;
 use App\Services\AuditLogger;
+use App\Support\Dates;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -127,12 +128,17 @@ class ReportController extends Controller
 
     /**
      * Spreadsheet apps run cells starting with = + - @ as formulas; prefix them so names and notes stay text.
+     * The first visible character decides (some apps skip leading spaces, and some read full-width signs).
      */
     public static function cell(mixed $value): string
     {
         $value = (string) ($value ?? '');
+        if ($value === '') {
+            return $value;
+        }
+        $first = mb_substr(preg_replace('/^[\s\x{00A0}\x{3000}]+/u', '', $value) ?? ltrim($value), 0, 1);
 
-        return $value !== '' && in_array($value[0], ['=', '+', '-', '@', "\t", "\r"], true) ? "'".$value : $value;
+        return in_array($value[0], ["\t", "\r", "\n"], true) || in_array($first, ['=', '+', '-', '@', '＝', '＋', '－', '＠'], true) ? "'".$value : $value;
     }
 
     private static function birr(int $santim): string
@@ -146,8 +152,7 @@ class ReportController extends Controller
     private function range(Request $request): array
     {
         $data = $request->validate([
-            'from' => ['nullable', 'date_format:Y-m-d'],
-            'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
+            ...Dates::range($request),
         ]);
         $tz = config('marketplace.timezone');
         $to = isset($data['to']) ? CarbonImmutable::createFromFormat('Y-m-d', $data['to'], $tz)->startOfDay() : CarbonImmutable::now($tz)->startOfDay();
