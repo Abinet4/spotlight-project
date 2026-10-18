@@ -171,6 +171,20 @@ return new class extends Migration
 
     public function down(): void
     {
+        // Default locations and opening stock lines are made again by up(); anything else stores
+        // entered would be lost, so the rollback stops while it exists.
+        $kept = [
+            'product_variants' => DB::table('product_variants')->exists(),
+            'warehouses' => DB::table('warehouses')->whereNull('default_for')->exists(),
+            'warehouse_stock' => DB::table('warehouse_stock')->exists(),
+            'stock_movements' => DB::table('stock_movements')->where('type', '!=', 'opening')->exists(),
+            'products' => DB::table('products')->where(fn ($q) => $q->whereNotNull('sku')->orWhereNotNull('cost_price_santim')
+                ->orWhereNotNull('min_stock_level')->orWhereNotNull('reorder_quantity'))->exists(),
+        ];
+        if ($table = array_key_first(array_filter($kept))) {
+            throw new RuntimeException("Not rolled back: {$table} has stock records that would be lost. Export them and remove them on purpose first.");
+        }
+
         Schema::dropIfExists('seller_erp_settings');
         Schema::dropIfExists('stock_movements');
         Schema::dropIfExists('warehouse_stock');

@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -226,6 +227,11 @@ return new class extends Migration
 
     public function down(): void
     {
+        foreach (['suppliers', 'purchase_orders', 'supplier_invoices', 'supplier_payments', 'stock_transfers'] as $table) {
+            if (Schema::hasTable($table) && DB::table($table)->exists()) {
+                throw new RuntimeException("Not rolled back: {$table} has records that would be lost. Export them and remove them on purpose first.");
+            }
+        }
         Schema::dropIfExists('stock_transfer_items');
         Schema::dropIfExists('stock_transfers');
         Schema::dropIfExists('supplier_payments');

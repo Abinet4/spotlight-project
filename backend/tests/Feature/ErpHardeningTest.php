@@ -158,6 +158,33 @@ class ErpHardeningTest extends TestCase
         $this->assertSame([400_000, 100_000], collect($voided->meta['payments_voided'])->pluck('amount_santim')->all());
     }
 
+    /** Runs a migration's down() alone; the guard refuses before any table is touched. */
+    private function rollBack(string $file): ?string
+    {
+        try {
+            (require base_path("database/migrations/{$file}.php"))->down();
+        } catch (\RuntimeException $e) {
+            return $e->getMessage();
+        }
+
+        return null;
+    }
+
+    public function test_rolling_back_the_erp_tables_stops_while_stores_have_records_in_them(): void
+    {
+        $this->as($this->seller->user);
+        $supplier = $this->postJson('/api/seller/erp/suppliers', ['name' => 'Kality Wood'])->assertCreated()->json('data.id');
+        $this->assertStringContainsString('suppliers has records', (string) $this->rollBack('2026_10_18_200000_create_erp_purchasing_tables'));
+        $this->assertDatabaseHas('suppliers', ['id' => $supplier]);
+
+        // Stock records: options, a cost price, history beyond the opening lines.
+        $this->assertStringContainsString('products has stock records', (string) $this->rollBack('2026_10_17_200000_create_erp_inventory_tables'));
+        $this->postJson("/api/seller/products/{$this->sofa->id}/variants", ['color' => 'Grey'])->assertOk();
+        $this->assertStringContainsString('product_variants has stock records', (string) $this->rollBack('2026_10_17_200000_create_erp_inventory_tables'));
+        $this->assertSame(1, ProductVariant::where('product_id', $this->sofa->id)->count());
+        $this->assertSame(50, $this->sofa->fresh()->stock_quantity);
+    }
+
     public function test_every_erp_change_is_rate_limited_and_every_spreadsheet_download_too(): void
     {
         foreach (Route::getRoutes() as $route) {
