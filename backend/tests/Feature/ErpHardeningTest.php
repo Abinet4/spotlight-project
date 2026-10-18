@@ -138,7 +138,8 @@ class ErpHardeningTest extends TestCase
         $this->as($this->seller->user);
         $this->putJson("/api/seller/erp/inventory/{$this->sofa->id}", ['cost_price' => '6500'])->assertOk();
         $log = AuditLog::where('action', 'inventory.item_updated')->latest('id')->first();
-        $this->assertSame(['from' => 600_000, 'to' => 650_000], $log->meta['changes']['cost_price_santim']);
+        // assertEquals: MySQL keeps JSON keys in its own order.
+        $this->assertEquals(['from' => 600_000, 'to' => 650_000], $log->meta['changes']['cost_price_santim']);
 
         $supplier = $this->postJson('/api/seller/erp/suppliers', ['name' => 'Kality Wood'])->assertCreated()->json('data.id');
         $po = $this->postJson('/api/seller/erp/purchases', ['supplier_id' => $supplier, 'items' => [['product_id' => $this->sofa->id, 'quantity' => 50, 'unit_cost' => '5500']]])->assertCreated()->json('data');
@@ -147,7 +148,7 @@ class ErpHardeningTest extends TestCase
         // 50 at 6,500 and 50 at 5,500 average to 6,000.
         $this->assertSame(600_000, $this->sofa->fresh()->cost_price_santim);
         $received = AuditLog::where('action', 'erp.purchase_received')->latest('id')->first();
-        $this->assertSame([['product_id' => $this->sofa->id, 'variant_id' => null, 'from' => 650_000, 'to' => 600_000]], $received->meta['cost_prices_changed']);
+        $this->assertEquals([['product_id' => $this->sofa->id, 'variant_id' => null, 'from' => 650_000, 'to' => 600_000]], $received->meta['cost_prices_changed']);
 
         $sale = $this->postJson('/api/seller/erp/sales', ['paid_now' => '4000', 'payment_method' => 'cash',
             'items' => [['product_id' => $this->sofa->id, 'quantity' => 1, 'unit_price' => '10000']]])->assertCreated()->json('data');

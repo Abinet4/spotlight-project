@@ -157,7 +157,7 @@ export default function ErpItem() {
             </div>
             {it.tracked && it.locations?.length > 1 && (
               <ul className="mb-3 flex flex-wrap gap-2 text-sm">
-                {it.locations.map((l) => <li key={l.warehouse_id} className="chip">{l.name}: <strong className="ml-1 tabular-nums">{l.quantity}</strong></li>)}
+                {it.locations.map((l) => <li key={l.warehouse_id} className="chip max-w-full"><span className="min-w-0 break-words">{l.name}:</span> <strong className="tabular-nums">{l.quantity}</strong></li>)}
               </ul>
             )}
             <div className="grid gap-5 lg:grid-cols-2">

@@ -28,7 +28,7 @@ export default function ErpMovements() {
         </label>
         {places.data?.data?.length > 1 && (
           <label className="text-sm">Location
-            <select className="input mt-1 w-auto" value={filters.warehouse_id} onChange={(e) => set({ warehouse_id: e.target.value })}>
+            <select className="input mt-1 w-auto max-w-[14rem]" value={filters.warehouse_id} onChange={(e) => set({ warehouse_id: e.target.value })}>
               <option value="">All locations</option>
               {places.data.data.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>

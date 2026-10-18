@@ -59,27 +59,30 @@ export default function ErpSalePrint({ marketplace = false }) {
           {!marketplace && s.customer_tin && <p>TIN: {s.customer_tin}</p>}
         </section>
 
-        <table className="mt-4 w-full border-collapse text-left">
-          <thead>
-            <tr className="border-b border-stone-400 text-xs uppercase">
-              <th className="py-2 pr-2">#</th><th className="py-2 pr-2">Item</th><th className="py-2 pr-2 text-right">Qty</th><th className="py-2 pr-2 text-right">Unit price</th>
-              {!marketplace && <th className="py-2 pr-2 text-right">Discount</th>}
-              <th className="py-2 text-right">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {s.items.map((i, n) => (
-              <tr key={i.id} className="border-b border-stone-200 align-top">
-                <td className="py-1.5 pr-2">{n + 1}</td>
-                <td className="py-1.5 pr-2">{i.description}</td>
-                <td className="py-1.5 pr-2 text-right tabular-nums">{i.quantity}</td>
-                <td className="py-1.5 pr-2 text-right tabular-nums">{money(i.unit_price_santim)}</td>
-                {!marketplace && <td className="py-1.5 pr-2 text-right tabular-nums">{i.discount_santim ? money(i.discount_santim) : ''}</td>}
-                <td className="py-1.5 text-right tabular-nums">{money(i.line_total_santim)}</td>
+        {/* On a phone screen the table scrolls sideways; on paper it fits the page. */}
+        <div className="mt-4 overflow-x-auto print:overflow-visible">
+          <table className="w-full border-collapse text-left">
+            <thead>
+              <tr className="border-b border-stone-400 text-xs uppercase">
+                <th className="py-2 pr-2">#</th><th className="py-2 pr-2">Item</th><th className="py-2 pr-2 text-right">Qty</th><th className="py-2 pr-2 text-right">Unit price</th>
+                {!marketplace && <th className="py-2 pr-2 text-right">Discount</th>}
+                <th className="py-2 text-right">Amount</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {s.items.map((i, n) => (
+                <tr key={i.id} className="border-b border-stone-200 align-top">
+                  <td className="py-1.5 pr-2">{n + 1}</td>
+                  <td className="py-1.5 pr-2">{i.description}</td>
+                  <td className="py-1.5 pr-2 text-right tabular-nums">{i.quantity}</td>
+                  <td className="py-1.5 pr-2 text-right tabular-nums">{money(i.unit_price_santim)}</td>
+                  {!marketplace && <td className="py-1.5 pr-2 text-right tabular-nums">{i.discount_santim ? money(i.discount_santim) : ''}</td>}
+                  <td className="py-1.5 text-right tabular-nums">{money(i.line_total_santim)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         <dl className="mt-3 ml-auto w-full max-w-72 space-y-1">
           <div className="flex justify-between"><dt>Items</dt><dd className="tabular-nums">{money(marketplace ? s.items_total_santim : s.subtotal_santim)}</dd></div>
           {!marketplace && s.discount_santim > 0 && <div className="flex justify-between"><dt>Discount</dt><dd className="tabular-nums">-{money(s.discount_santim)}</dd></div>}

@@ -21,6 +21,8 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Random\Engine\Mt19937;
+use Random\Randomizer;
 use Tests\Concerns\PlacesOrders;
 use Tests\TestCase;
 
@@ -80,6 +82,13 @@ class ErpStockAccuracyTest extends TestCase
     /** @var list<string> */
     private array $log = [];
 
+    private Randomizer $random;
+
+    private function rand(int $min, int $max): int
+    {
+        return $this->random->getInt($min, $max);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -128,12 +137,13 @@ class ErpStockAccuracyTest extends TestCase
     #[DataProvider('seeds')]
     public function test_stock_stays_right_through_a_long_random_run(int $seed): void
     {
-        mt_srand($seed);
+        // Its own generator: the app's code may draw from PHP's shared one, which would change the run.
+        $this->random = new Randomizer(new Mt19937($seed));
         $steps = ['order', 'order', 'online', 'cancel', 'deliver', 'deliver', 'orderReturn', 'sale', 'sale', 'voidSale',
             'saleReturn', 'voidReturn', 'receive', 'transfer', 'arrive', 'damaged', 'found', 'counted'];
         for ($i = 1; $i <= 140; $i++) {
-            $step = $steps[mt_rand(0, count($steps) - 1)];
-            $key = array_keys($this->items)[mt_rand(0, 2)];
+            $step = $steps[$this->rand(0, count($steps) - 1)];
+            $key = array_keys($this->items)[$this->rand(0, 2)];
             $this->{$step}($key);
             $this->check("seed {$seed}, step {$i} ({$step} {$key})");
         }
@@ -195,7 +205,7 @@ class ErpStockAccuracyTest extends TestCase
 
     private function order(string $key): void
     {
-        $qty = mt_rand(1, 4);
+        $qty = $this->rand(1, 4);
         $ok = $qty <= $this->avail($key);
         if ($this->expect($ok, $this->checkout($key, $qty, 'cod'), "order {$qty} {$key}")) {
             $this->orders[] = ['id' => Order::latest('id')->value('id'), 'key' => $key, 'qty' => $qty, 'state' => 'open', 'taken' => $this->reserve($key, $qty), 'returned' => 0];
@@ -205,14 +215,14 @@ class ErpStockAccuracyTest extends TestCase
     /** An online order: paid (then it is like any other order) or left unpaid until it runs out of time. */
     private function online(string $key): void
     {
-        $qty = mt_rand(1, 3);
+        $qty = $this->rand(1, 3);
         $ok = $qty <= $this->avail($key);
         if (! $this->expect($ok, $this->checkout($key, $qty, 'online'), "online order {$qty} {$key}")) {
             return;
         }
         $order = Order::latest('id')->first();
         $taken = $this->reserve($key, $qty);
-        if (mt_rand(0, 1)) {
+        if ($this->rand(0, 1)) {
             $payment = Payment::where('checkout_id', $order->checkout_id)->latest('id')->first();
             $this->as($this->buyer)->postJson("/api/payments/test/{$payment->tx_ref}", ['outcome' => 'paid'])->assertOk()->assertJsonPath('data.status', 'paid');
             $this->orders[] = ['id' => $order->id, 'key' => $key, 'qty' => $qty, 'state' => 'open', 'taken' => $taken, 'returned' => 0];
@@ -235,7 +245,7 @@ class ErpStockAccuracyTest extends TestCase
     {
         $keys = array_keys(array_filter($list, $filter));
 
-        return $keys ? $keys[mt_rand(0, count($keys) - 1)] : null;
+        return $keys ? $keys[$this->rand(0, count($keys) - 1)] : null;
     }
 
     private function cancel(string $key): void
@@ -287,9 +297,9 @@ class ErpStockAccuracyTest extends TestCase
         }
         $o = &$this->orders[$i];
         $left = $o['qty'] - $o['returned'];
-        $qty = mt_rand(1, max(1, $left + 1)); // sometimes one more than is left
-        $restock = (bool) mt_rand(0, 1);
-        $where = mt_rand(0, 1) ? self::D : self::R;
+        $qty = $this->rand(1, max(1, $left + 1)); // sometimes one more than is left
+        $restock = (bool) $this->rand(0, 1);
+        $where = $this->rand(0, 1) ? self::D : self::R;
         $item = Order::findOrFail($o['id'])->items()->value('id');
         $res = $this->as($this->seller->user)->postJson("/api/seller/erp/sales/orders/{$o['id']}/returns", ['reason' => 'Scratched',
             'warehouse_id' => $this->loc[$where]->id, 'items' => [['item_id' => $item, 'quantity' => $qty, 'restock' => $restock]]]);
@@ -306,8 +316,8 @@ class ErpStockAccuracyTest extends TestCase
 
     private function sale(string $key): void
     {
-        $qty = mt_rand(1, 4);
-        $where = mt_rand(0, 3) ? self::D : self::R;
+        $qty = $this->rand(1, 4);
+        $where = $this->rand(0, 3) ? self::D : self::R;
         $res = $this->as($this->seller->user)->postJson('/api/seller/erp/sales', ['warehouse_id' => $this->loc[$where]->id, 'paid_now' => '100', 'payment_method' => 'cash',
             'items' => [$this->line($key, ['quantity' => $qty, 'unit_price' => '9000'])]]);
         if ($this->expect($qty <= $this->at[$key][$where], $res, "shop sale {$qty} {$key} from {$where}")) {
@@ -344,9 +354,9 @@ class ErpStockAccuracyTest extends TestCase
         }
         $s = &$this->sales[$i];
         $left = $s['qty'] - $s['returned'];
-        $qty = mt_rand(1, max(1, $left + 1));
-        $restock = (bool) mt_rand(0, 1);
-        $where = mt_rand(0, 1) ? self::D : self::R;
+        $qty = $this->rand(1, max(1, $left + 1));
+        $restock = (bool) $this->rand(0, 1);
+        $where = $this->rand(0, 1) ? self::D : self::R;
         $res = $this->as($this->seller->user)->postJson("/api/seller/erp/sales/offline/{$s['id']}/returns", ['reason' => 'Wrong colour',
             'warehouse_id' => $this->loc[$where]->id, 'items' => [['item_id' => $s['item'], 'quantity' => $qty, 'restock' => $restock]]]);
         if ($this->expect($qty <= $left, $res, "return {$qty} of shop sale {$s['id']} ".($restock ? "to {$where}" : 'not restocked'))) {
@@ -389,8 +399,8 @@ class ErpStockAccuracyTest extends TestCase
 
     private function receive(string $key): void
     {
-        $qty = mt_rand(1, 6);
-        $where = mt_rand(0, 1) ? self::D : self::R;
+        $qty = $this->rand(1, 6);
+        $where = $this->rand(0, 1) ? self::D : self::R;
         $this->as($this->seller->user);
         $po = $this->postJson('/api/seller/erp/purchases', ['supplier_id' => $this->supplier, 'warehouse_id' => $this->loc[$where]->id,
             'items' => [$this->line($key, ['quantity' => $qty + 2, 'unit_cost' => '4000'])]])->assertCreated()->json('data');
@@ -407,8 +417,8 @@ class ErpStockAccuracyTest extends TestCase
 
     private function transfer(string $key): void
     {
-        $qty = mt_rand(1, 4);
-        [$from, $to] = mt_rand(0, 2) ? [self::D, self::R] : [self::R, self::D];
+        $qty = $this->rand(1, 4);
+        [$from, $to] = $this->rand(0, 2) ? [self::D, self::R] : [self::R, self::D];
         $res = $this->as($this->seller->user)->postJson('/api/seller/erp/transfers', ['from_warehouse_id' => $this->loc[$from]->id, 'to_warehouse_id' => $this->loc[$to]->id,
             'items' => [$this->line($key, ['quantity' => $qty])]]);
         if ($this->expect($qty <= $this->at[$key][$from], $res, "send {$qty} {$key} from {$from} to {$to}")) {
@@ -427,7 +437,7 @@ class ErpStockAccuracyTest extends TestCase
             return;
         }
         $t = &$this->transfers[$i];
-        $cancel = mt_rand(0, 3) === 0;
+        $cancel = $this->rand(0, 3) === 0;
         $this->as($this->seller->user)->postJson("/api/seller/erp/transfers/{$t['id']}/".($cancel ? 'cancel' : 'receive'))->assertOk();
         $this->postJson("/api/seller/erp/transfers/{$t['id']}/receive")->assertUnprocessable();
         $this->at[$t['key']][$cancel ? $t['from'] : $t['to']] += $t['qty'];
@@ -445,8 +455,8 @@ class ErpStockAccuracyTest extends TestCase
 
     private function damaged(string $key): void
     {
-        $qty = mt_rand(1, 2);
-        $where = mt_rand(0, 1) ? self::D : self::R;
+        $qty = $this->rand(1, 2);
+        $where = $this->rand(0, 1) ? self::D : self::R;
         if ($this->expect($qty <= $this->at[$key][$where], $this->adjust($key, 'damaged', $qty, $where), "damaged {$qty} {$key} at {$where}")) {
             $this->at[$key][$where] -= $qty;
         }
@@ -454,16 +464,16 @@ class ErpStockAccuracyTest extends TestCase
 
     private function found(string $key): void
     {
-        $qty = mt_rand(1, 2);
-        $where = mt_rand(0, 1) ? self::D : self::R;
+        $qty = $this->rand(1, 2);
+        $where = $this->rand(0, 1) ? self::D : self::R;
         $this->expect(true, $this->adjust($key, 'found', $qty, $where), "found {$qty} {$key} at {$where}");
         $this->at[$key][$where] += $qty;
     }
 
     private function counted(string $key): void
     {
-        $where = mt_rand(0, 1) ? self::D : self::R;
-        $counted = max(0, $this->at[$key][$where] + mt_rand(-2, 2));
+        $where = $this->rand(0, 1) ? self::D : self::R;
+        $counted = max(0, $this->at[$key][$where] + $this->rand(-2, 2));
         $this->expect(true, $this->adjust($key, 'count', $counted, $where), "count {$key} at {$where}: {$counted}");
         $this->at[$key][$where] = $counted;
     }
@@ -519,9 +529,14 @@ class ErpStockAccuracyTest extends TestCase
         $valuation = collect($this->getJson('/api/seller/erp/reports/valuation?all=1')->assertOk()->json('data'));
         foreach ($this->items as $key => [$product, $variant]) {
             $row = $valuation->first(fn ($r) => $r['name'] === $product->name && ($variant ? $r['option'] === $variant->label() : true));
-            $this->assertNotNull($row, "{$key} in the valuation report");
-            $this->assertSame($this->avail($key) + $this->held[$key], $row['on_hand'], "{$key} on hand in the valuation report, {$when}");
-            $this->assertSame($this->held[$key], $row['held'], "{$key} held in the valuation report, {$when}");
+            $onHand = $this->avail($key) + $this->held[$key];
+            if ($onHand === 0) {
+                $this->assertNull($row, "{$key} has nothing on hand, so it is not in the valuation report, {$when}");
+            } else {
+                $this->assertNotNull($row, "{$key} in the valuation report, {$when}");
+                $this->assertSame($onHand, $row['on_hand'], "{$key} on hand in the valuation report, {$when}");
+                $this->assertSame($this->held[$key], $row['held'], "{$key} held in the valuation report, {$when}");
+            }
 
             $shown = $this->getJson("/api/seller/erp/inventory/{$product->id}")->assertOk()->json('data');
             $item = $variant ? collect($shown['items'] ?? $shown['variants'] ?? [])->firstWhere('variant_id', $variant->id) : ($shown['items'][0] ?? $shown);
