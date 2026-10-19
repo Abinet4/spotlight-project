@@ -187,7 +187,7 @@ class CheckoutCalculator
         if ($q->status !== QuoteStatus::Accepted) {
             $problem = 'This quote is no longer accepted.';
         } elseif ($q->orderDeadline()->isPast()) {
-            $problem = 'This quote has expired. Ask the seller for a new one.';
+            $problem = 'This offer has expired. Ask Betoch Support for a new one.';
         } elseif (! $activeSellerIds->has($q->seller_profile_id)) {
             $problem = 'This store is not taking orders right now.';
         } elseif ($q->isOrdered()) {
@@ -203,7 +203,7 @@ class CheckoutCalculator
             'id' => $item->id,
             'kind' => 'quote',
             'product' => $p ? ['id' => $p->id, 'slug' => $p->slug, 'name' => $p->name, 'image' => null, 'stock_type' => null, 'production_days' => null] : null,
-            'quote' => ['id' => $q->id, 'title' => $q->title, 'quantity' => $q->quantity, 'production_days' => $q->production_days, 'conversation_id' => $q->conversation_id, 'order_by' => $q->orderDeadline()->toIso8601String()],
+            'quote' => ['id' => $q->id, 'title' => $q->title, 'quantity' => $q->quantity, 'production_days' => $q->production_days, 'conversation_id' => $q->conversation_id, 'support_ticket_id' => $q->support_ticket_id, 'order_by' => $q->orderDeadline()->toIso8601String()],
             'variant' => null,
             'name' => $q->title,
             'unit_price_santim' => $q->price_santim,

@@ -8,6 +8,7 @@ use App\Models\OfflineSale;
 use App\Models\Order;
 use App\Models\PurchaseOrder;
 use App\Models\Review;
+use App\Models\SellerRequest;
 use App\Models\StockTransfer;
 use App\Support\Erp\SaleFigures;
 use App\Support\Erp\StockFigures;
@@ -40,6 +41,11 @@ class SummaryController extends Controller
                     ->where('created_at', '>=', now()->subDays(30))->count(),
             ],
             'balance' => BalanceController::summary($seller->id),
+            // Requests from Betoch the store has not read yet, and those waiting for its answer.
+            'requests' => [
+                'unread' => SellerRequest::where('seller_profile_id', $seller->id)->unreadForSeller()->count(),
+                'waiting' => SellerRequest::where('seller_profile_id', $seller->id)->where('status', SellerRequest::STATUS_OPEN)->count(),
+            ],
             'stock' => StockFigures::counts($seller->id),
             'erp' => [
                 // Purchase orders past their expected date, and transfers still on their way.
