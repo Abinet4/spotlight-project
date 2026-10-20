@@ -7,16 +7,19 @@ use App\Enums\Role;
 use App\Enums\UserStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Models\SignInCode;
 use App\Models\User;
+use App\Notifications\SecurityNotice;
 use App\Services\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Find accounts and suspend or reactivate them. Admin accounts are managed only from the command line.
+ * Find accounts, suspend or reactivate them, and reset two-step sign-in for an owner who lost their phone. Admin accounts are managed only from the command line.
  */
 class UserController extends Controller
 {
@@ -94,6 +97,34 @@ class UserController extends Controller
         return response()->json(['data' => $this->row($user->load('sellerProfile:id,user_id,store_name,slug,status'))]);
     }
 
+    /**
+     * For an owner who lost their phone: turn two-step sign-in off and forget the checked number, so
+     * they can sign in with their password and check a new one. Administrators are reset from the
+     * command line (marketplace:two-step-off).
+     */
+    public function resetTwoStep(Request $request, int $id, AuditLogger $audit): JsonResponse
+    {
+        $data = $request->validate(['reason' => ['required', 'string', 'min:3', 'max:500']]);
+
+        $user = DB::transaction(function () use ($request, $id, $data, $audit) {
+            $user = User::lockForUpdate()->findOrFail($id);
+            if ($user->role === Role::Admin) {
+                throw ValidationException::withMessages(['two_step' => 'Admin accounts are managed from the command line.']);
+            }
+            if ($user->two_step_enabled_at === null && $user->phone_verified_at === null) {
+                throw ValidationException::withMessages(['two_step' => 'This account has no two-step sign-in or checked phone to reset.']);
+            }
+            $user->forceFill(['two_step_enabled_at' => null, 'phone_verified_at' => null])->save();
+            SignInCode::where('user_id', $user->id)->whereNull('used_at')->where('expires_at', '>', now())->update(['expires_at' => now()]);
+            $audit->log('user.two_step_reset', $user, ['reason' => $data['reason'], 'by' => $request->user()->id]);
+            Notification::route('mail', $user->email)->notify(new SecurityNotice('two_step_reset', $user->name));
+
+            return $user;
+        });
+
+        return response()->json(['data' => $this->row($user->load('sellerProfile:id,user_id,store_name,slug,status'))]);
+    }
+
     private function row(User $u): array
     {
         return [
@@ -103,6 +134,8 @@ class UserController extends Controller
             'phone' => $u->phone,
             'role' => $u->role->value,
             'status' => $u->status->value,
+            'phone_verified' => $u->phone_verified_at !== null,
+            'two_step' => $u->usesTwoStep(),
             'store' => $u->sellerProfile ? ['id' => $u->sellerProfile->id, 'store_name' => $u->sellerProfile->store_name, 'slug' => $u->sellerProfile->slug, 'status' => $u->sellerProfile->status->value] : null,
             'created_at' => $u->created_at?->toIso8601String(),
         ];

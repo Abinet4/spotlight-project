@@ -8,6 +8,8 @@ use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Notifications\SecurityNotice;
 use App\Services\AuditLogger;
+use App\Services\SignInCodes;
+use App\Support\PhoneNumber;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
@@ -16,7 +18,6 @@ use Illuminate\Notifications\Notification as BaseNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
-use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -28,8 +29,7 @@ use Laravel\Sanctum\PersonalAccessToken;
  */
 class ProfileController extends Controller
 {
-    /** Wrong current passwords allowed per account every 15 minutes. */
-    private const PASSWORD_GUESSES = 5;
+    use ChecksCurrentPassword;
 
     public function show(Request $request): JsonResponse
     {
@@ -55,6 +55,13 @@ class ProfileController extends Controller
         ]);
         if (array_key_exists('phone', $data)) {
             $data['phone'] = filled($data['phone']) ? trim($data['phone']) : null;
+            if (! self::samePhone($data['phone'], $user->phone)) {
+                // The sign-in number changes only by proving the new one with a texted code.
+                if ($user->usesTwoStep() || $user->mustUseTwoStep()) {
+                    throw ValidationException::withMessages(['phone' => 'Your phone is used for sign-in codes. Change it under Two-step sign-in, where a code checks the new number.']);
+                }
+                $user->phone_verified_at = null;
+            }
         }
 
         $oldEmail = $user->email;
@@ -127,25 +134,12 @@ class ProfileController extends Controller
         return response()->json(['data' => [...$this->present($request), 'signed_out' => $signedOut]]);
     }
 
-    /**
-     * Wrong guesses are limited per account, so a token left open on a shared computer cannot be
-     * used to work out the password. Typos in other fields are not counted.
-     */
-    private function checkCurrentPassword(User $user, ?string $password): void
+    /** Two ways of writing one number (0911 234 567 and +251911234567) count as the same phone. */
+    private static function samePhone(?string $a, ?string $b): bool
     {
-        if (! filled($password)) {
-            throw ValidationException::withMessages(['current_password' => 'Enter your current password to make this change.']);
-        }
-        // Count the attempt before checking it, so a burst of parallel guesses cannot slip past the limit.
-        $key = 'current-password|'.$user->id;
-        if (RateLimiter::hit($key, 15 * 60) > self::PASSWORD_GUESSES) {
-            $minutes = (int) ceil(RateLimiter::availableIn($key) / 60);
-            throw ValidationException::withMessages(['current_password' => "Too many wrong passwords. Try again in {$minutes} min."])->status(429);
-        }
-        if (! Hash::check($password, $user->password)) {
-            throw ValidationException::withMessages(['current_password' => 'Your current password is not correct.']);
-        }
-        RateLimiter::clear($key);
+        $mobileA = PhoneNumber::ethiopianMobile($a);
+
+        return $mobileA !== null ? $mobileA === PhoneNumber::ethiopianMobile($b) : $a === $b;
     }
 
     /** Tokens of the user's other devices, keeping the one making this request. */
@@ -189,6 +183,7 @@ class ProfileController extends Controller
         return [
             ...(new UserResource($user))->resolve($request),
             'other_sessions' => $this->activeOtherSessions($request),
+            'codes_available' => app(SignInCodes::class)->available(),
         ];
     }
 }

@@ -4,10 +4,12 @@ use App\Enums\Role;
 use App\Models\AuditLog;
 use App\Models\City;
 use App\Models\ProductImage;
+use App\Models\SignInCode;
 use App\Models\User;
 use App\Providers\AppServiceProvider;
 use App\Services\ImageVariants;
 use App\Services\PaymentService;
+use App\Services\SignInCodes;
 use Database\Seeders\DemoFurnitureArt;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Support\Facades\Artisan;
@@ -177,3 +179,21 @@ Artisan::command('marketplace:expire-payments', function (PaymentService $paymen
 Schedule::command('marketplace:expire-payments')->everyFiveMinutes()->withoutOverlapping();
 // Sign-ins last 30 days; remove the expired ones so a copied old token is gone from the database too.
 Schedule::command('sanctum:prune-expired --hours=24')->daily();
+Schedule::call(fn () => app(SignInCodes::class)->prune())->daily()->name('prune-sign-in-codes');
+
+Artisan::command('marketplace:two-step-off {email}', function (string $email) {
+    $user = User::where('email', mb_strtolower(trim($email)))->first();
+    if (! $user) {
+        $this->error("No account uses {$email}.");
+
+        return 1;
+    }
+    // For an owner who lost their phone. An administrator under the Admin > Settings rule is asked to
+    // check a new phone the next time they sign in.
+    $user->forceFill(['two_step_enabled_at' => null, 'phone_verified_at' => null])->save();
+    SignInCode::where('user_id', $user->id)->whereNull('used_at')->update(['expires_at' => now()]);
+    AuditLog::create(['action' => 'user.two_step_reset_via_cli', 'subject_type' => $user->getMorphClass(), 'subject_id' => $user->id]);
+    $this->info("Two-step sign-in is off for {$user->email} and the checked phone was removed.");
+
+    return 0;
+})->purpose('Turn off two-step sign-in for an account whose owner lost their phone');

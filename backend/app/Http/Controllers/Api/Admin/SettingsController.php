@@ -2,18 +2,23 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Enums\Role;
+use App\Enums\UserStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\SellerProfile;
 use App\Models\Setting;
+use App\Models\User;
 use App\Payments\ChapaGateway;
 use App\Payments\FakeGateway;
 use App\Payments\PaymentGateway;
 use App\Services\AuditLogger;
+use App\Services\SignInCodes;
 use App\Sms\SmsGateway;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class SettingsController extends Controller
 {
@@ -37,12 +42,17 @@ class SettingsController extends Controller
             'delivery_max_km' => ['sometimes', 'integer', 'min:0', 'max:1000'],
             'delivery_per_floor_birr' => ['sometimes', 'integer', 'min:0', 'max:10000'],
             'stores_set_delivery_fee' => ['sometimes', 'boolean'],
+            'admins_must_use_two_step' => ['sometimes', 'boolean'],
         ], [], [
             'delivery_base_fee_birr' => 'base fee',
             'delivery_per_km_birr' => 'per km fee',
             'delivery_max_km' => 'longest trip',
             'delivery_per_floor_birr' => 'per floor fee',
         ]);
+
+        if (($data['admins_must_use_two_step'] ?? false) && ! Setting::adminsMustUseTwoStep()) {
+            $this->checkAdminsReady();
+        }
 
         DB::transaction(function () use ($data, $request, $audit) {
             $before = $this->current();
@@ -54,6 +64,28 @@ class SettingsController extends Controller
         });
 
         return response()->json(['data' => $this->current(), 'meta' => $this->meta()]);
+    }
+
+    /**
+     * The rule can only go on when codes reach phones and every active administrator has a checked
+     * phone, so it cannot lock anyone out of the admin pages.
+     */
+    private function checkAdminsReady(): void
+    {
+        if (! app(SignInCodes::class)->available()) {
+            throw ValidationException::withMessages(['admins_must_use_two_step' => 'Set up an SMS provider first (MARKETPLACE_SMS_DRIVER), so codes can be texted.']);
+        }
+        $missing = $this->adminsWithoutPhone();
+        if ($missing !== []) {
+            throw ValidationException::withMessages(['admins_must_use_two_step' => 'These administrators must check their phone in My account first: '.implode(', ', $missing).'.']);
+        }
+    }
+
+    /** @return list<string> emails of active administrators without a checked phone */
+    private function adminsWithoutPhone(): array
+    {
+        return User::where('role', Role::Admin)->where('status', UserStatus::Active)->orderBy('id')->get()
+            ->filter(fn (User $u) => $u->twoStepPhone() === null)->pluck('email')->values()->all();
     }
 
     /** Read-only facts shown next to the settings. */
@@ -72,6 +104,8 @@ class SettingsController extends Controller
             'maps_browser_key_set' => (bool) config('services.google_maps.browser_key'),
             'maps_server_key_set' => (bool) config('services.google_maps.server_key'),
             'listings_with_own_fee' => Product::whereNotNull('delivery_fee_santim')->where('delivery_fee_santim', '>', 0)->count(),
+            'sign_in_codes_available' => app(SignInCodes::class)->available(),
+            'admins_without_checked_phone' => $this->adminsWithoutPhone(),
             'stores_without_pin' => SellerProfile::where('status', 'approved')->where('offers_delivery', true)->whereNull('latitude')->count(),
         ];
     }
@@ -90,6 +124,7 @@ class SettingsController extends Controller
             'delivery_max_km' => Setting::deliveryMaxKm(),
             'delivery_per_floor_birr' => intdiv(Setting::deliveryPerFloorSantim(), 100),
             'stores_set_delivery_fee' => Setting::storesSetDeliveryFee(),
+            'admins_must_use_two_step' => Setting::adminsMustUseTwoStep(),
         ];
     }
 }

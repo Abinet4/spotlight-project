@@ -26,6 +26,12 @@ return [
         'sender' => env('AFROMESSAGE_SENDER'),
     ],
 
+    // SMS Ethiopia (MARKETPLACE_SMS_DRIVER=smsethiopia). Keep the key out of git.
+    'smsethiopia' => [
+        'base_url' => env('SMSETHIOPIA_BASE_URL', 'https://smsethiopia.com/api'),
+        'key' => env('SMSETHIOPIA_API_KEY'),
+    ],
+
     'resend' => [
         'key' => env('RESEND_API_KEY'),
     ],

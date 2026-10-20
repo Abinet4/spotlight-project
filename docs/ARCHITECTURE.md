@@ -114,6 +114,8 @@ erDiagram
 | notifications | Laravel's database notifications: uuid id (time-ordered), type (the alert kind, for example `order.new`), notifiable, data {title, body, url}, read_at. Index (notifiable_type, notifiable_id, read_at) |
 | sms_messages | notification_id unique (one text per alert, so a retried job never texts twice), user_id, kind, to (+251...), body (max 480), driver, status (pending/sent/logged/failed), provider_message_id, error, attempts, sent_at |
 | users | + alert_sms, alert_email (both default on) |
+| users | + phone_verified_at (set by a texted code, cleared when the phone changes), two_step_enabled_at |
+| sign_in_codes | user_id, purpose (sign_in/phone), phone, code_hash (HMAC), challenge_hash (sha256, unique, sign-in only), attempts, sends, last_sent_at, expires_at, used_at |
 
 ### Added for online payments
 
@@ -247,6 +249,17 @@ Foreign keys use `restrict` where deleting the parent would destroy history (sel
 - Wrong current passwords are limited to 5 per account every 15 minutes. Each attempt is counted before it is checked, so parallel guesses cannot get past the limit; a correct password resets the count. Typos in other fields are not counted.
 - The customer header shows Account instead of Addresses; addresses are linked from My account and used at checkout.
 
+**Two-step sign-in.**
+- Optional for customers and stores (My account), and required for every administrator when the Admin > Settings switch is on. After the password, a 6-digit code is texted to the account's checked phone; the token is issued only after the code.
+- A phone is checked by typing a code texted to it, and is then stored as +2519... or +2517.... Changing the checked number needs a code to the new number, plus the password while two-step is on; the profile form cannot change it. The old number's owner is emailed when it changes, and when two-step goes on or off.
+- Codes: 5 minutes, one use, 5 wrong tries per code however often it is resent, a new code at most every 60 s and 3 texts per code. A new sign-in cancels the previous code. Only a keyed hash (HMAC with the app key) is stored; the browser holds a random challenge (stored as sha256). Wrong tries are counted under a row lock, so parallel guesses cannot get more than 5.
+- Texts cost money, so each account and each phone get at most 8 code texts an hour, and the whole site `MARKETPLACE_SMS_CODES_PER_HOUR` (default 200). Codes ignore the switch that pauses SMS alerts. With a real provider the Admin > Text messages log hides the code; on a test site with no provider, the code is only logged there and in the server log, so it can be read.
+- On a live site (`APP_ENV=production`) with no SMS provider, the code step is skipped (logged as a warning) rather than locking everyone out, and two-step cannot be turned on. If the provider refuses a text, sign-in shows that the code could not be sent; it does not fall back to the password alone.
+- The admin rule can only go on when codes can be sent and every active admin has a checked phone. An admin under the rule with no checked phone (new from the command line, or reset) can sign in and is sent to My account to add one.
+- Lost phone: admins turn two-step off for a customer or store in Admin > Users (reason required, audited, the owner is emailed). Admin accounts are reset with `php artisan marketplace:two-step-off <email>`. Codes are deleted a day after they expire.
+- SMS Ethiopia: POST `https://smsethiopia.com/api/sms/send` with a `KEY` header and `{"msisdn": "2519...", "text": ...}`; their reference shows the reply `{"status": "success", "message": "Accepted Successfully"}` and names no error format, so a 2xx reply counts as sent unless it says it failed. Their test SMS go only to whitelisted numbers.
+
+
 **Shopping helpers and look (UI refresh).**
 - Libraries: lucide-react (icons), @headlessui/react (accessible menus, dialogs, drawer, filter sheet), sonner (toasts), embla-carousel-react (photo gallery and product rails), Inter and Fraunces fonts from @fontsource (served from the app, no Google Fonts request).
 - Compare: up to 4 listings side by side (price, rating, stock, size, material, color, condition, delivery, custom orders, seller, location) with the lowest price marked. The list is kept in this browser (`mp_compare`), follows other open tabs, and still works for the page view when site storage is blocked. Listings that are removed or hidden since they were picked leave the list on the compare page, with a note.
@@ -306,7 +319,7 @@ Foreign keys use `restrict` where deleting the parent would destroy history (sel
 | Customer contact for stores | name, phone, street, landmark and map pin only while the order is confirmed, processing, ready or dispatched; area, floor and lift always | Stores need the contact to deliver, not before they accept or after it is done |
 | Admin roles | one admin role; any admin can take any inquiry | Smallest team to start; assignment shows who is on it |
 | New-message alerts | in-app unread badge, plus at most one email per inquiry every 30 minutes | Avoids an email per chat line |
-| SMS provider | AfroMessage behind a driver setting; `log` (send nothing) by default | Common Ethiopian provider with a simple HTTP API. Untested against a live account until the business opens one |
+| SMS provider | SMS Ethiopia or AfroMessage behind a driver setting; `log` (send nothing) by default | Common Ethiopian provider with a simple HTTP API. Untested against a live account until the business opens one |
 | Which alerts are texts | only alerts that need action within hours | Texts cost money per message |
 
 ## Planned design for the next milestones

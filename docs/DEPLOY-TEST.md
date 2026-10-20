@@ -135,6 +135,13 @@ redeploy the API. Several addresses can be listed in `CORS_ALLOWED_ORIGINS`, sep
   `CHAPA_WEBHOOK_SECRET`; webhook URL in the Chapa dashboard `https://<api>.up.railway.app/api/payments/chapa/webhook`.
   Test keys and the built-in test payment page only work while `APP_ENV` is `staging` (or `local`); with
   `production` online payment is switched off until a live key is set.
+- Texts and two-step sign-in: `MARKETPLACE_SMS_DRIVER=smsethiopia` and `SMSETHIOPIA_API_KEY` from your
+  SMS Ethiopia account. Then check your own phone in My account: that sends a real text, and if SMS
+  Ethiopia refuses it, Admin > Text messages shows its reply. Without a provider, on this test site the
+  codes are written to Admin > Text messages and the Railway log instead of being texted. Turn on
+  "Administrators must use two-step sign-in" in Admin > Settings only after every admin has checked a
+  phone. An owner who lost their phone: Admin > Users, "Turn off two-step"; for an admin, run
+  `php artisan marketplace:two-step-off <email>` in the Railway shell.
 - Page security: the shop pages send a Content Security Policy from `frontend/vercel.json`. If you add a
   script from another site (analytics, chat), add its address there or the browser blocks it.
 - Separate worker: `ROLE` can be `web`, `worker` or `scheduler` to split the jobs into three Railway
