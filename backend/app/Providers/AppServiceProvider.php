@@ -8,6 +8,7 @@ use App\Payments\NullGateway;
 use App\Payments\PaymentGateway;
 use App\Sms\AfroMessageGateway;
 use App\Sms\LogSmsGateway;
+use App\Sms\SmsEthiopiaGateway;
 use App\Sms\SmsGateway;
 use App\Support\RetryingDatabaseStore;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -23,6 +24,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(SmsGateway::class, fn () => match (config('marketplace.alerts.sms_driver')) {
             'afromessage' => new AfroMessageGateway(config('services.afromessage')),
+            'smsethiopia' => new SmsEthiopiaGateway(config('services.smsethiopia')),
             default => new LogSmsGateway,
         });
 
@@ -70,6 +72,12 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('login', fn (Request $request) => [
             Limit::perMinute(5)->by(mb_strtolower((string) $request->input('email')).'|'.$request->ip()),
             Limit::perMinute(20)->by($request->ip()),
+        ]);
+
+        // The code step after the password. Each code also allows only 5 wrong tries.
+        RateLimiter::for('two-step', fn (Request $request) => [
+            Limit::perMinute(10)->by('t|'.hash('sha256', json_encode($request->input('challenge')))),
+            Limit::perMinute(30)->by('t|'.$request->ip()),
         ]);
 
         RateLimiter::for('register', fn (Request $request) => Limit::perHour(10)->by($request->ip()));

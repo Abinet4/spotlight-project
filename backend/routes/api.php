@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Account\AlertSettingsController;
 use App\Http\Controllers\Api\Account\ProfileController;
+use App\Http\Controllers\Api\Account\TwoStepController;
 use App\Http\Controllers\Api\AddressController;
 use App\Http\Controllers\Api\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Api\Admin\DashboardController;
@@ -112,6 +113,10 @@ Route::prefix('auth')->group(function () {
         Route::post('/register-seller', [AuthController::class, 'registerSeller']);
     });
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
+    Route::middleware('throttle:two-step')->group(function () {
+        Route::post('/two-step', [AuthController::class, 'twoStep']);
+        Route::post('/two-step/resend', [AuthController::class, 'resendTwoStep']);
+    });
 
     Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::get('/me', [AuthController::class, 'me']);
@@ -134,6 +139,12 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     Route::put('/account/profile', [ProfileController::class, 'update'])->middleware('throttle:account');
     Route::put('/account/password', [ProfileController::class, 'password']);
     Route::post('/account/sign-out-others', [ProfileController::class, 'signOutOthers']);
+    Route::middleware('throttle:account')->group(function () {
+        Route::post('/account/phone/code', [TwoStepController::class, 'sendPhoneCode']);
+        Route::post('/account/phone/resend', [TwoStepController::class, 'resendPhoneCode']);
+        Route::post('/account/phone/verify', [TwoStepController::class, 'verifyPhone']);
+        Route::put('/account/two-step', [TwoStepController::class, 'setTwoStep']);
+    });
 
     Route::get('/account/alerts', [AlertSettingsController::class, 'show']);
     Route::put('/account/alerts', [AlertSettingsController::class, 'update']);
@@ -361,6 +372,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
 
     Route::get('/users', [AdminUserController::class, 'index']);
     Route::get('/users/{id}', [AdminUserController::class, 'show'])->whereNumber('id');
+    Route::post('/users/{id}/two-step-off', [AdminUserController::class, 'resetTwoStep'])->whereNumber('id');
     Route::post('/users/{id}/{action}', [AdminUserController::class, 'setStatus'])->whereNumber('id')->whereIn('action', ['suspend', 'reactivate']);
 
     Route::get('/reports/summary', [ReportController::class, 'summary']);

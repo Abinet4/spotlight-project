@@ -69,6 +69,20 @@ export default function AdminSettings() {
             </span>
           </span>
         </label>
+        <label className="flex items-start gap-2 text-sm">
+          <input type="checkbox" className="mt-1" checked={!!form.admins_must_use_two_step} onChange={(e) => setForm({ ...form, admins_must_use_two_step: e.target.checked })}
+            aria-invalid={errors.admins_must_use_two_step ? true : undefined} />
+          <span>
+            <span className="font-medium">Administrators must use two-step sign-in</span><br />
+            <span className="text-stone-500">
+              {!settings.data.meta?.sign_in_codes_available
+                ? 'Needs an SMS provider on the server first, so codes can be texted.'
+                : settings.data.meta.admins_without_checked_phone?.length
+                  ? `Every administrator signs in with a texted code after the password. First, these administrators must check their phone in My account: ${settings.data.meta.admins_without_checked_phone.join(', ')}.`
+                  : 'Every administrator signs in with a texted code after the password, and cannot turn it off.'}
+            </span>
+          </span>
+        </label>
         <Field label="How sellers pay their commission" name="instructions" error={errors.settlement_instructions} hint="Shown on every seller's balance page. For example the bank account and what to write as the reference.">
           <textarea id="instructions" className="input min-h-24" maxLength={1000} value={form.settlement_instructions}
             onChange={(e) => setForm({ ...form, settlement_instructions: e.target.value })} />

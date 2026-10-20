@@ -46,6 +46,7 @@ export function AdminUsers() {
                   </span>
                   <span className="flex items-center gap-2 text-xs">
                     <span className="rounded bg-stone-100 px-1.5 py-0.5 font-medium">{ROLE_LABELS[u.role]}</span>
+                    {u.two_step && <span className="rounded bg-emerald-50 px-1.5 py-0.5 font-medium text-emerald-800">Two-step</span>}
                     {u.status === 'suspended' && <StatusBadge status="suspended" />}
                   </span>
                 </Link>
@@ -84,6 +85,19 @@ export function AdminUserDetail() {
     }
   }
 
+  async function resetTwoStep() {
+    const reason = window.prompt(`Turn off two-step sign-in for ${u.name} and forget their checked phone? Only do this after checking it is really them (for example they lost their phone). Write how you checked (kept in the audit log):`)
+    if (!reason?.trim()) return
+    try {
+      await api.post(`/admin/users/${u.id}/two-step-off`, { reason })
+      setNotice({ tone: 'success', text: 'Two-step sign-in is off. They can sign in with their password and check a new phone in My account. We emailed them about it.' })
+      res.reload()
+    } catch (err) {
+      const p = parseError(err)
+      setNotice({ tone: 'error', text: Object.values(p.fields)[0] || p.message })
+    }
+  }
+
   return (
     <>
       <Link to="/admin/users" className="text-sm text-brand-700 hover:underline">Back to users</Link>
@@ -92,7 +106,8 @@ export function AdminUserDetail() {
       <div className="grid gap-4 md:grid-cols-2">
         <section className="card space-y-1 p-4 text-sm">
           <p><span className="text-stone-500">Email:</span> {u.email}</p>
-          <p><span className="text-stone-500">Phone:</span> {u.phone || 'none'}</p>
+          <p><span className="text-stone-500">Phone:</span> {u.phone || 'none'}{u.phone_verified && ' (checked)'}</p>
+          <p><span className="text-stone-500">Two-step sign-in:</span> {u.two_step ? 'on' : 'off'}</p>
           <p><span className="text-stone-500">Status:</span> <StatusBadge status={u.status} /></p>
           {u.store && <p><span className="text-stone-500">Store:</span> <Link to={`/admin/sellers?q=${encodeURIComponent(u.store.store_name)}`} className="text-brand-700 hover:underline">{u.store.store_name}</Link> <StatusBadge status={u.store.status} /></p>}
           {u.role !== 'admin' && (
@@ -100,6 +115,7 @@ export function AdminUserDetail() {
               {u.status === 'active'
                 ? <button type="button" className="btn-danger" onClick={() => setStatus('suspend')}>Suspend account</button>
                 : <button type="button" className="btn-primary" onClick={() => setStatus('reactivate')}>Reactivate account</button>}
+              {(u.two_step || u.phone_verified) && <button type="button" className="btn-secondary ml-2" onClick={resetTwoStep}>Turn off two-step</button>}
               {u.role === 'seller' && u.status === 'active' && <p className="mt-2 text-xs text-stone-500">To pause only the store, suspend it from Sellers instead. Suspending the account also signs the owner out.</p>}
             </div>
           )}

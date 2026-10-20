@@ -16,6 +16,9 @@ class UserResource extends JsonResource
             'name' => $this->name,
             'email' => $this->email,
             'phone' => $this->phone,
+            'phone_verified' => $this->twoStepPhone() !== null,
+            'two_step' => $this->usesTwoStep(),
+            'two_step_required' => $this->mustUseTwoStep(),
             'role' => $this->role->value,
             'status' => $this->status->value,
             'seller_profile' => $this->whenLoaded('sellerProfile', fn () => $this->sellerProfile

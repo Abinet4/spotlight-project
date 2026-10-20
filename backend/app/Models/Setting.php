@@ -29,6 +29,7 @@ class Setting extends Model
         'delivery_max_km' => 'marketplace.distance.max_km',
         'delivery_per_floor_birr' => 'marketplace.distance.per_floor_birr',
         'stores_set_delivery_fee' => 'marketplace.distance.stores_set_fee',
+        'admins_must_use_two_step' => 'marketplace.sign_in.admins_must_use_two_step',
     ];
 
     public static function value(string $key): mixed
@@ -80,6 +81,12 @@ class Setting extends Model
     public static function smsEnabled(): bool
     {
         return filter_var(static::value('sms_enabled'), FILTER_VALIDATE_BOOL);
+    }
+
+    /** Admin switch: every administrator must sign in with a texted code after the password. */
+    public static function adminsMustUseTwoStep(): bool
+    {
+        return filter_var(static::value('admins_must_use_two_step'), FILTER_VALIDATE_BOOL);
     }
 
     /** Delivery by distance: fixed part of every trip, in santim. */

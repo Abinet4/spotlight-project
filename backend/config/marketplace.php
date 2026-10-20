@@ -79,6 +79,7 @@ return [
     'alerts' => [
         // 'log' writes each SMS to the log and the admin SMS log without sending it (local use).
         // 'afromessage' sends through AfroMessage (set AFROMESSAGE_* in .env).
+        // 'smsethiopia' sends through SMS Ethiopia (set SMSETHIOPIA_API_KEY in .env).
         'sms_driver' => env('MARKETPLACE_SMS_DRIVER', 'log'),
         // Starting value for the Admin > Settings switch that pauses all SMS.
         'sms_enabled' => (bool) env('MARKETPLACE_SMS_ENABLED', true),
@@ -86,6 +87,15 @@ return [
         'message_email_cooldown_minutes' => 30,
         // At most one "Betoch has a question" SMS per store in this many hours.
         'store_request_sms_cooldown_hours' => 24,
+    ],
+
+    // Two-step sign-in: a code texted after the password. Codes are sent even when the Admin >
+    // Settings SMS switch is off, since that switch only pauses alerts.
+    'sign_in' => [
+        // Texts with codes the whole site may send per hour, so a script cannot run up the SMS bill.
+        'codes_per_hour' => (int) env('MARKETPLACE_SMS_CODES_PER_HOUR', 200),
+        // Starting value for the Admin > Settings switch that makes every administrator use it.
+        'admins_must_use_two_step' => (bool) env('MARKETPLACE_ADMIN_TWO_STEP', false),
     ],
 
     'cart' => [

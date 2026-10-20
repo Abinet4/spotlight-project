@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { CodeEntry } from '../components/CodeEntry'
 import { Alert, Field } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { api, parseError } from '../lib/api'
@@ -59,13 +60,36 @@ function AuthCard({ title, subtitle, children, wide = false }) {
   )
 }
 
+/** Where to go after signing in. An administrator who must use two-step but has no checked phone adds one first. */
+function afterSignIn(user, from) {
+  if (user.two_step_required && !user.phone_verified) return '/account'
+  return from || homeFor(user)
+}
+
 export function Login() {
   const { user, signIn } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const form = useForm({ email: '', password: '' })
+  const [step, setStep] = useState(null)
 
-  if (user) return <Navigate to={location.state?.from || homeFor(user)} replace />
+  if (user) return <Navigate to={afterSignIn(user, location.state?.from)} replace />
+
+  function finish(data) {
+    signIn(data.token, data.user)
+    navigate(afterSignIn(data.user, location.state?.from), { replace: true })
+  }
+
+  if (step) {
+    return (
+      <TwoStepForm
+        key={step.challenge}
+        step={step}
+        onDone={finish}
+        onRestart={() => setStep(null)}
+      />
+    )
+  }
 
   return (
     <AuthCard title="Sign in" subtitle="Welcome back.">
@@ -76,8 +100,8 @@ export function Login() {
           e.preventDefault()
           form.submit(async (v) => {
             const res = await api.post('/auth/login', v)
-            signIn(res.data.token, res.data.user)
-            navigate(location.state?.from || homeFor(res.data.user), { replace: true })
+            if (res.data.two_step) setStep(res.data.two_step)
+            else finish(res.data)
           })
         }}
       >
@@ -93,6 +117,87 @@ export function Login() {
       <p className="mt-6 text-center text-sm text-stone-600">
         New here? <Link to="/register" className="font-semibold text-brand-700 hover:underline">Create an account</Link>
       </p>
+    </AuthCard>
+  )
+}
+
+// Errors after which this code can no longer work: the only way on is the password again.
+const DEAD_END = /expired|Too many wrong codes|No more codes/
+
+function TwoStepForm({ step, onDone, onRestart }) {
+  const [code, setCode] = useState('')
+  const [error, setError] = useState(null)
+  const [notice, setNotice] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [resendsLeft, setResendsLeft] = useState(null)
+
+  function show(err) {
+    const p = parseError(err)
+    setError(p.fields.code || p.fields.challenge || p.message)
+  }
+
+  async function submit(e) {
+    e.preventDefault()
+    if (code.replace(/\D/g, '').length !== 6) {
+      setError('Enter the 6 digits from the text.')
+      return
+    }
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    try {
+      const res = await api.post('/auth/two-step', { challenge: step.challenge, code })
+      onDone(res.data)
+    } catch (err) {
+      show(err)
+      setCode('')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function resend() {
+    setBusy(true)
+    setError(null)
+    setNotice(null)
+    try {
+      const res = await api.post('/auth/two-step/resend', { challenge: step.challenge })
+      setResendsLeft(res.data.two_step.resends_left)
+      setNotice(`We texted a new code to ${res.data.two_step.phone}. Earlier codes no longer work.`)
+      return res.data.two_step.resend_in
+    } catch (err) {
+      show(err)
+      return null
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const deadEnd = error && DEAD_END.test(error)
+
+  return (
+    <AuthCard title="Enter your code" subtitle="Your account uses two-step sign-in, so we texted you a code.">
+      <form className="space-y-4" noValidate onSubmit={submit}>
+        {notice && <Alert tone="success">{notice}</Alert>}
+        <CodeEntry
+          id="code"
+          phone={step.phone}
+          value={code}
+          onChange={setCode}
+          error={error}
+          resendIn={step.resend_in}
+          resendsLeft={deadEnd ? 0 : resendsLeft}
+          onResend={resend}
+          busy={busy}
+        />
+        {deadEnd
+          ? <button type="button" className="btn-primary w-full" onClick={onRestart}>Sign in again</button>
+          : <button type="submit" className="btn-primary w-full" disabled={busy}>{busy ? 'Checking...' : 'Sign in'}</button>}
+      </form>
+      <p className="mt-6 text-center text-sm text-stone-600">
+        <button type="button" className="font-semibold text-brand-700 hover:underline" onClick={onRestart}>Use a different account</button>
+      </p>
+      <p className="mt-2 text-center text-xs text-stone-500">Lost your phone? Contact support and we can turn two-step sign-in off after checking it is you.</p>
     </AuthCard>
   )
 }

@@ -109,7 +109,7 @@ class ProfileTest extends TestCase
             ->assertOk()->assertJsonPath('data.email', 'new@example.com');
 
         Notification::assertSentOnDemand(SecurityNotice::class, function (SecurityNotice $n, array $channels, AnonymousNotifiable $to) {
-            return $n->kind === 'email_changed' && $to->routes['mail'] === 'abebe@example.com' && $n->newEmail === 'new@example.com';
+            return $n->kind === 'email_changed' && $to->routes['mail'] === 'abebe@example.com' && $n->detail === 'new@example.com';
         });
         // The new email signs in; the old one no longer does.
         $this->postJson('/api/auth/login', ['email' => 'new@example.com', 'password' => 'password'])->assertOk();

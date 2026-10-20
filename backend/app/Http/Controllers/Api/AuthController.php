@@ -11,11 +11,14 @@ use App\Models\SellerProfile;
 use App\Models\User;
 use App\Services\Alerts;
 use App\Services\AuditLogger;
+use App\Services\SignInCodes;
+use App\Support\PhoneNumber;
 use App\Support\Slug;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
@@ -107,7 +110,7 @@ class AuthController extends Controller
         return $this->tokenResponse($user, 201);
     }
 
-    public function login(Request $request): JsonResponse
+    public function login(Request $request, SignInCodes $codes): JsonResponse
     {
         $this->normalizeEmail($request);
         $data = $request->validate([
@@ -128,7 +131,61 @@ class AuthController extends Controller
             throw ValidationException::withMessages(['email' => 'This account is suspended. Contact support.']);
         }
 
+        if (($user->usesTwoStep() || $user->mustUseTwoStep()) && $user->twoStepPhone() !== null) {
+            if ($codes->available()) {
+                [$code, $challenge] = $codes->startSignIn($user);
+
+                return response()->json(['two_step' => [
+                    'challenge' => $challenge,
+                    'phone' => PhoneNumber::mask($code->phone),
+                    'expires_in' => SignInCodes::MINUTES * 60,
+                    'resend_in' => SignInCodes::RESEND_SECONDS,
+                ]]);
+            }
+            // A live site with no SMS provider: refusing would lock every such account out.
+            Log::warning('Two-step sign-in skipped for user '.$user->id.': no SMS provider is set up.');
+        }
+
+        // An administrator under the two-step rule with no checked phone (a new admin, or one whose
+        // phone was reset from the command line) gets in and is asked to add one; see the account page.
         return $this->tokenResponse($user);
+    }
+
+    /** Second sign-in step: the code texted after the password. */
+    public function twoStep(Request $request, SignInCodes $codes): JsonResponse
+    {
+        $data = $request->validate([
+            'challenge' => ['required', 'string', 'max:100'],
+            'code' => ['required', 'string', 'max:20'],
+        ]);
+        $code = $codes->findSignIn($data['challenge']) ?? throw self::startAgain();
+        $codes->verify($code, $data['code']);
+
+        // The account may have been suspended while the code was on its way.
+        $user = $code->user()->firstOrFail();
+        if (! $user->isActive()) {
+            throw ValidationException::withMessages(['code' => 'This account is suspended. Contact support.']);
+        }
+
+        return $this->tokenResponse($user);
+    }
+
+    public function resendTwoStep(Request $request, SignInCodes $codes): JsonResponse
+    {
+        $data = $request->validate(['challenge' => ['required', 'string', 'max:100']]);
+        $code = $codes->resend($codes->findSignIn($data['challenge']) ?? throw self::startAgain());
+
+        return response()->json(['two_step' => [
+            'phone' => PhoneNumber::mask($code->phone),
+            'expires_in' => SignInCodes::MINUTES * 60,
+            'resend_in' => SignInCodes::RESEND_SECONDS,
+            'resends_left' => SignInCodes::MAX_SENDS - $code->sends,
+        ]]);
+    }
+
+    private static function startAgain(): ValidationException
+    {
+        return ValidationException::withMessages(['code' => 'This sign-in has expired. Enter your email and password again.']);
     }
 
     public function logout(Request $request): JsonResponse

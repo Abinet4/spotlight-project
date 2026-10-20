@@ -46,6 +46,8 @@ class User extends Authenticatable
             'status' => UserStatus::class,
             'alert_sms' => 'boolean',
             'alert_email' => 'boolean',
+            'phone_verified_at' => 'datetime',
+            'two_step_enabled_at' => 'datetime',
         ];
     }
 
@@ -85,6 +87,24 @@ class User extends Authenticatable
     public function isActive(): bool
     {
         return $this->status === UserStatus::Active;
+    }
+
+    /** The account phone in +251 form once the user proved it is theirs with a texted code, else null. */
+    public function twoStepPhone(): ?string
+    {
+        return $this->phone_verified_at ? PhoneNumber::ethiopianMobile($this->phone) : null;
+    }
+
+    /** Whether sign-in asks for a texted code after the password. */
+    public function usesTwoStep(): bool
+    {
+        return $this->two_step_enabled_at !== null && $this->twoStepPhone() !== null;
+    }
+
+    /** Admin rule from Admin > Settings: every administrator signs in with a texted code. */
+    public function mustUseTwoStep(): bool
+    {
+        return $this->isAdmin() && Setting::adminsMustUseTwoStep();
     }
 
     public function isApprovedSeller(): bool

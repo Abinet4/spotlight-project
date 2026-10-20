@@ -19,8 +19,11 @@ class SecurityNotice extends Notification implements ShouldQueue
 
     public array $backoff = [60, 300];
 
-    /** @param  'email_changed'|'password_changed'  $kind */
-    public function __construct(public string $kind, public string $name, public ?string $newEmail = null)
+    /**
+     * @param  'email_changed'|'password_changed'|'two_step_on'|'two_step_off'|'two_step_reset'|'phone_changed'  $kind
+     * @param  ?string  $detail  the new email, or the masked phone for the two-step notices
+     */
+    public function __construct(public string $kind, public string $name, public ?string $detail = null)
     {
         $this->afterCommit();
     }
@@ -35,13 +38,20 @@ class SecurityNotice extends Notification implements ShouldQueue
         $brand = config('marketplace.name');
         $mail = (new MailMessage)->greeting('Hello '.$this->name.',');
 
-        if ($this->kind === 'email_changed') {
-            $mail->subject("Your {$brand} email address was changed")
-                ->line("The email address on your {$brand} account was changed to {$this->newEmail}. Emails will go there from now on.");
-        } else {
-            $mail->subject("Your {$brand} password was changed")
-                ->line("The password for your {$brand} account was changed, and every other device was signed out.");
-        }
+        match ($this->kind) {
+            'email_changed' => $mail->subject("Your {$brand} email address was changed")
+                ->line("The email address on your {$brand} account was changed to {$this->detail}. Emails will go there from now on."),
+            'two_step_on' => $mail->subject("Two-step sign-in is on for your {$brand} account")
+                ->line("From now on, signing in also needs a code texted to {$this->detail}."),
+            'two_step_off' => $mail->subject("Two-step sign-in was turned off on your {$brand} account")
+                ->line('Signing in now needs only your password.'),
+            'two_step_reset' => $mail->subject("Two-step sign-in was turned off on your {$brand} account")
+                ->line("A {$brand} administrator turned off two-step sign-in and removed your checked phone number, which is done when an account owner has lost their phone. Signing in now needs only your password. You can turn it on again in My account."),
+            'phone_changed' => $mail->subject("The phone for your {$brand} sign-in codes was changed")
+                ->line("Sign-in codes for your {$brand} account will now be texted to {$this->detail}."),
+            default => $mail->subject("Your {$brand} password was changed")
+                ->line("The password for your {$brand} account was changed, and every other device was signed out."),
+        };
 
         return $mail->line('If you did not do this, reply to this email or contact us right away.')
             ->salutation('Thank you, '.$brand);
