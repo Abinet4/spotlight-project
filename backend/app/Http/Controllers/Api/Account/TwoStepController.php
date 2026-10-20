@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Account;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
+use App\Models\Setting;
 use App\Models\User;
 use App\Notifications\SecurityNotice;
 use App\Services\AuditLogger;
@@ -95,7 +96,9 @@ class TwoStepController extends Controller
                 throw ValidationException::withMessages(['enabled' => 'Check your phone number first, so we know where to text your codes.']);
             }
         } elseif ($user->mustUseTwoStep()) {
-            throw ValidationException::withMessages(['enabled' => 'Administrators must use two-step sign-in. It can be changed in Admin > Settings.']);
+            throw ValidationException::withMessages(['enabled' => Setting::everyoneMustUseTwoStep()
+                ? 'Two-step sign-in is required for every account on this site.'
+                : 'Administrators must use two-step sign-in. It can be changed in Admin > Settings.']);
         }
         $this->checkCurrentPassword($user, $data['current_password'] ?? null);
 

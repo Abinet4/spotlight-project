@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Testing\TestResponse;
+use Tests\Fakes\CodeCatcher;
 use Tests\TestCase;
 
 class TwoStepSignInTest extends TestCase
@@ -538,12 +539,28 @@ class TwoStepSignInTest extends TestCase
         $this->send('POST', '/api/account/phone/code', ['phone' => '0922334455'], $admin)->assertJsonValidationErrors('current_password');
     }
 
-    public function test_an_admin_with_no_checked_phone_under_the_rule_gets_in_to_add_one(): void
+    public function test_an_admin_with_no_checked_phone_under_the_rule_adds_one_while_signing_in(): void
     {
         Setting::create(['key' => 'admins_must_use_two_step', 'value' => '1']);
-        User::factory()->admin()->create(['email' => 'new-admin@example.com']);
-        $this->login('new-admin@example.com')->assertOk()->assertJsonStructure(['token'])
-            ->assertJsonPath('user.two_step_required', true)->assertJsonPath('user.phone_verified', false);
+        $admin = User::factory()->admin()->create(['email' => 'new-admin@example.com']);
+        $this->travel(1)->days();
+
+        $res = $this->login('new-admin@example.com')->assertOk()->assertJsonMissingPath('token')
+            ->assertJsonPath('two_step.needs_phone', true)->assertJsonPath('two_step.phone', null);
+        $challenge = $res->json('two_step.challenge');
+        $this->assertSame(0, $this->sms->calls);
+
+        $this->postJson('/api/auth/two-step/phone', ['challenge' => $challenge, 'phone' => '011 123 4567'])->assertJsonValidationErrors('phone');
+        $this->postJson('/api/auth/two-step/phone', ['challenge' => $challenge, 'phone' => '0933 44 55 66'])->assertOk()
+            ->assertJsonPath('two_step.phone', '+251******566')->assertJsonPath('two_step.needs_phone', false)->assertJsonPath('two_step.resends_left', 2);
+        $this->assertSame('+251933445566', $this->sms->lastTo);
+
+        $this->step($challenge, $this->sms->code())->assertOk()->assertJsonStructure(['token'])
+            ->assertJsonPath('user.phone', '+251933445566')->assertJsonPath('user.phone_verified', true);
+        $this->assertNotNull($admin->fresh()->phone_verified_at);
+        // An older account hears that a phone was added, in case it was not the owner.
+        Notification::assertSentOnDemand(SecurityNotice::class, fn (SecurityNotice $n) => $n->kind === 'phone_added' && $n->detail === '+251******566');
+        $this->assertTrue(AuditLog::where('action', 'account.phone_verified')->exists());
     }
 
     public function test_an_admin_can_reset_two_step_for_someone_who_lost_their_phone(): void
@@ -665,47 +682,5 @@ class TwoStepSignInTest extends TestCase
             return $e;
         }
         $this->fail('Expected SmsFailed');
-    }
-}
-
-/** Keeps the last text so a test can type the code. */
-class CodeCatcher implements SmsGateway
-{
-    public int $calls = 0;
-
-    public bool $delivers = false;
-
-    public ?SmsFailed $fail = null;
-
-    public ?string $lastTo = null;
-
-    public ?string $lastBody = null;
-
-    public function name(): string
-    {
-        return 'catcher';
-    }
-
-    public function delivers(): bool
-    {
-        return $this->delivers;
-    }
-
-    public function send(string $to, string $body): ?string
-    {
-        if ($this->fail) {
-            throw $this->fail;
-        }
-        $this->calls++;
-        [$this->lastTo, $this->lastBody] = [$to, $body];
-
-        return null;
-    }
-
-    public function code(): string
-    {
-        preg_match('/code is (\d{6})/', (string) $this->lastBody, $m);
-
-        return $m[1] ?? throw new \RuntimeException('No code was texted.');
     }
 }

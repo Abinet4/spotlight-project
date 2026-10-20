@@ -80,6 +80,13 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(30)->by('t|'.$request->ip()),
         ]);
 
+        // Each request may text a code, so it is limited per account name typed and per address.
+        RateLimiter::for('forgot-password', fn (Request $request) => [
+            Limit::perHour(5)->by('f|'.hash('sha256', mb_strtolower(json_encode($request->input('login'))))),
+            Limit::perMinute(5)->by('f|'.$request->ip()),
+            Limit::perHour(30)->by('f|'.$request->ip()),
+        ]);
+
         RateLimiter::for('register', fn (Request $request) => Limit::perHour(10)->by($request->ip()));
 
         RateLimiter::for('uploads', fn (Request $request) => Limit::perMinute(30)->by($request->user()?->id ?: $request->ip()));

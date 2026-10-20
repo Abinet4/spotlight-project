@@ -96,6 +96,9 @@ return [
         'codes_per_hour' => (int) env('MARKETPLACE_SMS_CODES_PER_HOUR', 200),
         // Starting value for the Admin > Settings switch that makes every administrator use it.
         'admins_must_use_two_step' => (bool) env('MARKETPLACE_ADMIN_TWO_STEP', false),
+        // Starting value for the switch that makes every account (customers, stores, admins) check a
+        // phone at sign-up and type a texted code at every sign-in.
+        'everyone_must_use_two_step' => (bool) env('MARKETPLACE_EVERYONE_TWO_STEP', false),
     ],
 
     'cart' => [

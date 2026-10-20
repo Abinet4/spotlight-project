@@ -101,10 +101,10 @@ class User extends Authenticatable
         return $this->two_step_enabled_at !== null && $this->twoStepPhone() !== null;
     }
 
-    /** Admin rule from Admin > Settings: every administrator signs in with a texted code. */
+    /** Rules from Admin > Settings: every account, or every administrator, signs in with a texted code. */
     public function mustUseTwoStep(): bool
     {
-        return $this->isAdmin() && Setting::adminsMustUseTwoStep();
+        return Setting::everyoneMustUseTwoStep() || ($this->isAdmin() && Setting::adminsMustUseTwoStep());
     }
 
     public function isApprovedSeller(): bool

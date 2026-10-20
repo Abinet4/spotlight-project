@@ -5,7 +5,7 @@ import RequireRole from './components/RequireRole'
 import { useAuth } from './context/AuthContext'
 import { NotFound, Spinner } from './components/ui'
 import Compare from './pages/Compare'
-import { Login, Register, SellerApply } from './pages/Auth'
+import { ForgotPassword, Login, Register, SellerApply } from './pages/Auth'
 import Cart from './pages/Cart'
 import Catalog from './pages/Catalog'
 import Help from './pages/Help'
@@ -114,6 +114,7 @@ export default function App() {
         <Route path="help/:topic" element={<Help />} />
         <Route path="login" element={<Login />} />
         <Route path="register" element={<Register />} />
+        <Route path="forgot-password" element={<ForgotPassword />} />
         <Route path="sell" element={<SellerApply />} />
         <Route path="compare" element={<Compare />} />
 
