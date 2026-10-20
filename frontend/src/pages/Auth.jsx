@@ -39,7 +39,9 @@ function useForm(initial) {
     } catch (err) {
       const parsed = parseError(err)
       setErrors(parsed.fields)
-      setMessage(Object.keys(parsed.fields).length ? 'Please fix the highlighted fields.' : parsed.message)
+      // An error about something not on this form (like the texted code) is shown as the message.
+      const offForm = Object.keys(parsed.fields).find((k) => !(k in values))
+      setMessage(offForm ? parsed.fields[offForm] : Object.keys(parsed.fields).length ? 'Please fix the highlighted fields.' : parsed.message)
     } finally {
       setBusy(false)
     }
