@@ -245,7 +245,7 @@ function TwoStepCard({ profile, onSaved }) {
 
         {profile.phone_verified && !changing && (
           profile.two_step_required ? (
-            <p className="text-sm text-stone-600">Two-step sign-in is required for administrators (Admin &gt; Settings).</p>
+            <p className="text-sm text-stone-600">Two-step sign-in is required{profile.role === 'admin' ? ' (Admin > Settings)' : ' on this site'}, so it stays on.</p>
           ) : (
             <form onSubmit={toggle} className="space-y-4 border-t border-stone-100 pt-4" noValidate>
               <p className="text-sm">Two-step sign-in is <span className="font-semibold">{profile.two_step ? 'on' : 'off'}</span>.</p>
@@ -306,7 +306,7 @@ export default function Account() {
       <PageHeader title="My account" subtitle={[ROLE_LABEL[profile.role], since && `member since ${since}`].filter(Boolean).join(', ')} />
       <div className="space-y-6">
         {profile.two_step_required && !profile.phone_verified && (
-          <Alert tone="warning">Administrators must use two-step sign-in. Check your phone number below; until then this account is less protected.</Alert>
+          <Alert tone="warning">Two-step sign-in is required on this site. Check your phone number below; until then this account is less protected.</Alert>
         )}
         <DetailsForm key={`${profile.phone}|${profile.phone_verified}`} profile={profile} onSaved={onSaved} />
         <TwoStepCard profile={profile} onSaved={onSaved} />

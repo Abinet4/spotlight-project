@@ -43,6 +43,7 @@ class SettingsController extends Controller
             'delivery_per_floor_birr' => ['sometimes', 'integer', 'min:0', 'max:10000'],
             'stores_set_delivery_fee' => ['sometimes', 'boolean'],
             'admins_must_use_two_step' => ['sometimes', 'boolean'],
+            'everyone_must_use_two_step' => ['sometimes', 'boolean'],
         ], [], [
             'delivery_base_fee_birr' => 'base fee',
             'delivery_per_km_birr' => 'per km fee',
@@ -52,6 +53,9 @@ class SettingsController extends Controller
 
         if (($data['admins_must_use_two_step'] ?? false) && ! Setting::adminsMustUseTwoStep()) {
             $this->checkAdminsReady();
+        }
+        if (($data['everyone_must_use_two_step'] ?? false) && ! Setting::everyoneMustUseTwoStep() && ! app(SignInCodes::class)->available()) {
+            throw ValidationException::withMessages(['everyone_must_use_two_step' => 'Set up an SMS provider first (MARKETPLACE_SMS_DRIVER), so codes can be texted.']);
         }
 
         DB::transaction(function () use ($data, $request, $audit) {
@@ -106,6 +110,7 @@ class SettingsController extends Controller
             'listings_with_own_fee' => Product::whereNotNull('delivery_fee_santim')->where('delivery_fee_santim', '>', 0)->count(),
             'sign_in_codes_available' => app(SignInCodes::class)->available(),
             'admins_without_checked_phone' => $this->adminsWithoutPhone(),
+            'accounts_without_checked_phone' => User::where('status', UserStatus::Active)->whereNull('phone_verified_at')->count(),
             'stores_without_pin' => SellerProfile::where('status', 'approved')->where('offers_delivery', true)->whereNull('latitude')->count(),
         ];
     }
@@ -125,6 +130,7 @@ class SettingsController extends Controller
             'delivery_per_floor_birr' => intdiv(Setting::deliveryPerFloorSantim(), 100),
             'stores_set_delivery_fee' => Setting::storesSetDeliveryFee(),
             'admins_must_use_two_step' => Setting::adminsMustUseTwoStep(),
+            'everyone_must_use_two_step' => Setting::everyoneMustUseTwoStep(),
         ];
     }
 }

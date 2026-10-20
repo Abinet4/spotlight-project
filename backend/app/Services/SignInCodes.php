@@ -62,6 +62,53 @@ class SignInCodes
         return [$code, $challenge];
     }
 
+    /**
+     * Sign-in (or sign-up) for an account that must use two-step but has no checked phone yet: the
+     * password is right, and the code goes to a number the person gives next (sendTo). That number
+     * becomes the account's checked phone once the code is typed.
+     *
+     * @return array{0: SignInCode, 1: string} the code row and the challenge the browser keeps
+     */
+    public function startEnrollment(User $user): array
+    {
+        $challenge = Str::random(48);
+        $code = DB::transaction(function () use ($user, $challenge) {
+            SignInCode::where('user_id', $user->id)->where('purpose', SignInCode::SIGN_IN)->whereNull('used_at')
+                ->where('expires_at', '>', now())->update(['expires_at' => now()]);
+
+            // No code yet: it is made when a number is given. Time to type the number is included.
+            return SignInCode::create([
+                'user_id' => $user->id,
+                'purpose' => SignInCode::SIGN_IN,
+                'phone' => '',
+                'code_hash' => hash('sha256', Str::random(40)),
+                'challenge_hash' => self::challengeHash($challenge),
+                'sends' => 0,
+                'last_sent_at' => now()->subSeconds(self::RESEND_SECONDS),
+                'expires_at' => now()->addMinutes(15),
+            ]);
+        });
+
+        return [$code, $challenge];
+    }
+
+    /**
+     * For a sign-in with no checked phone yet: text the code to the number given (again, for a typo).
+     * Counts as one of the step's texts and waits out the same minute between texts.
+     */
+    public function sendTo(SignInCode $code, string $phone): SignInCode
+    {
+        $mobile = PhoneNumber::ethiopianMobile($phone)
+            ?? throw self::error('Enter an Ethiopian mobile number, like 0911 234 567. Codes cannot be texted to a landline.', 422, 'phone');
+        if ($code->user()->firstOrFail()->twoStepPhone() !== null) {
+            throw self::error('This account already has a checked phone. Sign in again.');
+        }
+        $this->claimSend($code, ['phone' => $mobile]);
+        $this->sendNewCode($code);
+
+        return $code;
+    }
+
     /** Text a code to a number the user wants to add, to prove it is theirs. */
     public function startPhoneCheck(User $user, string $phone): SignInCode
     {
@@ -83,8 +130,19 @@ class SignInCodes
     /** Text a new code for the same step. The wrong tries so far still count. */
     public function resend(SignInCode $code): SignInCode
     {
-        // Claim the send under a row lock so a double click texts once.
-        DB::transaction(function () use ($code) {
+        if ($code->phone === '') {
+            throw self::error('Enter your mobile number first.', 422, 'phone');
+        }
+        $this->claimSend($code);
+        $this->sendNewCode($code);
+
+        return $code;
+    }
+
+    /** Claim one text for this step under a row lock, so a double click texts once. */
+    private function claimSend(SignInCode $code, array $changes = []): void
+    {
+        DB::transaction(function () use ($code, $changes) {
             $row = SignInCode::whereKey($code->id)->lockForUpdate()->first();
             if (! $row?->isOpen()) {
                 throw self::error('This code has expired. Start again.');
@@ -99,9 +157,13 @@ class SignInCodes
             if ($wait > 0) {
                 throw self::error("You can ask for a new code in {$wait} seconds.", 429);
             }
-            $row->forceFill(['sends' => $row->sends + 1, 'last_sent_at' => now()])->save();
+            $row->forceFill(['sends' => $row->sends + 1, 'last_sent_at' => now(), ...$changes])->save();
         });
         $code->refresh();
+    }
+
+    private function sendNewCode(SignInCode $code): void
+    {
         $this->countText($code->user_id, $code->phone);
 
         $plain = self::newCode();
@@ -109,9 +171,19 @@ class SignInCodes
             'code_hash' => self::codeHash($code->user_id, $code->purpose, $plain),
             'expires_at' => now()->addMinutes(self::MINUTES),
         ])->save();
-        $this->text($code, $plain);
+        try {
+            $this->text($code, $plain);
+        } catch (ValidationException $e) {
+            // Nothing reached the phone, so the next try need not wait out the minute.
+            $code->forceFill(['last_sent_at' => now()->subSeconds(self::RESEND_SECONDS)])->save();
+            throw $e;
+        }
+    }
 
-        return $code;
+    /** Whether typing this code also proves a new number (a sign-in with no checked phone yet). */
+    public static function provesNewPhone(SignInCode $code, User $user): bool
+    {
+        return $code->purpose === SignInCode::SIGN_IN && $code->phone !== '' && $code->phone !== $user->twoStepPhone();
     }
 
     /**

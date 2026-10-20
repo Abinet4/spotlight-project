@@ -3,6 +3,7 @@ import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { CodeEntry } from '../components/CodeEntry'
 import { Alert, Field } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
+import { useConfig } from '../context/ConfigContext'
 import { api, parseError } from '../lib/api'
 import { BUSINESS_TYPES } from '../lib/format'
 import { useFetch } from '../lib/useFetch'
@@ -126,16 +127,25 @@ export function Login() {
 // Errors after which this code can no longer work: the only way on is the password again.
 const DEAD_END = /expired|Too many wrong codes|No more codes/
 
-function TwoStepForm({ step, onDone, onRestart }) {
+/**
+ * The code step after the password (or after signing up). An account with no checked phone yet
+ * first gives a mobile number; the code then goes there, and that number becomes the account's.
+ */
+function TwoStepForm({ step, onDone, onRestart, signUp = false }) {
+  const [pending, setPending] = useState(step)
+  const [askPhone, setAskPhone] = useState(step.needs_phone)
+  const [phone, setPhone] = useState('')
   const [code, setCode] = useState('')
-  const [error, setError] = useState(null)
+  const [error, setError] = useState(step.error || null)
+  const [phoneError, setPhoneError] = useState(null)
   const [notice, setNotice] = useState(null)
   const [busy, setBusy] = useState(false)
-  const [resendsLeft, setResendsLeft] = useState(null)
+  const [resendsLeft, setResendsLeft] = useState(step.resends_left ?? null)
+  const addsPhone = signUp || step.needs_phone
 
   function show(err) {
     const p = parseError(err)
-    setError(p.fields.code || p.fields.challenge || p.message)
+    setError(p.fields.code || p.fields.phone || p.fields.challenge || p.message)
   }
 
   async function submit(e) {
@@ -153,6 +163,26 @@ function TwoStepForm({ step, onDone, onRestart }) {
     } catch (err) {
       show(err)
       setCode('')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function sendToPhone(e) {
+    e.preventDefault()
+    setBusy(true)
+    setPhoneError(null)
+    setError(null)
+    setNotice(null)
+    try {
+      const res = await api.post('/auth/two-step/phone', { challenge: step.challenge, phone })
+      setPending(res.data.two_step)
+      setResendsLeft(res.data.two_step.resends_left)
+      setCode('')
+      setAskPhone(false)
+    } catch (err) {
+      const p = parseError(err)
+      setPhoneError(p.fields.phone || p.fields.code || p.message)
     } finally {
       setBusy(false)
     }
@@ -176,35 +206,63 @@ function TwoStepForm({ step, onDone, onRestart }) {
   }
 
   const deadEnd = error && DEAD_END.test(error)
+  const restartLabel = signUp ? 'Go to sign in' : 'Sign in again'
+
+  if (askPhone) {
+    const dead = phoneError && DEAD_END.test(phoneError)
+    return (
+      <AuthCard title="Add your phone" subtitle="Signing in now needs a code texted to your phone. Enter your mobile number and we will text you a code.">
+        <form className="space-y-4" noValidate onSubmit={sendToPhone}>
+          <Field label="Mobile number" name="tsi-phone" error={phoneError} hint="An Ethiopian mobile, for example 0911 234 567.">
+            <input id="tsi-phone" className="input" inputMode="tel" autoComplete="tel" maxLength={20} autoFocus value={phone}
+              onChange={(e) => setPhone(e.target.value)} aria-invalid={phoneError ? true : undefined} aria-describedby={phoneError ? 'tsi-phone-error' : undefined} />
+          </Field>
+          {dead
+            ? <button type="button" className="btn-primary w-full" onClick={onRestart}>{restartLabel}</button>
+            : <button type="submit" className="btn-primary w-full" disabled={busy}>{busy ? 'Sending...' : 'Text me a code'}</button>}
+        </form>
+        <p className="mt-6 text-center text-sm text-stone-600">
+          <button type="button" className="font-semibold text-brand-700 hover:underline" onClick={onRestart}>Use a different account</button>
+        </p>
+      </AuthCard>
+    )
+  }
 
   return (
-    <AuthCard title="Enter your code" subtitle="Your account uses two-step sign-in, so we texted you a code.">
+    <AuthCard
+      title={addsPhone ? 'Check your phone' : 'Enter your code'}
+      subtitle={addsPhone ? 'We texted you a code to make sure this number is yours.' : 'Your account uses two-step sign-in, so we texted you a code.'}
+    >
       <form className="space-y-4" noValidate onSubmit={submit}>
         {notice && <Alert tone="success">{notice}</Alert>}
         <CodeEntry
+          key={`${pending.phone}|${pending.resends_left}`}
           id="code"
-          phone={step.phone}
+          phone={pending.phone}
           value={code}
           onChange={setCode}
           error={error}
-          resendIn={step.resend_in}
+          resendIn={pending.resend_in}
           resendsLeft={deadEnd ? 0 : resendsLeft}
           onResend={resend}
           busy={busy}
         />
         {deadEnd
-          ? <button type="button" className="btn-primary w-full" onClick={onRestart}>Sign in again</button>
-          : <button type="submit" className="btn-primary w-full" disabled={busy}>{busy ? 'Checking...' : 'Sign in'}</button>}
+          ? <button type="button" className="btn-primary w-full" onClick={onRestart}>{restartLabel}</button>
+          : <button type="submit" className="btn-primary w-full" disabled={busy}>{busy ? 'Checking...' : signUp ? 'Continue' : 'Sign in'}</button>}
       </form>
       <p className="mt-6 text-center text-sm text-stone-600">
-        <button type="button" className="font-semibold text-brand-700 hover:underline" onClick={onRestart}>Use a different account</button>
+        {addsPhone
+          ? <button type="button" className="font-semibold text-brand-700 hover:underline" onClick={() => { setAskPhone(true); setPhoneError(null) }}>Wrong number? Use another one</button>
+          : <button type="button" className="font-semibold text-brand-700 hover:underline" onClick={onRestart}>Use a different account</button>}
       </p>
-      <p className="mt-2 text-center text-xs text-stone-500">Lost your phone? Contact support and we can turn two-step sign-in off after checking it is you.</p>
+      {!addsPhone && <p className="mt-2 text-center text-xs text-stone-500">Lost your phone? Contact support and we can turn two-step sign-in off after checking it is you.</p>}
     </AuthCard>
   )
 }
 
 function AccountFields({ form }) {
+  const { phone_required: phoneRequired } = useConfig()
   return (
     <>
       <Field label="Full name" name="name" error={form.errors.name}>
@@ -213,7 +271,8 @@ function AccountFields({ form }) {
       <Field label="Email" name="email" error={form.errors.email}>
         <input className="input" autoComplete="email" {...form.bind('email', 'email')} />
       </Field>
-      <Field label="Phone (optional)" name="phone" error={form.errors.phone} hint="For example +251 911 234 567">
+      <Field label={phoneRequired ? 'Mobile number' : 'Phone (optional)'} name="phone" error={form.errors.phone}
+        hint={phoneRequired ? 'An Ethiopian mobile, for example 0911 234 567. We text you a code to check it.' : 'For example +251 911 234 567'}>
         <input className="input" autoComplete="tel" inputMode="tel" {...form.bind('phone', 'tel')} />
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -232,8 +291,16 @@ export function Register() {
   const { user, signIn } = useAuth()
   const navigate = useNavigate()
   const form = useForm({ name: '', email: '', phone: '', password: '', password_confirmation: '' })
+  const [step, setStep] = useState(null)
 
   if (user) return <Navigate to={homeFor(user)} replace />
+
+  function finish(data) {
+    signIn(data.token, data.user)
+    navigate('/', { replace: true })
+  }
+
+  if (step) return <TwoStepForm key={step.challenge} step={step} signUp onDone={finish} onRestart={() => navigate('/login')} />
 
   return (
     <AuthCard title="Create your account" subtitle="Save favorites, order furniture and ask Betoch Support anything.">
@@ -244,8 +311,8 @@ export function Register() {
           e.preventDefault()
           form.submit(async (v) => {
             const res = await api.post('/auth/register', v)
-            signIn(res.data.token, res.data.user)
-            navigate('/', { replace: true })
+            if (res.data.two_step) setStep(res.data.two_step)
+            else finish(res.data)
           })
         }}
       >
@@ -271,6 +338,7 @@ export function SellerApply() {
     store_name: '', business_type: 'workshop', store_phone: '', area_id: '', address_line: '',
     description: '', tin_number: '', offers_custom_orders: false, offers_delivery: true,
   })
+  const [step, setStep] = useState(null)
 
   if (user?.role === 'seller') return <Navigate to="/seller" replace />
   if (user) {
@@ -283,6 +351,13 @@ export function SellerApply() {
     )
   }
 
+  function finish(data) {
+    signIn(data.token, data.user)
+    navigate('/seller', { replace: true })
+  }
+
+  if (step) return <TwoStepForm key={step.challenge} step={step} signUp onDone={finish} onRestart={() => navigate('/login')} />
+
   return (
     <AuthCard wide title="Sell your furniture" subtitle="Create a seller account. Our team reviews every store before listings go live, usually within two business days.">
       <form
@@ -292,8 +367,8 @@ export function SellerApply() {
           e.preventDefault()
           form.submit(async (v) => {
             const res = await api.post('/auth/register-seller', v)
-            signIn(res.data.token, res.data.user)
-            navigate('/seller', { replace: true })
+            if (res.data.two_step) setStep(res.data.two_step)
+            else finish(res.data)
           })
         }}
       >

@@ -56,6 +56,7 @@ use App\Payments\FakeGateway;
 use App\Payments\PaymentGateway;
 use App\Services\DistancePricing;
 use App\Services\PaymentService;
+use App\Services\SignInCodes;
 use App\Support\Erp\Reports;
 use Illuminate\Support\Facades\Route;
 
@@ -65,6 +66,8 @@ Route::get('/config', fn () => response()->json([
     'max_product_images' => config('marketplace.products.max_images'),
     'max_image_kb' => config('marketplace.products.max_image_kb'),
     'cod_enabled' => Setting::codEnabled(),
+    // Sign-up asks for a mobile number and a texted code (Admin > Settings, everyone uses two-step).
+    'phone_required' => Setting::everyoneMustUseTwoStep() && app(SignInCodes::class)->available(),
     'online_payments' => [
         'available' => app(PaymentService::class)->available(),
         'test_mode' => (fn ($g) => $g instanceof FakeGateway || ($g instanceof ChapaGateway && $g->testMode()))(app(PaymentGateway::class)),
@@ -116,6 +119,7 @@ Route::prefix('auth')->group(function () {
     Route::middleware('throttle:two-step')->group(function () {
         Route::post('/two-step', [AuthController::class, 'twoStep']);
         Route::post('/two-step/resend', [AuthController::class, 'resendTwoStep']);
+        Route::post('/two-step/phone', [AuthController::class, 'twoStepPhone']);
     });
 
     Route::middleware(['auth:sanctum', 'active'])->group(function () {
