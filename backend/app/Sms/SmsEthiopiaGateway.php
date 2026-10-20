@@ -7,12 +7,12 @@ use Illuminate\Support\Facades\Http;
 
 /**
  * SMS Ethiopia (smsethiopia.com). Needs SMSETHIOPIA_API_KEY from the account's API page.
- * Their send API takes the number as 2519XXXXXXXX in `msisdn` and answers {"sent": true} when it
- * accepted the message (accepted, not yet delivered to the phone).
+ * Their send API takes the number as 2519XXXXXXXX in `msisdn`, the key in a `KEY` header, and answers
+ * {"status": "success", "message": "Accepted Successfully"} when it accepted the message (accepted,
+ * not yet delivered to the phone). Their SDK and some callers see {"sent": true, ...} instead.
  *
- * That shape comes from public code that calls the API, not from their documentation, which could
- * not be read from here. So a 2xx answer counts as sent unless it says otherwise in one of the
- * usual ways; a reply this misreads shows up in Admin > Text messages with the provider's words.
+ * The documentation names no error format, so a 2xx answer counts as sent unless it says otherwise in
+ * one of the usual ways; a reply this misreads shows up in Admin > Text messages with the provider's words.
  */
 class SmsEthiopiaGateway implements SmsGateway
 {

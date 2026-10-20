@@ -257,7 +257,7 @@ Foreign keys use `restrict` where deleting the parent would destroy history (sel
 - On a live site (`APP_ENV=production`) with no SMS provider, the code step is skipped (logged as a warning) rather than locking everyone out, and two-step cannot be turned on. If the provider refuses a text, sign-in shows that the code could not be sent; it does not fall back to the password alone.
 - The admin rule can only go on when codes can be sent and every active admin has a checked phone. An admin under the rule with no checked phone (new from the command line, or reset) can sign in and is sent to My account to add one.
 - Lost phone: admins turn two-step off for a customer or store in Admin > Users (reason required, audited, the owner is emailed). Admin accounts are reset with `php artisan marketplace:two-step-off <email>`. Codes are deleted a day after they expire.
-- The SMS Ethiopia API shape (POST `/api/sms/send` with a `KEY` header, `msisdn` 2519..., `text`, reply `{"sent": true}`) comes from public code using it; their documentation could not be read from the build environment. A 2xx reply counts as sent unless it says it failed.
+- SMS Ethiopia: POST `https://smsethiopia.com/api/sms/send` with a `KEY` header and `{"msisdn": "2519...", "text": ...}`; their reference shows the reply `{"status": "success", "message": "Accepted Successfully"}` and names no error format, so a 2xx reply counts as sent unless it says it failed. Their test SMS go only to whitelisted numbers.
 
 
 **Shopping helpers and look (UI refresh).**

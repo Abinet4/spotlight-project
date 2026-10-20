@@ -617,8 +617,11 @@ class TwoStepSignInTest extends TestCase
         Http::assertSent(fn (Request $r) => $r->url() === 'https://smsethiopia.com/api/sms/send' && $r->method() === 'POST'
             && $r->header('KEY') === ['k-123'] && $r['msisdn'] === '251911223344' && $r['text'] === 'Hello');
 
+        // The reply their API reference shows.
+        $this->fakeHttp(Http::response(['status' => 'success', 'message' => 'Accepted Successfully']));
+        $this->assertNull($gateway->send('+251911223344', 'Hi'));
         // A 2xx reply in another shape still counts as sent, unless it says it failed.
-        $this->fakeHttp(Http::response(['status' => 'success']));
+        $this->fakeHttp(Http::response(['sent' => true, 'description' => 'Accepted for delivery']));
         $this->assertNull($gateway->send('+251911223344', 'Hi'));
         foreach ([['sent' => false], ['success' => false], ['status' => 'FAILED'], ['error' => 'Insufficient balance'], 'plain text'] as $reply) {
             $this->fakeHttp(Http::response($reply, 200));
