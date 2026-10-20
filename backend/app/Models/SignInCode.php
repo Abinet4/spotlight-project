@@ -15,6 +15,8 @@ class SignInCode extends Model
 
     public const PHONE = 'phone';
 
+    public const RESET = 'reset';
+
     protected $guarded = ['id'];
 
     protected $hidden = ['code_hash', 'challenge_hash'];

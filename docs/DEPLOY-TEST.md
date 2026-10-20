@@ -141,7 +141,11 @@ redeploy the API. Several addresses can be listed in `CORS_ALLOWED_ORIGINS`, sep
   codes are written to Admin > Text messages and the Railway log instead of being texted. Turn on
   "Administrators must use two-step sign-in" in Admin > Settings only after every admin has checked a
   phone. An owner who lost their phone: Admin > Users, "Turn off two-step"; for an admin, run
-  `php artisan marketplace:two-step-off <email>` in the Railway shell.
+  `php artisan marketplace:two-step-off <email>` in the Railway shell. "Everyone must use two-step
+  sign-in" asks every account for a texted code at sign-up and every sign-in (one paid text per
+  sign-in); accounts without a checked phone add one at their next sign-in. "Forgot password?" on the
+  sign-in page resets by texted code for customers and stores; admins use
+  `php artisan marketplace:create-admin` in the Railway shell.
 - Page security: the shop pages send a Content Security Policy from `frontend/vercel.json`. If you add a
   script from another site (analytics, chat), add its address there or the browser blocks it.
 - Separate worker: `ROLE` can be `web`, `worker` or `scheduler` to split the jobs into three Railway

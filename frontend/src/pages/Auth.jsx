@@ -115,6 +115,7 @@ export function Login() {
         <Field label="Password" name="password" error={form.errors.password}>
           <input className="input" autoComplete="current-password" required {...form.bind('password', 'password')} />
         </Field>
+        <p className="-mt-2 text-right text-sm"><Link to="/forgot-password" className="font-semibold text-brand-700 hover:underline">Forgot password?</Link></p>
         <button type="submit" className="btn-primary w-full" disabled={form.busy}>{form.busy ? 'Signing in...' : 'Sign in'}</button>
       </form>
       <p className="mt-6 text-center text-sm text-stone-600">
@@ -257,6 +258,101 @@ function TwoStepForm({ step, onDone, onRestart, signUp = false }) {
           : <button type="button" className="font-semibold text-brand-700 hover:underline" onClick={onRestart}>Use a different account</button>}
       </p>
       {!addsPhone && <p className="mt-2 text-center text-xs text-stone-500">Lost your phone? Contact support and we can turn two-step sign-in off after checking it is you.</p>}
+    </AuthCard>
+  )
+}
+
+/** Forgot password: a code texted to the account's checked phone, then a new password. */
+export function ForgotPassword() {
+  const { user, signIn } = useAuth()
+  const navigate = useNavigate()
+  const start = useForm({ login: '' })
+  const finish = useForm({ code: '', password: '', password_confirmation: '' })
+  const [reset, setReset] = useState(null)
+  const [notice, setNotice] = useState(null)
+  const [resendsLeft, setResendsLeft] = useState(null)
+
+  if (user) return <Navigate to={homeFor(user)} replace />
+
+  if (!reset) {
+    return (
+      <AuthCard title="Forgot your password?" subtitle="We text a code to the phone checked on your account. Then you choose a new password.">
+        <form
+          className="space-y-4"
+          noValidate
+          onSubmit={(e) => {
+            e.preventDefault()
+            start.submit(async (v) => {
+              const res = await api.post('/auth/forgot-password', v)
+              setReset(res.data.reset)
+            })
+          }}
+        >
+          {start.message && !start.errors.login && <Alert tone="error">{start.message}</Alert>}
+          <Field label="Email or mobile number" name="login" error={start.errors.login}>
+            <input className="input" autoComplete="username" autoFocus {...start.bind('login')} />
+          </Field>
+          <button type="submit" className="btn-primary w-full" disabled={start.busy}>{start.busy ? 'Sending...' : 'Text me a code'}</button>
+        </form>
+        <p className="mt-6 text-center text-sm text-stone-600">
+          Remembered it? <Link to="/login" className="font-semibold text-brand-700 hover:underline">Sign in</Link>
+        </p>
+      </AuthCard>
+    )
+  }
+
+  async function resend() {
+    setNotice(null)
+    try {
+      const res = await api.post('/auth/forgot-password/resend', { challenge: reset.challenge })
+      setResendsLeft(res.data.reset.resends_left)
+      setNotice({ tone: 'success', text: `We texted a new code to ${res.data.reset.phone}. Earlier codes no longer work.` })
+      return res.data.reset.resend_in
+    } catch (err) {
+      const p = parseError(err)
+      setNotice({ tone: 'error', text: p.fields.code || p.message })
+      return null
+    }
+  }
+
+  const deadEnd = finish.errors.code && DEAD_END.test(finish.errors.code)
+
+  return (
+    <AuthCard title="Choose a new password" subtitle="Type the code we texted you and a new password. Every device signed in to your account will be signed out.">
+      <form
+        className="space-y-4"
+        noValidate
+        onSubmit={(e) => {
+          e.preventDefault()
+          finish.submit(async (v) => {
+            const res = await api.post('/auth/forgot-password/reset', { ...v, challenge: reset.challenge })
+            signIn(res.data.token, res.data.user)
+            navigate(homeFor(res.data.user), { replace: true })
+          })
+        }}
+      >
+        {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
+        <CodeEntry
+          id="code"
+          phone={reset.phone}
+          value={finish.values.code}
+          onChange={(code) => finish.bind('code').onChange({ target: { value: code } })}
+          error={finish.errors.code}
+          resendIn={reset.resend_in}
+          resendsLeft={deadEnd ? 0 : resendsLeft}
+          onResend={resend}
+          busy={finish.busy}
+        />
+        <Field label="New password" name="password" error={finish.errors.password} hint="At least 8 characters with letters and numbers">
+          <input className="input" autoComplete="new-password" {...finish.bind('password', 'password')} />
+        </Field>
+        <Field label="Repeat new password" name="password_confirmation" error={finish.errors.password_confirmation}>
+          <input className="input" autoComplete="new-password" {...finish.bind('password_confirmation', 'password')} />
+        </Field>
+        {deadEnd
+          ? <button type="button" className="btn-primary w-full" onClick={() => setReset(null)}>Start again</button>
+          : <button type="submit" className="btn-primary w-full" disabled={finish.busy}>{finish.busy ? 'Saving...' : 'Save new password'}</button>}
+      </form>
     </AuthCard>
   )
 }

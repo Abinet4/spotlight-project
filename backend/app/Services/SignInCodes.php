@@ -120,6 +120,24 @@ class SignInCodes
         return SignInCode::where('challenge_hash', self::challengeHash($challenge))->where('purpose', SignInCode::SIGN_IN)->first();
     }
 
+    /**
+     * Forgot password: text a code to the account's checked phone.
+     *
+     * @return array{0: SignInCode, 1: string} the code row and the challenge the browser keeps
+     */
+    public function startReset(User $user): array
+    {
+        $challenge = Str::random(48);
+        $code = $this->issue($user, SignInCode::RESET, (string) $user->twoStepPhone(), ['challenge_hash' => self::challengeHash($challenge)]);
+
+        return [$code, $challenge];
+    }
+
+    public function findReset(string $challenge): ?SignInCode
+    {
+        return SignInCode::where('challenge_hash', self::challengeHash($challenge))->where('purpose', SignInCode::RESET)->first();
+    }
+
     public function openPhoneCheck(User $user): ?SignInCode
     {
         $code = SignInCode::where('user_id', $user->id)->where('purpose', SignInCode::PHONE)->latest('id')->first();
@@ -283,12 +301,17 @@ class SignInCodes
     private function text(SignInCode $code, string $plain): void
     {
         $brand = config('marketplace.name');
-        $body = "Your {$brand} code is {$plain}. It expires in ".self::MINUTES." minutes. Never share it; {$brand} staff will never ask for it.";
+        $what = $code->purpose === SignInCode::RESET ? 'password reset code' : 'code';
+        $body = "Your {$brand} {$what} is {$plain}. It expires in ".self::MINUTES." minutes. Never share it; {$brand} staff will never ask for it.";
 
         // The admin text log keeps codes only on a test site, where reading them there is the point.
         $message = SmsMessage::create([
             'user_id' => $code->user_id,
-            'kind' => $code->purpose === SignInCode::SIGN_IN ? 'sign_in_code' : 'phone_code',
+            'kind' => match ($code->purpose) {
+                SignInCode::SIGN_IN => 'sign_in_code',
+                SignInCode::RESET => 'reset_code',
+                default => 'phone_code',
+            },
             'to' => $code->phone,
             'body' => $this->gateway->delivers() ? str_replace($plain, '******', $body) : $body,
             'driver' => $this->gateway->name(),

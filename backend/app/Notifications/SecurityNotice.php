@@ -20,7 +20,7 @@ class SecurityNotice extends Notification implements ShouldQueue
     public array $backoff = [60, 300];
 
     /**
-     * @param  'email_changed'|'password_changed'|'two_step_on'|'two_step_off'|'two_step_reset'|'phone_changed'|'phone_added'  $kind
+     * @param  'email_changed'|'password_changed'|'two_step_on'|'two_step_off'|'two_step_reset'|'phone_changed'|'phone_added'|'password_reset'  $kind
      * @param  ?string  $detail  the new email, or the masked phone for the two-step notices
      */
     public function __construct(public string $kind, public string $name, public ?string $detail = null)
@@ -47,6 +47,8 @@ class SecurityNotice extends Notification implements ShouldQueue
                 ->line('Signing in now needs only your password.'),
             'two_step_reset' => $mail->subject("Two-step sign-in was turned off on your {$brand} account")
                 ->line("A {$brand} administrator turned off two-step sign-in and removed your checked phone number, which is done when an account owner has lost their phone. Signing in now needs only your password. You can turn it on again in My account."),
+            'password_reset' => $mail->subject("Your {$brand} password was reset")
+                ->line("The password for your {$brand} account was reset with a code texted to its phone, and every device was signed out."),
             'phone_added' => $mail->subject("A phone was added to your {$brand} account")
                 ->line("While signing in, {$this->detail} was checked as the phone for your {$brand} account. Sign-in codes will be texted there."),
             'phone_changed' => $mail->subject("The phone for your {$brand} sign-in codes was changed")
