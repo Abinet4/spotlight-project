@@ -13,7 +13,7 @@ export default function AdminOverview() {
 
   return (
     <>
-      <h1 className="mb-4 text-2xl font-bold tracking-tight text-stone-900">Overview</h1>
+      <h1 className="mb-4 font-display text-2xl font-semibold tracking-tight text-stone-900">Overview</h1>
 
       <section aria-labelledby="todo" className="mb-6">
         <h2 id="todo" className="mb-2 text-sm font-semibold text-stone-500">To do</h2>
@@ -35,7 +35,7 @@ export default function AdminOverview() {
           { label: 'Gross sales', value: money(s.money.delivered_gross_santim) },
           { label: 'Commission earned', value: money(s.money.commission_earned_santim), hint: `at ${s.money.commission_rate_percent}% now`, to: '/admin/settings' },
           { label: 'Stores owe commission', value: money(s.money.commission_outstanding_santim), to: '/admin/settlements?owing=1', tone: s.money.commission_outstanding_santim > 0 ? 'warn' : undefined },
-          { label: 'Open orders', value: money(s.money.open_orders_value_santim) },
+          { label: 'Value of open orders', value: money(s.money.open_orders_value_santim) },
         ]} />
       </section>
 
@@ -46,7 +46,7 @@ export default function AdminOverview() {
           <CountLine label="Listings" counts={s.products} labels={STATUS_LABELS} link={(k) => `/admin/listings?status=${k}`} />
           <CountLine label="Stores" counts={s.sellers} labels={STATUS_LABELS} link={(k) => `/admin/sellers?status=${k}`} />
           <CountLine label="Customers">
-            <Link to="/admin/users?role=customer" className="hover:text-brand-800 hover:underline"><span className="font-semibold text-stone-900">{s.customers}</span> accounts</Link>
+            <Link to="/admin/users?role=customer" className="hover:text-brand-800 hover:underline"><span className="font-semibold text-stone-900">{s.customers}</span> {s.customers === 1 ? 'account' : 'accounts'}</Link>
           </CountLine>
         </div>
       </section>

@@ -75,7 +75,7 @@ export function SupportInbox() {
           <Pagination meta={list.data.meta} onPage={(p) => setParams({ status: tab, page: String(p) })} />
         </>
       ) : (
-        <EmptyState title={tab === 'active' ? 'No open questions' : 'Nothing here'} action={<Link to="/support/new" className="btn-primary">Ask a question</Link>}>
+        <EmptyState icon={LifeBuoy} title={tab === 'active' ? 'No open questions' : 'Nothing here'} action={<Link to="/support/new" className="btn-primary">Ask a question</Link>}>
           Ask about a product, a price, delivery, an order, a return or a refund. You can also use "Ask about this product" on any listing.
         </EmptyState>
       ))}

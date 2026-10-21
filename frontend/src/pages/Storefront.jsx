@@ -23,7 +23,7 @@ export default function Storefront() {
       <header className="card mb-8 p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-stone-900">{s.store_name}</h1>
+            <h1 className="font-display text-3xl font-semibold tracking-tight text-stone-900">{s.store_name}</h1>
             <RatingSummary rating={s.rating} />
             <p className="mt-1 text-sm text-stone-600">
               {BUSINESS_TYPES[s.business_type]}{s.area ? ` in ${s.area}, ${s.city}` : ''}. Selling since {new Date(s.member_since).getFullYear()}.

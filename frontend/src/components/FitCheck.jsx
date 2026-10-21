@@ -9,7 +9,7 @@ const LOOK = {
   fits: { icon: CheckCircle2, tone: 'text-emerald-700', text: 'Fits through your door' },
   tight: { icon: CircleAlert, tone: 'text-amber-700', text: 'Fits, but only just' },
   no: { icon: CircleX, tone: 'text-red-700', text: 'May not fit through' },
-  unknown: { icon: CircleHelp, tone: 'text-stone-500', text: 'Add your door size to check' },
+  unknown: { icon: CircleHelp, tone: 'text-stone-500', text: 'Not checked yet' },
 }
 
 const FIELDS = ['door_width_cm', 'stair_width_cm', 'lift_door_width_cm', 'floor', 'has_lift']
@@ -127,12 +127,12 @@ export default function FitCheck({ dimensions }) {
         {result.note && <p className="mt-1 text-xs text-stone-600">{result.note}</p>}
         {result.status === 'no' && <p className="mt-1 text-xs text-stone-600">Ask Betoch Support whether it comes apart or can be built on site.</p>}
         {!editing && (
-          <button type="button" className="mt-1 text-xs font-semibold text-brand-700 hover:underline" onClick={() => setEditing(true)}>
-            {hasSizes(space) ? `Change sizes${space === address ? ` (${address.label || 'default address'})` : ''}` : 'Add your door and stair sizes'}
+          <button type="button" className="mt-1 text-sm font-semibold text-brand-700 hover:underline" onClick={() => setEditing(true)}>
+            {hasSizes(space) ? `Change sizes${space === address ? ` (${address.label || 'default address'})` : ''}` : 'Add your door and stair sizes to check'}
           </button>
         )}
         {editing && <SpaceForm initial={space} onSave={save} onCancel={() => setEditing(false)} saving={saving} error={error} />}
-        <p className="mt-1 text-[11px] text-stone-400">A guide from the listed size, carried on its side. Tight turns on stairs can still be a problem.</p>
+        <p className="mt-1 text-xs text-stone-500">A guide from the listed size, carried on its side. Tight turns on stairs can still be a problem.</p>
       </div>
     </div>
   )

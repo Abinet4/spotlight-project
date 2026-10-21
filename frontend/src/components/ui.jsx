@@ -1,4 +1,4 @@
-import { CheckCircle2, ChevronRight, CircleAlert } from 'lucide-react'
+import { CheckCircle2, ChevronRight, CircleAlert, Inbox } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { STATUS_LABELS, SUPPORT_STATUS_LABELS, SUPPORT_STATUS_TONES } from '../lib/format'
 
@@ -24,9 +24,12 @@ export function ErrorState({ error, onRetry }) {
   )
 }
 
-export function EmptyState({ title, children, action }) {
+export function EmptyState({ title, children, action, icon: Icon = Inbox }) {
   return (
     <div className="card flex flex-col items-center gap-2 px-6 py-14 text-center">
+      <span className="mb-2 flex size-14 items-center justify-center rounded-full bg-sand-100 text-stone-500">
+        <Icon className="size-6" aria-hidden="true" />
+      </span>
       <p className="text-lg font-semibold text-stone-900">{title}</p>
       {children && <div className="max-w-md text-sm text-stone-600">{children}</div>}
       {action && <div className="mt-3">{action}</div>}
@@ -116,7 +119,7 @@ export function PageHeader({ title, subtitle, actions }) {
   return (
     <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-stone-900 sm:text-3xl">{title}</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-stone-900 sm:text-3xl">{title}</h1>
         {subtitle && <p className="mt-1 text-sm text-stone-600">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
@@ -197,7 +200,7 @@ export function CountLine({ label, counts, labels = {}, link, children }) {
 export function NotFound() {
   return (
     <div className="container-page py-16">
-      <EmptyState title="Page not found" action={<Link to="/" className="btn-primary">Back to home</Link>}>
+      <EmptyState title="Page not found" action={<Link to="/" className="btn-primary">Browse furniture</Link>}>
         The page you are looking for does not exist or was moved.
       </EmptyState>
     </div>

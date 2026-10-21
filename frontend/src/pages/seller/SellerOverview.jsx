@@ -19,7 +19,7 @@ export default function SellerOverview() {
   return (
     <>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight text-stone-900">{store.store_name}</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-stone-900 sm:text-3xl">{store.store_name}</h1>
         {canWrite && <Link to="/seller/products/new" className="btn-primary"><Plus className="size-4" aria-hidden="true" />Add listing</Link>}
       </div>
       <StoreStatus store={store} />
@@ -37,6 +37,12 @@ export default function SellerOverview() {
           [s.products.rejected, 'listing needs changes', 'listings need changes', '/seller/listings?status=rejected'],
           approved && [s.products.draft, 'draft not sent for review yet', 'drafts not sent for review yet', '/seller/listings?status=draft'],
           [s.reviews.low_unanswered, 'low rating without your reply', 'low ratings without your reply', '/seller/reviews?unanswered=1'],
+          // The same counts as the badges in the side menu, so the menu and this list never disagree.
+          [s.stock?.low, 'item low on stock', 'items low on stock', '/seller/erp/inventory?stock=low'],
+          [s.stock?.out, 'item out of stock', 'items out of stock', '/seller/erp/inventory?stock=out'],
+          [s.erp?.late_purchases, 'purchase order is late', 'purchase orders are late', '/seller/erp/purchases?status=late'],
+          [s.erp?.overdue_sales, 'shop sale past its pay-by date', 'shop sales past their pay-by date', '/seller/erp/sales?status=owing'],
+          [s.erp?.transfers_in_transit, 'stock transfer on the way', 'stock transfers on the way', '/seller/erp/warehouses'],
           approved && store.offers_delivery && !store.has_pin && [true, 'Set your store on the map so delivery is priced by distance', '', '/seller/profile'],
         ]} />
       </section>
