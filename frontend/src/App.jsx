@@ -1,5 +1,6 @@
 import { Suspense, lazy } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
+import { Analytics } from '@vercel/analytics/react'
 import Layout from './components/Layout'
 import RequireRole from './components/RequireRole'
 import { useAuth } from './context/AuthContext'
@@ -100,23 +101,24 @@ function OldMessages({ children }) {
 
 export default function App() {
   return (
-    <Routes>
-      {/* A printable page without the site around it. */}
-      <Route path="seller/erp/purchases/:id/print" element={<RequireRole roles={['seller']}><Suspense fallback={<Spinner />}><ErpPurchasePrint /></Suspense></RequireRole>} />
-      <Route path="seller/erp/sales/offline/:id/print" element={<RequireRole roles={['seller']}><Suspense fallback={<Spinner />}><ErpSalePrint /></Suspense></RequireRole>} />
-      <Route path="seller/erp/sales/orders/:id/print" element={<RequireRole roles={['seller']}><Suspense fallback={<Spinner />}><ErpSalePrint marketplace /></Suspense></RequireRole>} />
-      <Route element={<Layout />}>
-        <Route index element={<Home />} />
-        <Route path="search" element={<Catalog />} />
-        <Route path="category/:slug" element={<Catalog />} />
-        <Route path="products/:slug" element={<ProductDetail />} />
-        <Route path="sellers/:slug" element={<Storefront />} />
-        <Route path="help/:topic" element={<Help />} />
-        <Route path="login" element={<Login />} />
-        <Route path="register" element={<Register />} />
-        <Route path="forgot-password" element={<ForgotPassword />} />
-        <Route path="sell" element={<SellerApply />} />
-        <Route path="compare" element={<Compare />} />
+    <>
+      <Routes>
+        {/* A printable page without the site around it. */}
+        <Route path="seller/erp/purchases/:id/print" element={<RequireRole roles={['seller']}><Suspense fallback={<Spinner />}><ErpPurchasePrint /></Suspense></RequireRole>} />
+        <Route path="seller/erp/sales/offline/:id/print" element={<RequireRole roles={['seller']}><Suspense fallback={<Spinner />}><ErpSalePrint /></Suspense></RequireRole>} />
+        <Route path="seller/erp/sales/orders/:id/print" element={<RequireRole roles={['seller']}><Suspense fallback={<Spinner />}><ErpSalePrint marketplace /></Suspense></RequireRole>} />
+        <Route element={<Layout />}>
+          <Route index element={<Home />} />
+          <Route path="search" element={<Catalog />} />
+          <Route path="category/:slug" element={<Catalog />} />
+          <Route path="products/:slug" element={<ProductDetail />} />
+          <Route path="sellers/:slug" element={<Storefront />} />
+          <Route path="help/:topic" element={<Help />} />
+          <Route path="login" element={<Login />} />
+          <Route path="register" element={<Register />} />
+          <Route path="forgot-password" element={<ForgotPassword />} />
+          <Route path="sell" element={<SellerApply />} />
+          <Route path="compare" element={<Compare />} />
 
         <Route path="wishlist" element={<RequireRole><Wishlist /></RequireRole>} />
         <Route path="support" element={<RequireRole roles={['customer']}><SupportInbox /></RequireRole>} />
@@ -199,6 +201,8 @@ export default function App() {
 
         <Route path="*" element={<NotFound />} />
       </Route>
-    </Routes>
+      </Routes>
+      <Analytics />
+    </>
   )
 }
