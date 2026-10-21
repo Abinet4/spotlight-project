@@ -92,7 +92,7 @@ export default function SellerListings() {
                   {['published', 'pending_review'].includes(item.status) && (
                     <button type="button" className="btn-ghost px-3 py-1.5" onClick={() => act(item, 'archive')}>Hide</button>
                   )}
-                  <button type="button" className="btn-ghost px-3 py-1.5 text-red-700" onClick={() => act(item, 'delete')}>Delete</button>
+                  <button type="button" className="btn-ghost px-3 py-1.5 text-stone-500 hover:text-red-700" onClick={() => act(item, 'delete')}>Delete</button>
                 </div>
               </li>
             ))}

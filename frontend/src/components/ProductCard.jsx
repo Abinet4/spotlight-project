@@ -50,7 +50,7 @@ export default function ProductCard({ product }) {
         </div>
         <div className="absolute top-2.5 right-2.5 z-10 flex flex-col gap-2">
           <FavoriteButton productId={product.id} initial={product.is_favorite} compact />
-          <CompareButton slug={product.slug} compact />
+          <span className="hidden sm:contents"><CompareButton slug={product.slug} compact /></span>
         </div>
         <button
           type="button"

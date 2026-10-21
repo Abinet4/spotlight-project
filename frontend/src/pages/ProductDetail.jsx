@@ -1,5 +1,5 @@
-import { BadgeCheck, Banknote, Clock, LifeBuoy, MapPin, MessageCircle, Ruler, Store, Truck } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { BadgeCheck, Banknote, Clock, MapPin, MessageCircle, Ruler, Store, Truck } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import AddToCart from '../components/AddToCart'
 import CompareButton from '../components/CompareButton'
@@ -43,6 +43,19 @@ function DetailSkeleton() {
   )
 }
 
+/** Whether an element is on screen; the phone buy bar only shows once the page's own buy button has scrolled away. */
+function useInView(ref) {
+  const [inView, setInView] = useState(true)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || typeof IntersectionObserver === 'undefined') return undefined
+    const observer = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting))
+    observer.observe(el)
+    return () => observer.disconnect()
+  })
+  return inView
+}
+
 export default function ProductDetail() {
   const { slug } = useParams()
   const { user } = useAuth()
@@ -62,6 +75,8 @@ export default function ProductDetail() {
   // A single option needs no choice; with several the customer picks, so nobody buys the wrong color by default.
   const variants = p?.variants || []
   const variant = variants.find((v) => v.id === picked) || (variants.length === 1 && variants[0].is_available ? variants[0] : null)
+  const buyRef = useRef(null)
+  const buyInView = useInView(buyRef)
   const similarList = useMemo(() => (similar.data?.data || []).filter((x) => x.slug !== slug).slice(0, 8), [similar.data, slug])
 
   if (loading && !p) return <DetailSkeleton />
@@ -82,17 +97,17 @@ export default function ProductDetail() {
   return (
     <div className="container-page py-6 sm:py-8">
       <nav aria-label="Breadcrumb" className="mb-5 text-sm text-stone-500">
-        <Link to="/" className="hover:underline">Home</Link> /{' '}
+        <Link to="/" className="hover:underline">All furniture</Link> /{' '}
         <Link to={`/category/${p.category.slug}`} className="hover:underline">{p.category.name}</Link> /{' '}
         <span className="text-stone-700">{p.name}</span>
       </nav>
 
-      <div className="grid gap-8 lg:grid-cols-[1.25fr_1fr] lg:gap-12">
-        <div className="lg:sticky lg:top-24 lg:self-start">
+      <div className="grid gap-8 lg:grid-cols-[1.25fr_1fr] lg:gap-x-12 lg:gap-y-14">
+        <div className="lg:col-start-1 lg:row-start-1">
           <Gallery images={images} name={p.name} />
         </div>
 
-        <div>
+        <div className="lg:col-start-2 lg:row-span-2 lg:row-start-1">
           <div className="flex flex-wrap gap-2">
             {madeToOrder && <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-800">Made to order</span>}
             {p.condition !== 'new' && <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-700">{CONDITION_LABELS[p.condition]}</span>}
@@ -118,7 +133,7 @@ export default function ProductDetail() {
                   : `In stock (${p.stock_quantity} available${variants.length ? ' across all options' : ''})`}
           </p>
 
-          <div id="buy" className="mt-6 space-y-3 scroll-mt-24">
+          <div id="buy" ref={buyRef} className="mt-6 space-y-3 scroll-mt-24">
             <VariantPicker product={p} value={variant} onChange={(v) => setPicked(v.id)} />
             <AddToCart key={variant?.id ?? 'none'} product={p} variant={variant} full />
             <div className="flex flex-wrap gap-2">
@@ -126,9 +141,6 @@ export default function ProductDetail() {
                 <button type="button" className="btn-secondary" onClick={() => setContactOpen(true)}>
                   <MessageCircle className="size-4" aria-hidden="true" />Ask about this product
                 </button>
-              )}
-              {(!user || user.role === 'customer') && (
-                <Link to="/support" className="btn-ghost"><LifeBuoy className="size-4" aria-hidden="true" />Contact Betoch Support</Link>
               )}
               <FavoriteButton productId={p.id} initial={p.is_favorite} />
               <CompareButton slug={p.slug} />
@@ -176,9 +188,8 @@ export default function ProductDetail() {
             </Link>
           )}
         </div>
-      </div>
 
-      <div className="mt-14 grid gap-10 lg:grid-cols-[1.25fr_1fr] lg:gap-12">
+        <div className="space-y-10 lg:col-start-1 lg:row-start-2">
         <section>
           <h2 className="section-title mb-4">Description</h2>
           <p className="leading-relaxed whitespace-pre-line text-stone-700">{p.description}</p>
@@ -195,6 +206,7 @@ export default function ProductDetail() {
             <Spec label="Seller type" value={store ? BUSINESS_TYPES[store.business_type] : null} />
           </dl>
         </section>
+        </div>
       </div>
 
       <section id="reviews" className="mt-14 scroll-mt-20">
@@ -202,11 +214,12 @@ export default function ProductDetail() {
         <ReviewList url={`/products/${p.slug}/reviews`} emptyText="No reviews yet. Only customers who received this item can review it." />
       </section>
 
-      <ProductRail title="Similar furniture" subtitle={`More from ${p.category.name}`} products={similarList} seeAll={`/category/${p.category.slug}`} />
+      {/* One lone card reads as a broken row, so the section waits for at least two. */}
+      <ProductRail title="Similar furniture" subtitle={`More from ${p.category.name}`} products={similarList.length > 1 ? similarList : []} seeAll={`/category/${p.category.slug}`} />
       <ProductRail title="Recently viewed" products={recent} />
 
       {canBuy && (
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-stone-200 bg-white/95 px-4 py-3 backdrop-blur lg:hidden" aria-label="Buy bar">
+        <div className={`fixed inset-x-0 bottom-0 z-20 border-t border-stone-200 bg-white/95 px-4 py-3 backdrop-blur transition duration-200 lg:hidden ${buyInView ? 'pointer-events-none translate-y-full opacity-0' : ''}`} aria-label="Buy bar" aria-hidden={buyInView || undefined} inert={buyInView || undefined}>
           <div className="flex items-center gap-3">
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs text-stone-500">{p.name}</p>

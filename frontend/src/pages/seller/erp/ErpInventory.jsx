@@ -101,19 +101,19 @@ function InventoryRow({ r }) {
           </Link>
         </td>
         <td data-label="Available" className="px-3 py-3 text-right font-semibold tabular-nums">{r.stock_type === 'made_to_order' ? '-' : r.available}</td>
-        <td data-label="Held" className="px-3 py-3 text-right tabular-nums">{r.held || ''}</td>
-        <td data-label="Sold" className="px-3 py-3 text-right tabular-nums">{r.sold || ''}</td>
+        <td data-label="Held" className="px-3 py-3 text-right tabular-nums">{r.held || <span className="text-stone-400">0</span>}</td>
+        <td data-label="Sold" className="px-3 py-3 text-right tabular-nums">{r.sold || <span className="text-stone-400">0</span>}</td>
         <td data-label="Stock" className="px-3 py-3"><StockBadge state={r.state} /></td>
         <td data-label="Value at cost" className="px-4 py-3 text-right tabular-nums">
-          {r.stock_type === 'made_to_order' ? '' : r.missing_cost ? <span className="text-amber-800">{r.value_cost_santim ? money(r.value_cost_santim) : ''} cost missing</span> : money(r.value_cost_santim)}
+          {r.stock_type === 'made_to_order' ? '' : r.missing_cost ? <span className="text-stone-500">{r.value_cost_santim ? `${money(r.value_cost_santim)}, ` : ''}no cost price</span> : money(r.value_cost_santim)}
         </td>
       </tr>
       {r.has_variants && r.items.map((it) => (
         <tr key={it.variant_id} className="bg-stone-50/60 text-stone-700">
           <td className="rtable-title py-1.5 pr-3 pl-16 text-sm">{it.label}{it.sku && <span className="ml-2 text-xs text-stone-500">{it.sku}</span>}</td>
           <td data-label="Available" className="px-3 py-1.5 text-right tabular-nums">{it.tracked ? it.available : '-'}</td>
-          <td data-label="Held" className="px-3 py-1.5 text-right tabular-nums">{it.held || ''}</td>
-          <td data-label="Sold" className="px-3 py-1.5 text-right tabular-nums">{it.sold || ''}</td>
+          <td data-label="Held" className="px-3 py-1.5 text-right tabular-nums">{it.held || <span className="text-stone-400">0</span>}</td>
+          <td data-label="Sold" className="px-3 py-1.5 text-right tabular-nums">{it.sold || <span className="text-stone-400">0</span>}</td>
           <td data-label="Stock" className="px-3 py-1.5"><StockBadge state={it.state} /></td>
           <td data-label="Value at cost" className="px-4 py-1.5 text-right tabular-nums">{it.tracked ? money(it.value_cost_santim) : ''}</td>
         </tr>

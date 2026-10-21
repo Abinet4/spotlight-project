@@ -33,12 +33,14 @@ export default function ProductRail({ title, subtitle, products, loading = false
               See all <ArrowRight className="size-4" aria-hidden="true" />
             </Link>
           )}
+          {(edges.prev || edges.next) && <>
           <button type="button" className="icon-btn hidden border border-stone-200 bg-white sm:inline-flex" onClick={() => embla?.scrollPrev()} disabled={!edges.prev} aria-label={`Scroll ${title} back`}>
             <ChevronLeft className="size-5" aria-hidden="true" />
           </button>
           <button type="button" className="icon-btn hidden border border-stone-200 bg-white sm:inline-flex" onClick={() => embla?.scrollNext()} disabled={!edges.next} aria-label={`Scroll ${title} forward`}>
             <ChevronRight className="size-5" aria-hidden="true" />
           </button>
+          </>}
         </div>
       </div>
       <div ref={viewportRef} data-carousel className="-mx-1 overflow-hidden px-1">

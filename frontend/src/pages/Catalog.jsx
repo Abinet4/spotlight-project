@@ -3,10 +3,12 @@ import { SlidersHorizontal, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ProductGrid, ProductGridSkeleton } from '../components/ProductCard'
+import ProductRail from '../components/ProductRail'
 import { EmptyState, ErrorState, Pagination } from '../components/ui'
 import { categoryIcon, useCategories } from '../lib/categories'
 import { CONDITION_LABELS, toQuery } from '../lib/format'
 import { useFetch } from '../lib/useFetch'
+import { useRecentlyViewed } from '../lib/useRecent'
 
 const SORTS = [
   ['recommended', 'Recommended'],
@@ -108,6 +110,7 @@ export default function Catalog() {
   const [filtersOpen, setFiltersOpen] = useState(false)
   const { data: categoryList } = useCategories()
   const areas = useFetch('/areas')
+  const recent = useRecentlyViewed()
 
   const query = useMemo(() => {
     const q = {}
@@ -149,10 +152,12 @@ export default function Catalog() {
 
   return (
     <div className="container-page py-8">
-      <nav aria-label="Breadcrumb" className="mb-3 text-sm text-stone-500">
-        <Link to="/" className="hover:underline">Home</Link> <span aria-hidden="true">/</span>{' '}
-        <span className="text-stone-700">{title}</span>
-      </nav>
+      {(slug || term) && (
+        <nav aria-label="Breadcrumb" className="mb-3 text-sm text-stone-500">
+          <Link to="/" className="hover:underline">All furniture</Link> <span aria-hidden="true">/</span>{' '}
+          <span className="text-stone-700">{title}</span>
+        </nav>
+      )}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="font-display text-3xl font-semibold tracking-tight text-stone-900 sm:text-4xl">{title}</h1>
@@ -172,7 +177,7 @@ export default function Catalog() {
       </div>
 
       {categoryList && !slug && (
-        <div className="no-scrollbar -mx-4 mb-6 flex gap-2 relative overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
+        <div className="no-scrollbar -mx-4 mb-6 flex gap-2 relative overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 lg:hidden">
           {categoryList.map((c) => {
             const Icon = categoryIcon(c.slug)
             return (
@@ -226,13 +231,19 @@ export default function Catalog() {
           ) : (
             <EmptyState
               title={slug && categoryList && !category ? 'Category not found' : 'No furniture matches your search'}
-              action={<Link to="/search" className="btn-secondary">Browse all furniture</Link>}
+              action={<Link to="/" className="btn-secondary">Browse all furniture</Link>}
             >
               Try fewer filters or a different keyword. Looking for something specific? Many sellers build custom furniture to order.
             </EmptyState>
           ))}
         </section>
       </div>
+
+      {!slug && !params.toString() && recent.length > 0 && (
+        <div className="mt-12">
+          <ProductRail title="Recently viewed" subtitle="Pick up where you left off" products={recent} />
+        </div>
+      )}
     </div>
   )
 }

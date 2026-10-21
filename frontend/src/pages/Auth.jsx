@@ -1,9 +1,10 @@
+import { BadgeCheck, Banknote, Ruler } from 'lucide-react'
 import { useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { CodeEntry } from '../components/CodeEntry'
 import { Alert, Field } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
-import { useConfig } from '../context/ConfigContext'
+import { useConfig, usePaymentWording } from '../context/ConfigContext'
 import { api, parseError } from '../lib/api'
 import { BUSINESS_TYPES } from '../lib/format'
 import { useFetch } from '../lib/useFetch'
@@ -51,14 +52,49 @@ function useForm(initial) {
   return { values, errors, message, busy, bind, submit }
 }
 
-function AuthCard({ title, subtitle, children, wide = false }) {
+/** Why shop here, beside the sign-in and sign-up forms on wide screens. */
+function BrandPanel() {
+  const { name } = useConfig()
+  const pay = usePaymentWording()
+  const points = [
+    [BadgeCheck, 'Verified stores', 'Every store is checked by our team before it can sell.'],
+    [Ruler, 'Clear prices and sizes', 'Dimensions, materials and the delivery fee before you pay.'],
+    [Banknote, pay.title, pay.body],
+  ]
+  return (
+    <div className="hidden flex-col justify-between rounded-3xl bg-brand-800 p-8 text-white lg:flex">
+      <div>
+        <p className="text-sm font-semibold text-brand-200">{name}</p>
+        <p className="mt-3 font-display text-3xl leading-tight font-semibold">Furniture from local shops and workshops in Addis Ababa.</p>
+      </div>
+      <ul className="mt-10 space-y-5">
+        {points.map(([Icon, head, body]) => (
+          <li key={head} className="flex gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white/10"><Icon className="size-4.5" aria-hidden="true" /></span>
+            <span><span className="block font-semibold">{head}</span><span className="text-sm text-brand-100">{body}</span></span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function AuthCard({ title, subtitle, children, wide = false, brand = false }) {
+  const card = (
+    <div className={`card p-6 sm:p-8 ${brand ? '' : `mx-auto ${wide ? 'max-w-2xl' : 'max-w-md'}`}`}>
+      <h1 className="font-display text-3xl font-semibold tracking-tight text-stone-900">{title}</h1>
+      {subtitle && <p className="mt-1 text-sm text-stone-600">{subtitle}</p>}
+      <div className="mt-6">{children}</div>
+    </div>
+  )
   return (
     <div className="container-page py-10">
-      <div className={`card mx-auto p-6 sm:p-8 ${wide ? 'max-w-2xl' : 'max-w-md'}`}>
-        <h1 className="text-2xl font-bold text-stone-900">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-stone-600">{subtitle}</p>}
-        <div className="mt-6">{children}</div>
-      </div>
+      {brand ? (
+        <div className="mx-auto grid max-w-md gap-6 lg:max-w-5xl lg:grid-cols-2">
+          <BrandPanel />
+          {card}
+        </div>
+      ) : card}
     </div>
   )
 }
@@ -95,7 +131,7 @@ export function Login() {
   }
 
   return (
-    <AuthCard title="Sign in" subtitle="Welcome back.">
+    <AuthCard brand title="Sign in" subtitle="Welcome back.">
       <form
         className="space-y-4"
         noValidate
@@ -399,7 +435,7 @@ export function Register() {
   if (step) return <TwoStepForm key={step.challenge} step={step} signUp onDone={finish} onRestart={() => navigate('/login')} />
 
   return (
-    <AuthCard title="Create your account" subtitle="Save favorites, order furniture and ask Betoch Support anything.">
+    <AuthCard brand title="Create your account" subtitle="Save favorites, order furniture and ask Betoch Support anything.">
       <form
         className="space-y-4"
         noValidate

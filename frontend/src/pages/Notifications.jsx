@@ -1,3 +1,4 @@
+import { Bell, Settings2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Alert, EmptyState, ErrorState, Field, PageHeader, Pagination, Spinner } from '../components/ui'
@@ -54,8 +55,8 @@ export function Notifications() {
         subtitle="Order updates, offers and store news. Answers from Betoch Support also show in Support."
         actions={(
           <>
-            <button type="button" className="btn-secondary" onClick={markAll} disabled={unread === 0}>Mark all as read</button>
-            <Link to="/account/alerts" className="btn-secondary">Alert settings</Link>
+            {unread > 0 && <button type="button" className="btn-secondary" onClick={markAll}>Mark all as read</button>}
+            <Link to="/account/alerts" className="btn-secondary"><Settings2 className="size-4" aria-hidden="true" />Alert settings</Link>
           </>
         )}
       />
@@ -72,7 +73,7 @@ export function Notifications() {
       </div>
 
       {list.loading && !list.data ? <Spinner /> : list.error ? <ErrorState error={list.error} onRetry={list.reload} /> : list.data.data.length === 0 ? (
-        <EmptyState title={filter === 'unread' ? 'You are all caught up' : 'No alerts yet'}>
+        <EmptyState icon={Bell} title={filter === 'unread' ? 'You are all caught up' : 'No alerts yet'}>
           {filter === 'unread' ? 'There are no unread alerts.' : 'When something happens with your orders, quotes or store, it shows up here.'}
         </EmptyState>
       ) : (

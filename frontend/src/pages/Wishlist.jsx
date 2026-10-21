@@ -1,3 +1,4 @@
+import { Heart } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ProductGrid } from '../components/ProductCard'
 import { EmptyState, ErrorState, PageHeader, Pagination, Spinner } from '../components/ui'
@@ -18,7 +19,7 @@ export default function Wishlist() {
           <Pagination meta={data.meta} onPage={(p) => setParams({ page: String(p) })} />
         </>
       ) : (
-        <EmptyState title="Your wishlist is empty" action={<Link to="/search" className="btn-primary">Browse furniture</Link>}>
+        <EmptyState icon={Heart} title="Your wishlist is empty" action={<Link to="/" className="btn-primary">Browse furniture</Link>}>
           Tap the heart on any listing to save it here.
         </EmptyState>
       ))}

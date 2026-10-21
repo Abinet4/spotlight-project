@@ -50,7 +50,7 @@ export default function Help() {
   return (
     <div className="container-page max-w-3xl py-10">
       <p className="text-sm text-stone-500"><Link to="/" className="hover:underline">{name}</Link> / Help</p>
-      <h1 className="mt-2 text-3xl font-bold tracking-tight text-stone-900">{page.title}</h1>
+      <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-stone-900 sm:text-4xl">{page.title}</h1>
       <div className="mt-6 space-y-4 text-stone-700">
         {page.body.map((p) => <p key={p}>{p}</p>)}
       </div>
