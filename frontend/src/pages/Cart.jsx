@@ -83,7 +83,7 @@ export default function Cart() {
       <PageHeader title="Your cart" subtitle={c.line_count ? 'Items from each seller become a separate order with its own delivery.' : null} />
       {error && <div className="mb-4"><Alert tone="error">{error}</Alert></div>}
       {c.line_count === 0 ? (
-        <EmptyState title="Your cart is empty" action={<Link to="/search" className="btn-primary">Browse furniture</Link>}>
+        <EmptyState title="Your cart is empty" action={<Link to="/" className="btn-primary">Browse furniture</Link>}>
           Add furniture from any listing, or order an offer you accepted in Support.
         </EmptyState>
       ) : (

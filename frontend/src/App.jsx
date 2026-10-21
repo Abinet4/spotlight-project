@@ -1,5 +1,5 @@
 import { Suspense, lazy } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import Layout from './components/Layout'
 import RequireRole from './components/RequireRole'
 import { useAuth } from './context/AuthContext'
@@ -9,7 +9,6 @@ import { ForgotPassword, Login, Register, SellerApply } from './pages/Auth'
 import Cart from './pages/Cart'
 import Catalog from './pages/Catalog'
 import Help from './pages/Help'
-import Home from './pages/Home'
 import ProductDetail from './pages/ProductDetail'
 import Storefront from './pages/Storefront'
 import Wishlist from './pages/Wishlist'
@@ -98,6 +97,12 @@ function OldMessages({ children }) {
   return <RequireRole roles={['customer']}>{children}</RequireRole>
 }
 
+/** The shop's front page is the full catalog; old /search links keep their filters. */
+function OldSearchLink() {
+  const { search } = useLocation()
+  return <Navigate to={{ pathname: '/', search }} replace />
+}
+
 export default function App() {
   return (
     <Routes>
@@ -106,8 +111,8 @@ export default function App() {
       <Route path="seller/erp/sales/offline/:id/print" element={<RequireRole roles={['seller']}><Suspense fallback={<Spinner />}><ErpSalePrint /></Suspense></RequireRole>} />
       <Route path="seller/erp/sales/orders/:id/print" element={<RequireRole roles={['seller']}><Suspense fallback={<Spinner />}><ErpSalePrint marketplace /></Suspense></RequireRole>} />
       <Route element={<Layout />}>
-        <Route index element={<Home />} />
-        <Route path="search" element={<Catalog />} />
+        <Route index element={<Catalog />} />
+        <Route path="search" element={<OldSearchLink />} />
         <Route path="category/:slug" element={<Catalog />} />
         <Route path="products/:slug" element={<ProductDetail />} />
         <Route path="sellers/:slug" element={<Storefront />} />

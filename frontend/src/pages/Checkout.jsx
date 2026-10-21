@@ -121,7 +121,7 @@ export default function Checkout() {
 
   const p = preview.data
   if (p.line_count === 0) {
-    return <div className="container-page py-10"><EmptyState title="Your cart is empty" action={<Link to="/search" className="btn-primary">Browse furniture</Link>} /></div>
+    return <div className="container-page py-10"><EmptyState title="Your cart is empty" action={<Link to="/" className="btn-primary">Browse furniture</Link>} /></div>
   }
 
   const codOff = config.cod_enabled === false

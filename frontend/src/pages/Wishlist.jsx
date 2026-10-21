@@ -18,7 +18,7 @@ export default function Wishlist() {
           <Pagination meta={data.meta} onPage={(p) => setParams({ page: String(p) })} />
         </>
       ) : (
-        <EmptyState title="Your wishlist is empty" action={<Link to="/search" className="btn-primary">Browse furniture</Link>}>
+        <EmptyState title="Your wishlist is empty" action={<Link to="/" className="btn-primary">Browse furniture</Link>}>
           Tap the heart on any listing to save it here.
         </EmptyState>
       ))}

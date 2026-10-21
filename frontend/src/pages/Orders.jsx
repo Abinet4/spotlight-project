@@ -16,7 +16,7 @@ export function OrderList({ url, viewer, base }) {
   if (list.error) return <ErrorState error={list.error} onRetry={list.reload} />
   if (!list.data.data.length) {
     return (
-      <EmptyState title="No orders here" action={viewer === 'customer' && <Link to="/search" className="btn-primary">Browse furniture</Link>}>
+      <EmptyState title="No orders here" action={viewer === 'customer' && <Link to="/" className="btn-primary">Browse furniture</Link>}>
         {viewer === 'seller' ? 'New orders from customers show up here.' : viewer === 'customer' ? 'Orders you place appear here.' : null}
       </EmptyState>
     )

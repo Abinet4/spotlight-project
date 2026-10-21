@@ -25,7 +25,7 @@ function SearchBox({ className = '', id = 'site-search' }) {
       className={className}
       onSubmit={(e) => {
         e.preventDefault()
-        navigate(q.trim() ? `/search?q=${encodeURIComponent(q.trim())}` : '/search')
+        navigate(q.trim() ? `/?q=${encodeURIComponent(q.trim())}` : '/')
       }}
     >
       <label htmlFor={id} className="sr-only">Search furniture</label>
@@ -251,7 +251,7 @@ function CategoryBar() {
   return (
     <nav aria-label="Categories" className="hidden border-b border-stone-200/80 bg-white lg:block">
       <div className="container-page no-scrollbar flex gap-1 relative overflow-x-auto py-2">
-        <NavLink to="/search" className={linkClass}>All furniture</NavLink>
+        <NavLink to="/" end className={linkClass}>All furniture</NavLink>
         {categories.map((c) => {
           const Icon = categoryIcon(c.slug)
           return (

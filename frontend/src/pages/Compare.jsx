@@ -76,7 +76,7 @@ export default function Compare() {
       {dropped > 0 && <p role="status" className="mb-4 text-sm text-stone-600">{dropped === 1 ? 'One item is' : `${dropped} items are`} no longer for sale and {dropped === 1 ? 'was' : 'were'} removed from your list.</p>}
 
       {slugs.length === 0 && (
-        <EmptyState title="Nothing to compare yet" action={<Link to="/search" className="btn-primary">Browse furniture</Link>}>
+        <EmptyState title="Nothing to compare yet" action={<Link to="/" className="btn-primary">Browse furniture</Link>}>
           Tap the <GitCompareArrows className="inline size-4 align-text-bottom" aria-label="compare" /> button on any listing to add it here.
         </EmptyState>
       )}
