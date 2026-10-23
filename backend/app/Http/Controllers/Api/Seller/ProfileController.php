@@ -34,7 +34,6 @@ class ProfileController extends Controller
             ...VatDetails::rules(),
             'area_id' => ['sometimes', 'integer', Rule::exists('areas', 'id')->where('is_active', true)],
             'address_line' => ['nullable', 'string', 'max:255'],
-            'offers_custom_orders' => ['sometimes', 'boolean'],
             'offers_delivery' => ['sometimes', 'boolean'],
         ], [], MapPin::attributes())->after(MapPin::checkArea(...))->validate();
 

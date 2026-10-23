@@ -9,7 +9,7 @@ const PAGES = {
     body: [
       'We currently serve Addis Ababa. Each listing shows whether the seller delivers, offers pickup, or both.',
       'When a delivery fee is shown on the listing, that is the fee for delivery within Addis Ababa. When it says the fee is confirmed by the seller, the seller will quote it after confirming your address and before you pay.',
-      'Made-to-order furniture shows an estimated production time. Delivery is arranged once the piece is finished.',
+      'Everything on Betoch is finished furniture that is built and in stock, so delivery is arranged as soon as the store confirms your order.',
       'We do not offer live driver tracking. Sellers update you as your order moves.',
     ],
   },
@@ -17,7 +17,6 @@ const PAGES = {
     title: 'Returns and refunds',
     body: [
       'Inspect furniture on delivery and report damage or a mismatch with the listing to Betoch Support within 48 hours. Use "Get help with this order" on the order page.',
-      'Custom-made furniture built to your specifications is generally not returnable unless it does not match the agreed specification.',
       'Refund handling will be described in full when online payment launches.',
     ],
   },

@@ -7,7 +7,7 @@ import { useRecentlyViewed } from '../lib/useRecent'
 import { ProductImage } from './ProductCard'
 
 /** Topics about one piece of furniture, and those about an order. The rest need neither. */
-export const ITEM_TOPICS = ['product', 'availability', 'price', 'custom', 'delivery']
+export const ITEM_TOPICS = ['product', 'availability', 'price', 'delivery']
 export const ORDER_TOPICS = ['order', 'return', 'refund']
 /** For these the support team cannot answer without knowing which item or order, so a choice is asked for. */
 export const CHOICE_NEEDED = ['product', 'availability', 'price', 'order', 'return', 'refund']

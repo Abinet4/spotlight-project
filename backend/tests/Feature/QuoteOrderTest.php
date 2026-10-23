@@ -40,7 +40,6 @@ class QuoteOrderTest extends TestCase
         config(['marketplace.distance.stores_set_fee' => true]);
         $this->seedReferenceData();
         $this->seller = $this->approvedSeller();
-        $this->seller->forceFill(['offers_custom_orders' => true])->save();
         $this->buyer = $this->customer();
         $this->admin = $this->admin();
         $this->address = $this->buyer->addresses()->forceCreate([
@@ -48,7 +47,7 @@ class QuoteOrderTest extends TestCase
             'area_id' => $this->area('bole')->id, 'address_line' => 'House 12', 'is_default' => true,
         ]);
         $this->ticketId = $this->askSupport($this->buyer, [
-            'topic' => 'custom', 'seller_slug' => $this->seller->slug, 'body' => 'Built-in wardrobe please',
+            'topic' => 'price', 'seller_slug' => $this->seller->slug, 'body' => 'Built-in wardrobe please',
         ])->assertCreated()->json('data.id');
     }
 

@@ -88,7 +88,6 @@ class AuthController extends Controller
             'description' => ['nullable', 'string', 'max:2000'],
             'tin_number' => ['nullable', 'string', 'max:32'],
             ...VatDetails::rules(),
-            'offers_custom_orders' => ['sometimes', 'boolean'],
             'offers_delivery' => ['sometimes', 'boolean'],
         ]);
         VatDetails::check((bool) ($data['vat_registered'] ?? false), $data['vat_number'] ?? null, $data['tin_number'] ?? null);
@@ -116,7 +115,6 @@ class AuthController extends Controller
                 'city_id' => $area->city_id,
                 'area_id' => $area->id,
                 'address_line' => $data['address_line'] ?? null,
-                'offers_custom_orders' => $data['offers_custom_orders'] ?? false,
                 'offers_delivery' => $data['offers_delivery'] ?? true,
             ]);
             $profile->slug = Slug::unique(SellerProfile::class, $data['store_name']);

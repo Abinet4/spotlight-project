@@ -107,8 +107,7 @@ class SupportMigrationTest extends TestCase
 
     public function test_rollback_is_refused_once_an_offer_was_sent_through_support(): void
     {
-        $this->seller->forceFill(['offers_custom_orders' => true])->save();
-        $ticket = $this->askSupport($this->buyer, ['topic' => 'custom', 'seller_slug' => $this->seller->slug])->json('data.id');
+        $ticket = $this->askSupport($this->buyer, ['topic' => 'price', 'seller_slug' => $this->seller->slug])->json('data.id');
         ['quote' => $id] = $this->relayOffer($ticket, $this->admin(), $this->seller);
 
         try {

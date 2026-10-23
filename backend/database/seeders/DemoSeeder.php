@@ -26,10 +26,10 @@ use RuntimeException;
 class DemoSeeder extends Seeder
 {
     private const SELLERS = [
-        ['Merkato Woodworks', 'workshop', 'addis-ketema', true],
-        ['Bole Home Interiors', 'shop', 'bole', false],
-        ['Entoto Craft Furniture', 'manufacturer', 'gulele', true],
-        ['Kazanchis Office Supply', 'shop', 'kirkos', false],
+        ['Merkato Woodworks', 'workshop', 'addis-ketema'],
+        ['Bole Home Interiors', 'shop', 'bole'],
+        ['Entoto Craft Furniture', 'manufacturer', 'gulele'],
+        ['Kazanchis Office Supply', 'shop', 'kirkos'],
     ];
 
     /** Rough map pins per sub-city for demo stores, so delivery by distance can be tried. */
@@ -40,30 +40,30 @@ class DemoSeeder extends Seeder
         'kirkos' => [9.0137, 38.7656],
     ];
 
-    // [category slug, name, price birr, material, color, condition, stock type, qty/days, w, d, h]
+    // [category slug, name, price birr, material, color, condition, units in stock, w, d, h]
     private const PRODUCTS = [
-        ['sofas-living-room', 'Three-Seater Fabric Sofa', 38500, 'Fabric, Eucalyptus', 'Grey', 'new', 'in_stock', 4, 210, 90, 85],
-        ['sofas-living-room', 'L-Shaped Sectional Sofa', 72000, 'Velvet, Hardwood', 'Emerald', 'new', 'made_to_order', 21, 280, 180, 88],
-        ['sofas-living-room', 'Mahogany Coffee Table', 14500, 'Mahogany', 'Dark Brown', 'new', 'in_stock', 6, 120, 60, 45],
-        ['sofas-living-room', 'Used Leather Armchair', 9800, 'Leather', 'Tan', 'used', 'in_stock', 1, 85, 90, 95],
-        ['beds-mattresses', 'Queen Bed Frame with Headboard', 42000, 'Wanza Wood', 'Walnut', 'new', 'in_stock', 3, 165, 210, 110],
-        ['beds-mattresses', 'Orthopedic Spring Mattress 160x200', 26000, 'Foam, Springs', 'White', 'new', 'in_stock', 10, 160, 200, 28],
-        ['beds-mattresses', 'Kids Bunk Bed', 31000, 'Pine', 'Natural', 'new', 'made_to_order', 14, 100, 200, 160],
-        ['wardrobes-storage', 'Four-Door Wardrobe with Mirror', 54000, 'MDF, Mirror', 'White', 'new', 'in_stock', 2, 180, 60, 210],
-        ['wardrobes-storage', 'Six-Drawer Dresser', 19500, 'Zigba Wood', 'Honey', 'new', 'in_stock', 5, 120, 45, 90],
-        ['dining', 'Six-Seat Dining Set', 48000, 'Hardwood, Fabric', 'Espresso', 'new', 'in_stock', 2, 180, 90, 76],
-        ['dining', 'Round Four-Seat Dining Table', 22500, 'Oak Veneer', 'Light Oak', 'new', 'in_stock', 4, 110, 110, 75],
-        ['dining', 'Upholstered Dining Chair (each)', 4200, 'Fabric, Steel', 'Beige', 'new', 'in_stock', 24, 48, 55, 92],
-        ['office', 'Executive Office Desk', 36000, 'Mahogany Veneer', 'Mahogany', 'new', 'in_stock', 3, 180, 85, 76],
-        ['office', 'Ergonomic Mesh Office Chair', 12800, 'Mesh, Nylon', 'Black', 'new', 'in_stock', 15, 65, 65, 120],
-        ['office', 'Used Steel Filing Cabinet', 5200, 'Steel', 'Grey', 'used', 'in_stock', 3, 47, 62, 132],
-        ['cabinets-shelves', 'Five-Tier Bookshelf', 11500, 'Pine', 'White', 'new', 'in_stock', 7, 80, 30, 180],
-        ['cabinets-shelves', 'Glass Display Cabinet', 27500, 'Wood, Glass', 'Black', 'new', 'in_stock', 2, 90, 40, 190],
-        ['cabinets-shelves', 'Kitchen Wall Cabinet Set', 46000, 'MDF, Laminate', 'Cream', 'new', 'made_to_order', 25, 240, 35, 70],
-        ['custom-made', 'Custom Built-In Wardrobe', 95000, 'Your choice', 'Your choice', 'new', 'made_to_order', 30, null, null, null],
-        ['custom-made', 'Custom Carved Traditional Bench', 18000, 'Wanza Wood', 'Natural', 'new', 'made_to_order', 20, 160, 45, 85],
-        ['other-furniture', 'Outdoor Patio Set', 24500, 'Rattan, Steel', 'Brown', 'new', 'in_stock', 3, 120, 120, 75],
-        ['other-furniture', 'Kids Study Desk and Chair', 8900, 'MDF', 'Blue', 'new', 'in_stock', 6, 90, 50, 70],
+        ['sofas-living-room', 'Three-Seater Fabric Sofa', 38500, 'Fabric, Eucalyptus', 'Grey', 'new', 4, 210, 90, 85],
+        ['sofas-living-room', 'L-Shaped Sectional Sofa', 72000, 'Velvet, Hardwood', 'Emerald', 'new', 2, 280, 180, 88],
+        ['sofas-living-room', 'Mahogany Coffee Table', 14500, 'Mahogany', 'Dark Brown', 'new', 6, 120, 60, 45],
+        ['sofas-living-room', 'Used Leather Armchair', 9800, 'Leather', 'Tan', 'used', 1, 85, 90, 95],
+        ['beds-mattresses', 'Queen Bed Frame with Headboard', 42000, 'Wanza Wood', 'Walnut', 'new', 3, 165, 210, 110],
+        ['beds-mattresses', 'Orthopedic Spring Mattress 160x200', 26000, 'Foam, Springs', 'White', 'new', 10, 160, 200, 28],
+        ['beds-mattresses', 'Kids Bunk Bed', 31000, 'Pine', 'Natural', 'new', 3, 100, 200, 160],
+        ['wardrobes-storage', 'Four-Door Wardrobe with Mirror', 54000, 'MDF, Mirror', 'White', 'new', 2, 180, 60, 210],
+        ['wardrobes-storage', 'Six-Drawer Dresser', 19500, 'Zigba Wood', 'Honey', 'new', 5, 120, 45, 90],
+        ['dining', 'Six-Seat Dining Set', 48000, 'Hardwood, Fabric', 'Espresso', 'new', 2, 180, 90, 76],
+        ['dining', 'Round Four-Seat Dining Table', 22500, 'Oak Veneer', 'Light Oak', 'new', 4, 110, 110, 75],
+        ['dining', 'Upholstered Dining Chair (each)', 4200, 'Fabric, Steel', 'Beige', 'new', 24, 48, 55, 92],
+        ['office', 'Executive Office Desk', 36000, 'Mahogany Veneer', 'Mahogany', 'new', 3, 180, 85, 76],
+        ['office', 'Ergonomic Mesh Office Chair', 12800, 'Mesh, Nylon', 'Black', 'new', 15, 65, 65, 120],
+        ['office', 'Used Steel Filing Cabinet', 5200, 'Steel', 'Grey', 'used', 3, 47, 62, 132],
+        ['cabinets-shelves', 'Five-Tier Bookshelf', 11500, 'Pine', 'White', 'new', 7, 80, 30, 180],
+        ['cabinets-shelves', 'Glass Display Cabinet', 27500, 'Wood, Glass', 'Black', 'new', 2, 90, 40, 190],
+        ['cabinets-shelves', 'Kitchen Wall Cabinet Set', 46000, 'MDF, Laminate', 'Cream', 'new', 2, 240, 35, 70],
+        ['wardrobes-storage', 'Two-Door Pine Wardrobe', 28000, 'Pine', 'Natural', 'new', 4, 100, 55, 190],
+        ['dining', 'Carved Traditional Bench', 18000, 'Wanza Wood', 'Natural', 'new', 3, 160, 45, 85],
+        ['other-furniture', 'Outdoor Patio Set', 24500, 'Rattan, Steel', 'Brown', 'new', 3, 120, 120, 75],
+        ['other-furniture', 'Kids Study Desk and Chair', 8900, 'MDF', 'Blue', 'new', 6, 90, 50, 70],
     ];
 
     // [zone name, demo fee birr, min days, max days, area slugs]
@@ -87,7 +87,7 @@ class DemoSeeder extends Seeder
         $password = env('DEMO_USER_PASSWORD') ?: Str::password(16);
 
         $sellers = collect(self::SELLERS)->map(function (array $row, int $i) use ($password) {
-            [$store, $type, $areaSlug, $custom] = $row;
+            [$store, $type, $areaSlug] = $row;
             $email = 'seller'.($i + 1).'@demo.local';
 
             $user = User::firstOrNew(['email' => $email]);
@@ -107,7 +107,6 @@ class DemoSeeder extends Seeder
                 'phone' => '+25191100000'.$i,
                 'city_id' => $area->city_id,
                 'area_id' => $area->id,
-                'offers_custom_orders' => $custom,
                 'offers_delivery' => true,
                 'status' => 'approved',
                 'reviewed_at' => now(),
@@ -126,7 +125,7 @@ class DemoSeeder extends Seeder
         }
 
         foreach (self::PRODUCTS as $i => $row) {
-            [$cat, $name, $price, $material, $color, $condition, $stockType, $qtyOrDays, $w, $d, $h] = $row;
+            [$cat, $name, $price, $material, $color, $condition, $stock, $w, $d, $h] = $row;
             $seller = $sellers[$i % $sellers->count()];
 
             if (Product::where('seller_profile_id', $seller->id)->where('name', $name)->exists()) {
@@ -136,14 +135,12 @@ class DemoSeeder extends Seeder
             $product = new Product([
                 'category_id' => Category::where('slug', $cat)->value('id'),
                 'name' => $name,
-                'description' => "{$name} from {$seller->store_name}. Solid construction, finished by hand in Addis Ababa. Contact the seller for other sizes or finishes.",
+                'description' => "{$name} from {$seller->store_name}. Solid construction, finished by hand in Addis Ababa and ready to deliver.",
                 'price_santim' => $price * 100,
                 'price_negotiable' => $i % 3 === 0,
                 'condition' => $condition,
-                'stock_type' => $stockType,
+                'stock_type' => 'in_stock',
                 'stock_quantity' => 0,
-                'production_days' => $stockType === 'made_to_order' ? $qtyOrDays : null,
-                'custom_order_available' => $stockType === 'made_to_order' || $seller->offers_custom_orders,
                 'width_cm' => $w, 'depth_cm' => $d, 'height_cm' => $h,
                 'material' => $material,
                 'color' => $color,
@@ -159,10 +156,8 @@ class DemoSeeder extends Seeder
             $product->published_at = now()->subDays(count(self::PRODUCTS) - $i);
             $product->is_featured = $i % 5 === 0;
             $product->save();
-            if ($stockType === 'in_stock') {
-                // Through the stock service, so the demo store's stock history starts at its stock.
-                app(InventoryService::class)->setTotal($product, null, $qtyOrDays, null, 'opening');
-            }
+            // Through the stock service, so the demo store's stock history starts at its stock.
+            app(InventoryService::class)->setTotal($product, null, $stock, null, 'opening');
 
             $path = "products/{$product->id}/".self::ART_PREFIX.Str::random(8).'.jpg';
             Storage::disk(ProductImage::ORIGINALS_DISK)->put($path, (new DemoFurnitureArt)->jpeg($name, $color, $i));

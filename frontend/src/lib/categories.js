@@ -1,4 +1,4 @@
-import { Archive, Briefcase, BedDouble, Hammer, Library, Package, Sofa, UtensilsCrossed } from 'lucide-react'
+import { Archive, Briefcase, BedDouble, Library, Package, Sofa, UtensilsCrossed } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api } from './api'
 
@@ -9,7 +9,6 @@ const ICONS = {
   dining: UtensilsCrossed,
   office: Briefcase,
   'cabinets-shelves': Library,
-  'custom-made': Hammer,
 }
 
 /** Icon for a category; categories added later by admins get a generic one. */

@@ -97,9 +97,8 @@ class SecurityFixesTest extends TestCase
 
     private function proposal(?string $fee): TestResponse
     {
-        $this->seller->forceFill(['offers_custom_orders' => true])->save();
         $ticket = $this->actAs($this->buyer)->postJson('/api/support/tickets', [
-            'topic' => 'custom', 'seller_slug' => $this->seller->slug, 'body' => 'A wardrobe please',
+            'topic' => 'price', 'seller_slug' => $this->seller->slug, 'body' => 'A wardrobe please',
         ])->assertCreated()->json('data.id');
         $request = $this->actAs($this->admin())->postJson('/api/admin/support/requests', [
             'support_ticket_id' => $ticket, 'seller_profile_id' => $this->seller->id, 'topic' => 'price',

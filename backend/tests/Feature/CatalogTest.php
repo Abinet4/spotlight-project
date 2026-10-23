@@ -146,15 +146,12 @@ class CatalogTest extends TestCase
     public function test_attribute_filters(): void
     {
         $used = $this->published(['condition' => 'used', 'color' => 'Red']);
-        $mto = $this->published(['stock_type' => 'made_to_order', 'stock_quantity' => 0, 'production_days' => 14, 'custom_order_available' => true]);
         $soldOut = $this->published(['stock_quantity' => 0]);
 
         $this->assertSame([$used->id], $this->listedIds('?condition=used'));
         $this->assertSame([$used->id], $this->listedIds('?color=red'));
-        $this->assertSame([$mto->id], $this->listedIds('?stock_type=made_to_order'));
-        $this->assertSame([$mto->id], $this->listedIds('?custom=1'));
         $this->assertNotContains($soldOut->id, $this->listedIds('?in_stock=1'));
-        $this->assertContains($mto->id, $this->listedIds('?in_stock=1'));
+        $this->assertContains($used->id, $this->listedIds('?in_stock=1'));
         $this->getJson('/api/products?condition=broken')->assertUnprocessable();
     }
 

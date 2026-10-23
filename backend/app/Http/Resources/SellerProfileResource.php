@@ -33,7 +33,6 @@ class SellerProfileResource extends JsonResource
             // The store's pin prices delivery by distance. Never shown on public pages.
             'latitude' => $this->latitude === null ? null : (float) $this->latitude,
             'longitude' => $this->longitude === null ? null : (float) $this->longitude,
-            'offers_custom_orders' => $this->offers_custom_orders,
             'offers_delivery' => $this->offers_delivery,
             'status' => $this->status->value,
             'status_reason' => $this->status_reason,

@@ -112,16 +112,13 @@ class ProductController extends Controller
         DB::transaction(function () use ($request, $profile, $product, $audit) {
             // Orders change stock at any time, so the stock number is decided on the locked row.
             $product = $this->inventory->lock($profile->id, $product->id);
-            $data = $this->normalizeStock($request->productAttributes(), $product);
+            $data = $this->normalizeStock($request->productAttributes());
             $stock = array_key_exists('stock_quantity', $data) ? (int) $data['stock_quantity'] : null;
             unset($data['stock_quantity']);
             $product->fill($data);
 
             if (! $product->offers_delivery && ! $product->pickup_available) {
                 throw ValidationException::withMessages(['offers_delivery' => 'Offer delivery, pickup, or both.']);
-            }
-            if ($product->stock_type === StockType::MadeToOrder && ! $product->production_days) {
-                throw ValidationException::withMessages(['production_days' => 'Enter the estimated production time in days.']);
             }
 
             if ($product->isDirty('name') && $product->getOriginal('status') !== ProductStatus::Published) {
@@ -139,18 +136,7 @@ class ProductController extends Controller
             $changed = array_keys($product->getDirty());
             $product->save();
 
-            if ($product->stock_type === StockType::MadeToOrder && $product->wasChanged('stock_type')) {
-                $this->inventory->assertNothingOnTheWay($product, null, 'stock_type', 'This listing cannot become made to order yet');
-            }
-            if ($product->stock_type === StockType::MadeToOrder) {
-                // Made to order keeps no stock: whatever is left at the main location is written off the form.
-                foreach ($product->variants()->get() as $variant) {
-                    $this->inventory->setTotal($product, $variant, 0, $request->user());
-                }
-                if (! $this->inventory->hasVariants($product)) {
-                    $this->inventory->setTotal($product, null, 0, $request->user());
-                }
-            } elseif ($stock !== null && $stock !== $product->stock_quantity) {
+            if ($stock !== null && $stock !== $product->stock_quantity) {
                 // The form shows the stock as it was when opened; an order since then must not be undone by saving.
                 $expected = $request->input('stock_expected');
                 if ($expected !== null && (int) $expected !== $product->stock_quantity) {
@@ -276,23 +262,17 @@ class ProductController extends Controller
     }
 
     /**
-     * Keep stock fields consistent: made-to-order items carry no stock count,
-     * in-stock items carry no production time.
+     * Betoch sells finished furniture only, so every listing is in stock with a count and no production time.
      *
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    private function normalizeStock(array $data, ?Product $existing = null): array
+    private function normalizeStock(array $data): array
     {
-        $type = $data['stock_type'] ?? $existing?->stock_type?->value;
-
-        if ($type === StockType::MadeToOrder->value) {
+        $data['stock_type'] = StockType::InStock->value;
+        $data['production_days'] = null;
+        if (array_key_exists('stock_quantity', $data) && $data['stock_quantity'] === null) {
             $data['stock_quantity'] = 0;
-        } elseif ($type === StockType::InStock->value) {
-            $data['production_days'] = null;
-            if (array_key_exists('stock_quantity', $data) && $data['stock_quantity'] === null) {
-                $data['stock_quantity'] = 0;
-            }
         }
 
         return $data;

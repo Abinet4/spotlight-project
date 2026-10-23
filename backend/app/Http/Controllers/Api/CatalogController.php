@@ -64,7 +64,6 @@ class CatalogController extends Controller
             'material' => ['nullable', 'string', 'max:100'],
             'color' => ['nullable', 'string', 'max:60'],
             'area' => ['nullable', 'integer'],
-            'custom' => ['nullable', 'boolean'],
             'delivery' => ['nullable', 'boolean'],
             'in_stock' => ['nullable', 'boolean'],
             // Comma-separated listing slugs, for recently viewed and compare. Unknown or hidden ones are skipped.
@@ -109,11 +108,8 @@ class CatalogController extends Controller
             ->when($filters['material'] ?? null, fn ($q, $v) => $q->whereRaw('LOWER(material) = ?', [mb_strtolower($v)]))
             ->when($filters['color'] ?? null, fn ($q, $v) => $q->whereRaw('LOWER(color) = ?', [mb_strtolower($v)]))
             ->when($filters['area'] ?? null, fn ($q, $v) => $q->where('products.area_id', $v))
-            ->when($request->boolean('custom'), fn ($q) => $q->where('custom_order_available', true))
             ->when($request->boolean('delivery'), fn ($q) => $q->where('offers_delivery', true))
-            ->when($request->boolean('in_stock'), fn ($q) => $q->where(fn ($q) => $q
-                ->where('stock_type', StockType::MadeToOrder->value)
-                ->orWhere('stock_quantity', '>', 0)));
+            ->when($request->boolean('in_stock'), fn ($q) => $q->where('stock_quantity', '>', 0));
 
         match ($filters['sort'] ?? 'recommended') {
             'newest' => $query->orderByDesc('published_at'),

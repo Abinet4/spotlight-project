@@ -40,7 +40,6 @@ class ProductResource extends JsonResource
                 'count' => $this->rating_count,
             ],
             'production_days' => $this->production_days,
-            'custom_order_available' => $this->custom_order_available,
             'dimensions' => [
                 'width_cm' => $this->width_cm,
                 'depth_cm' => $this->depth_cm,

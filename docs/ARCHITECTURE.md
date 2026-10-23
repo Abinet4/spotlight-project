@@ -48,7 +48,7 @@ erDiagram
 | cities, areas | Addis Ababa + 11 sub-cities seeded; `areas (city_id, slug)` unique. Adding a city later is data, not code |
 | seller_profiles | user_id unique FK; slug unique and stable after renames; status pending/approved/rejected/suspended; reviewed_by/at; TIN optional |
 | categories | slug unique, parent_id (two levels), is_active, sort_order. Admin-managed |
-| products | seller_profile_id FK, category_id FK, price_santim, condition, stock_type (in_stock/made_to_order), stock_quantity, production_days, dimensions cm, material, color, delivery fields, status, moderation_note, soft deletes. Indexes on (status, category_id), (status, price_santim), (status, published_at), (seller_profile_id, status) |
+| products | seller_profile_id FK, category_id FK, price_santim, condition, stock_type (always in_stock since finished furniture only; made_to_order is retired), stock_quantity, production_days (unused), dimensions cm, material, color, delivery fields, status, moderation_note, soft deletes. Indexes on (status, category_id), (status, price_santim), (status, published_at), (seller_profile_id, status) |
 | product_images | product_id FK cascade, random file names under `products/{id}/` |
 | favorites | (user_id, product_id) unique |
 | audit_logs | append-only: user, action, subject, JSON meta, IP |
@@ -178,7 +178,7 @@ Foreign keys use `restrict` where deleting the parent would destroy history (sel
 - Admin approves `pending_review` -> `published` (seller must be approved, listing must have a photo) or rejects with a note. Published listings can also be taken down with a note.
 - Editing name, description, category, material or condition of a published listing sends it back to `pending_review` (`MARKETPLACE_REAPPROVE_ON_EDIT`). Price, stock and delivery edits go live immediately.
 - `archived` hides a listing; resubmitting sends it to review. Delete is a soft delete so future order history keeps its product rows.
-- Made-to-order items carry production days and no stock count; in-stock items carry a count and no production days. Every listing offers delivery, pickup, or both.
+- Betoch sells finished furniture only (decided 2026-10-23): every listing is in stock with a count, there are no made-to-order listings and no custom orders. The 2026-10-24 migration turned old made-to-order listings into in-stock with 0 units, dropped `products.custom_order_available` and `seller_profiles.offers_custom_orders`, and hid the Custom-Made category. The `made_to_order` stock type and the `custom` support topic stay in code only so old records still read. Price offers from stores (quotes) are still allowed. Every listing offers delivery, pickup, or both.
 
 **Betoch Support (customer inquiries).**
 - Customers never message stores. "Ask about this product", "Ask about this store", "Get help with this order" and the Support page all open a support inquiry, with the listing, store or order attached by the server from its id or slug.
@@ -280,7 +280,7 @@ Foreign keys use `restrict` where deleting the parent would destroy history (sel
 
 **Shopping helpers and look (UI refresh).**
 - Libraries: lucide-react (icons), @headlessui/react (accessible menus, dialogs, drawer, filter sheet), sonner (toasts), embla-carousel-react (photo gallery and product rails), Inter and Fraunces fonts from @fontsource (served from the app, no Google Fonts request).
-- Compare: up to 4 listings side by side (price, rating, stock, size, material, color, condition, delivery, custom orders, seller, location) with the lowest price marked. The list is kept in this browser (`mp_compare`), follows other open tabs, and still works for the page view when site storage is blocked. Listings that are removed or hidden since they were picked leave the list on the compare page, with a note.
+- Compare: up to 4 listings side by side (price, rating, stock, size, material, color, condition, delivery, seller, location) with the lowest price marked. The list is kept in this browser (`mp_compare`), follows other open tabs, and still works for the page view when site storage is blocked. Listings that are removed or hidden since they were picked leave the list on the compare page, with a note.
 - Recently viewed: the last 12 listings this browser opened (`mp_recent`), shown on the home page and under each listing (without the one being viewed). Prices and stock are always fetched fresh.
 - Quick view on product cards (tablet and desktop), similar furniture from the same category under each listing, share to Telegram, WhatsApp, the phone's share sheet or a copied link.
 - Catalog: active filters shown as removable chips; on phones the filters open as a bottom sheet with a live result count.

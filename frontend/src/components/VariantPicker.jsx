@@ -7,7 +7,6 @@ import { formatETB } from '../lib/format'
 export default function VariantPicker({ product, value, onChange }) {
   const variants = product.variants || []
   if (variants.length === 0) return null
-  const madeToOrder = product.stock_type === 'made_to_order'
   return (
     <fieldset id="options">
       <legend className="mb-2 text-sm font-semibold text-stone-900">Choose an option</legend>
@@ -23,7 +22,7 @@ export default function VariantPicker({ product, value, onChange }) {
               <span className="text-xs text-stone-600">
                 {v.price_santim !== product.price_santim ? formatETB(v.price_santim) : null}
                 {v.price_santim !== product.price_santim && ' · '}
-                {out ? 'Out of stock' : madeToOrder ? 'Made to order' : `${v.stock_quantity} available`}
+                {out ? 'Out of stock' : `${v.stock_quantity} available`}
               </span>
             </label>
           )

@@ -11,7 +11,6 @@ const PLACEHOLDERS = {
   product: 'Ask about size, material, finish or anything else.',
   availability: 'When could I get this? Is it available in another color?',
   price: 'What price are you hoping for? Tell us how many you need.',
-  custom: 'Describe what you need: size in cm, material, color, quantity and when you need it.',
   delivery: 'Where should it go, and by when? Mention the floor and whether there is a lift.',
   order: 'What would you like to know about this order?',
   return: 'What is wrong with the item, and when was it delivered?',
@@ -22,11 +21,12 @@ const PLACEHOLDERS = {
 /** Topics that fit where the customer asks from. */
 function topicsFor({ product, order, seller }) {
   if (product) {
-    return ['product', 'availability', 'price', ...(product.custom_order_available ? ['custom'] : []), 'delivery', 'other']
+    return ['product', 'availability', 'price', 'delivery', 'other']
   }
   if (order) return ['order', 'delivery', 'return', 'refund', 'other']
-  if (seller) return ['product', ...(seller.offers_custom_orders ? ['custom'] : []), 'delivery', 'other']
-  return Object.keys(SUPPORT_TOPICS)
+  if (seller) return ['product', 'delivery', 'other']
+  // Custom orders are no longer taken; the label stays only for old inquiries.
+  return Object.keys(SUPPORT_TOPICS).filter((t) => t !== 'custom')
 }
 
 /**

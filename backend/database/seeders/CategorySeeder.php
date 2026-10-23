@@ -18,7 +18,6 @@ class CategorySeeder extends Seeder
         ['dining', 'Dining Tables & Chairs', 'Dining sets, tables, chairs and benches.'],
         ['office', 'Office Desks & Chairs', 'Desks, office chairs, filing cabinets and meeting tables.'],
         ['cabinets-shelves', 'Cabinets & Shelves', 'Kitchen cabinets, bookshelves, display cabinets and wall shelves.'],
-        ['custom-made', 'Custom-Made Furniture', 'Made-to-order pieces built to your measurements by local workshops.'],
         ['other-furniture', 'Other Furniture', 'Outdoor, kids and other approved furniture.'],
     ];
 

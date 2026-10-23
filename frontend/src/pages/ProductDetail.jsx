@@ -1,4 +1,4 @@
-import { BadgeCheck, Banknote, Clock, MapPin, MessageCircle, Ruler, Store, Truck } from 'lucide-react'
+import { BadgeCheck, Banknote, MapPin, MessageCircle, Store, Truck } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import AddToCart from '../components/AddToCart'
@@ -89,7 +89,6 @@ export default function ProductDetail() {
   }
 
   const images = p.images || []
-  const madeToOrder = p.stock_type === 'made_to_order'
   const store = seller.data?.data
   const canBuy = (!user || user.role === 'customer') && p.is_available
   const dims = formatDimensions(p.dimensions)
@@ -109,7 +108,6 @@ export default function ProductDetail() {
 
         <div className="lg:col-start-2 lg:row-span-2 lg:row-start-1">
           <div className="flex flex-wrap gap-2">
-            {madeToOrder && <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-800">Made to order</span>}
             {p.condition !== 'new' && <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-700">{CONDITION_LABELS[p.condition]}</span>}
           </div>
           <h1 className="mt-3 font-display text-3xl leading-tight font-semibold tracking-tight text-stone-900 sm:text-4xl">{p.name}</h1>
@@ -126,12 +124,9 @@ export default function ProductDetail() {
           </div>
           {p.seller?.vat && <p className="mt-1 text-xs text-stone-500">Includes {p.seller.vat.rate_percent}% VAT · Store VAT registration {p.seller.vat.number}</p>}
           <p className={`mt-2 inline-flex items-center gap-1.5 text-sm font-medium ${p.is_available ? 'text-emerald-700' : 'text-red-700'}`}>
-            {madeToOrder && <Clock className="size-4" aria-hidden="true" />}
-            {madeToOrder
-              ? `Made to order. Estimated production time ${p.production_days} days.`
-              : !p.is_available ? 'Out of stock. Ask Betoch about restocking.'
-                : variant ? (variant.is_available ? `In stock (${variant.stock_quantity} available)` : 'This option is out of stock.')
-                  : `In stock (${p.stock_quantity} available${variants.length ? ' across all options' : ''})`}
+            {!p.is_available ? 'Out of stock. Ask Betoch about restocking.'
+              : variant ? (variant.is_available ? `In stock (${variant.stock_quantity} available)` : 'This option is out of stock.')
+                : `In stock (${p.stock_quantity} available${variants.length ? ' across all options' : ''})`}
           </p>
 
           <div id="buy" ref={buyRef} className="mt-6 space-y-3 scroll-mt-24">
@@ -170,12 +165,6 @@ export default function ProductDetail() {
               <Banknote className="mt-0.5 size-5 shrink-0 text-brand-700" aria-hidden="true" />
               <p className="text-stone-600"><span className="font-semibold text-stone-900">{pay.short}</span> The seller confirms your order and delivery details before preparing it.</p>
             </div>
-            {p.custom_order_available && (
-              <div className="flex gap-3 p-4 text-sm">
-                <Ruler className="mt-0.5 size-5 shrink-0 text-brand-700" aria-hidden="true" />
-                <p className="text-stone-600"><span className="font-semibold text-stone-900">Custom orders accepted.</span> Send a custom request to ask about other sizes, materials or colors and get a quote.</p>
-              </div>
-            )}
           </div>
 
           {store && (
