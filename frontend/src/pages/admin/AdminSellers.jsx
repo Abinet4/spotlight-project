@@ -53,7 +53,7 @@ function DetailsForm({ seller, onSaved, onCancel }) {
       {values.vat_registered && (
         <Field label="VAT registration number" name={`vat_number-${seller.id}`} error={errors.vat_number}><input className="input" {...bind('vat_number')} /></Field>
       )}
-      <p className="text-xs text-stone-500 sm:col-span-3">The store page keeps its web address after a rename. Check the VAT certificate before marking a store as registered: its prices then include VAT on receipts.</p>
+      <p className="text-xs text-stone-500 sm:col-span-3">The store page keeps its web address after a rename. Check the VAT certificate before marking a store as registered: its VAT number then shows on its store page and receipts.</p>
       <div className="flex gap-2 sm:col-span-3">
         <button type="submit" className="btn-primary" disabled={busy}>{busy ? 'Saving...' : 'Save details'}</button>
         <button type="button" className="btn-ghost" onClick={onCancel}>Cancel</button>

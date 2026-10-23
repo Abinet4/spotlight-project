@@ -76,7 +76,7 @@ export default function SellerProfile() {
           <div className="space-y-2 sm:col-span-2">
             <label className="flex items-start gap-2 text-sm">
               <input className="mt-0.5 size-4 accent-brand-700" disabled={locked} {...bind('vat_registered', 'checkbox')} />
-              <span>Registered for VAT<span className="block text-xs text-stone-500">{locked ? LOCKED_HINT : 'Your prices then include VAT, shown to shoppers and on receipts.'}</span></span>
+              <span>Registered for VAT<span className="block text-xs text-stone-500">{locked ? LOCKED_HINT : 'Your VAT number then shows on your store page and receipts.'}</span></span>
             </label>
             {values.vat_registered && (
               <Field label="VAT registration number" name="vat_number" error={errors.vat_number} hint={locked ? LOCKED_HINT : undefined}>

@@ -29,6 +29,7 @@ class Order extends Model
             'delivery_distance_estimated' => 'boolean',
             'carry_fee_santim' => 'integer',
             'total_santim' => 'integer',
+            'vat_santim' => 'integer',
             'paid_santim' => 'integer',
             'commission_rate_bp' => 'integer',
             'commission_santim' => 'integer',
@@ -84,26 +85,62 @@ class Order extends Model
         return $this->fulfillment === 'pickup' || $this->delivery_fee_santim !== null;
     }
 
-    /**
-     * Commission rounded half up in integer santim: no floats touch money.
-     */
-    /** VAT inside the order total (items and delivery), at the rate frozen when it was placed. */
+    /** VAT on this order (items and delivery), added on top at checkout at the rate frozen then. */
     public function vatSantim(): int
     {
-        return self::vatIncluded((int) $this->total_santim, (int) $this->vat_rate_bp);
+        return (int) $this->vat_santim;
     }
 
-    /** The VAT part of a price that includes VAT: amount x rate / (100% + rate), rounded to the santim. */
-    public static function vatIncluded(int $amountSantim, int $rateBp): int
+    /**
+     * VAT shown on the order: the rate, the amount, whether it sat inside the prices (orders placed while
+     * VAT-registered stores priced VAT in, before it moved to checkout), and the store's VAT number.
+     *
+     * @return array{rate_percent: float|int, amount_santim: int, included: bool, number: ?string}|null
+     */
+    public function vatSummary(): ?array
     {
-        if ($rateBp <= 0 || $amountSantim <= 0) {
+        if ((int) $this->vat_rate_bp <= 0) {
+            return null;
+        }
+
+        return [
+            'rate_percent' => $this->vat_rate_bp / 100,
+            'amount_santim' => $this->vatSantim(),
+            'included' => $this->vatInsidePrice(),
+            'number' => $this->vat_number,
+        ];
+    }
+
+    /** Placed before VAT moved to checkout: its VAT sits inside the total instead of on top. */
+    public function vatInsidePrice(): bool
+    {
+        return $this->vatSantim() > 0 && (int) $this->total_santim === (int) $this->items_total_santim + (int) $this->delivery_fee_santim;
+    }
+
+    /** The VAT part of a price that already includes it: price x rate / (100% + rate), rounded half up. */
+    public static function vatInside(int $priceSantim, int $rateBp): int
+    {
+        if ($rateBp <= 0 || $priceSantim <= 0) {
             return 0;
         }
         $base = 10000 + $rateBp;
 
-        return intdiv($amountSantim, $base) * $rateBp + intdiv(($amountSantim % $base) * $rateBp + intdiv($base, 2), $base);
+        return intdiv($priceSantim, $base) * $rateBp + intdiv(($priceSantim % $base) * $rateBp + intdiv($base, 2), $base);
     }
 
+    /** VAT added on top of an amount: amount x rate, rounded half up to the santim. */
+    public static function vatOn(int $amountSantim, int $rateBp): int
+    {
+        if ($rateBp <= 0 || $amountSantim <= 0) {
+            return 0;
+        }
+
+        return intdiv($amountSantim, 10000) * $rateBp + intdiv(($amountSantim % 10000) * $rateBp + 5000, 10000);
+    }
+
+    /**
+     * Commission rounded half up in integer santim: no floats touch money.
+     */
     public static function commissionFor(int $itemsTotalSantim, int $rateBp): int
     {
         // Split the total so the multiplication cannot overflow 64-bit integers on very large orders.

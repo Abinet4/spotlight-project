@@ -96,9 +96,15 @@ export default function OrderView({ order, viewer, actions, itemExtra }) {
               {order.carry_fee_santim > 0 && `${order.delivery_fee_santim === null ? 'plus' : 'includes'} ${formatETB(order.carry_fee_santim)} carrying up stairs`}
             </p>
           )}
+          {order.vat && !order.vat.included && (
+            <div className="flex justify-between gap-2">
+              <span>VAT ({order.vat.rate_percent}%)</span>
+              <span className="text-right">{formatETB(order.vat.amount_santim)}{order.fulfillment === 'delivery' && order.delivery_fee_santim === null && ' + on delivery'}</span>
+            </div>
+          )}
           <div className="flex justify-between border-t border-stone-100 pt-2 text-base font-bold"><span>Total</span><span>{formatETB(order.total_santim)}</span></div>
-          {order.vat && (
-            <div className="flex justify-between text-xs text-stone-600"><span>Includes VAT ({order.vat.rate_percent}%)</span><span>{formatETB(order.vat.included_santim)}</span></div>
+          {order.vat?.included && (
+            <div className="flex justify-between text-xs text-stone-600"><span>Includes VAT ({order.vat.rate_percent}%)</span><span>{formatETB(order.vat.amount_santim)}</span></div>
           )}
           <p className="pt-1 text-xs text-stone-500">{paymentSummary(order)}</p>
           <TaxDetails order={order} />
@@ -162,7 +168,7 @@ function TaxDetails({ order }) {
     <div className="mt-2 space-y-0.5 border-t border-stone-100 pt-2 text-xs text-stone-500">
       {tin && <p>Store TIN {tin}</p>}
       {order.vat?.number && <p>Store VAT registration {order.vat.number}</p>}
-      {order.vat && <p>Ask the store for its fiscal receipt, the official tax invoice.</p>}
+      {order.vat?.number && <p>Ask the store for its fiscal receipt, the official tax invoice.</p>}
     </div>
   )
 }

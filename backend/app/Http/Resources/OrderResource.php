@@ -57,12 +57,7 @@ class OrderResource extends JsonResource
                 'reference' => $this->refund->reference,
                 'refunded_at' => $this->refund->refunded_at?->toIso8601String(),
             ]),
-            // VAT inside the total, from a store registered for VAT, at the rate of the day it was placed.
-            'vat' => $this->vat_rate_bp > 0 ? [
-                'rate_percent' => $this->vat_rate_bp / 100,
-                'included_santim' => $this->vatSantim(),
-                'number' => $this->vat_number,
-            ] : null,
+            'vat' => $this->vatSummary(),
             'commission_rate_percent' => $this->when($showCommission, fn () => $this->commission_rate_bp / 100),
             'commission_santim' => $this->when($showCommission, fn () => $this->commission_santim),
             'customer_note' => $this->customer_note,
