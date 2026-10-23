@@ -103,6 +103,7 @@ export default function Cart() {
           </div>
           <aside className="card h-fit space-y-3 p-4">
             <div className="flex justify-between text-sm"><span>Items</span><span className="font-semibold">{formatETB(c.items_total_santim)}</span></div>
+            {c.vat_included_santim > 0 && <div className="flex justify-between text-xs text-stone-500"><span>Includes VAT</span><span>{formatETB(c.vat_included_santim)}</span></div>}
             <p className="text-xs text-stone-500">Delivery is calculated at checkout from your address.</p>
             {c.has_problems && <Alert tone="warning">Fix the items marked in red before checking out.</Alert>}
             {c.has_problems

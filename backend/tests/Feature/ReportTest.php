@@ -74,7 +74,7 @@ class ReportTest extends TestCase
         $this->assertSame($order->number, $row[0]);
         $this->assertSame('delivered', $row[2]);
         $this->assertSame("'=HYPERLINK(\"http://evil\",\"x\")", $row[4]);
-        $this->assertSame(['10000.00', '300.00', '10300.00', '10.00', '1000.00'], array_slice($row, 7, 5));
+        $this->assertSame(['10000.00', '300.00', '10300.00', '0.00', '0.00', '', '10.00', '1000.00'], array_slice($row, 7, 8));
         $this->assertDatabaseHas('audit_logs', ['action' => 'report.exported']);
 
         $this->assertSame("'-5", ReportController::cell('-5'));

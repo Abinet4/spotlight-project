@@ -45,12 +45,39 @@ function payload(values) {
   return out
 }
 
+/** Work out the VAT-inclusive price from the price before VAT, or show the split of the price typed. */
+function PriceBeforeVat({ rate, price, onPrice }) {
+  const typed = Number(String(price ?? '').replace(/,/g, ''))
+  const before = typed > 0 ? Math.round((typed / (1 + rate / 100)) * 100) / 100 : null
+  const [draft, setDraft] = useState('')
+  const fmt = (n) => n.toLocaleString('en-US', { maximumFractionDigits: 2 })
+
+  function apply(value) {
+    setDraft(value)
+    const n = Number(String(value).replace(/,/g, ''))
+    if (n > 0) onPrice(String(Math.round(n * (1 + rate / 100) * 100) / 100))
+  }
+
+  return (
+    <div className="rounded-lg bg-stone-50 p-3 text-sm">
+      <label htmlFor="price-before-vat" className="label">Or enter the price before VAT</label>
+      <input id="price-before-vat" className="input max-w-xs" inputMode="decimal" placeholder="For example 33478.26" value={draft} onChange={(e) => apply(e.target.value)} />
+      {before !== null && (
+        <p className="mt-2 text-xs text-stone-600">Before VAT ETB {fmt(before)} + VAT ETB {fmt(typed - before)} = ETB {fmt(typed)} shoppers pay.</p>
+      )}
+    </div>
+  )
+}
+
 export default function SellerProductForm() {
   const { id } = useParams()
   const editing = Boolean(id)
   const navigate = useNavigate()
   const config = useConfig()
   const storesSetFee = Boolean(config.delivery?.stores_set_fee)
+  // A store registered for VAT has it inside its prices; it can work from the price before VAT.
+  const store = useFetch('/seller/profile')
+  const vatRate = store.data?.data.vat_registered ? Number(config.vat_rate_percent || 0) : 0
   const categories = useFetch('/categories')
   const areas = useFetch('/areas')
   const existing = useFetch(editing ? `/seller/products/${id}` : null)
@@ -189,10 +216,17 @@ export default function SellerProductForm() {
                 <option value="new">New</option><option value="used">Used</option><option value="refurbished">Refurbished</option>
               </select>
             </Field>
-            <Field label="Price (ETB)" name="price" error={errors.price} hint="For example 38500">
-              <input className="input" inputMode="decimal" {...bind('price')} />
-            </Field>
+            {vatRate > 0 ? (
+              <Field label="Price shoppers pay, VAT included (ETB)" name="price" error={errors.price} hint={`For example 38500. Includes ${vatRate}% VAT.`}>
+                <input className="input" inputMode="decimal" {...bind('price')} />
+              </Field>
+            ) : (
+              <Field label="Price (ETB)" name="price" error={errors.price} hint="For example 38500">
+                <input className="input" inputMode="decimal" {...bind('price')} />
+              </Field>
+            )}
           </div>
+          {vatRate > 0 && <PriceBeforeVat rate={vatRate} price={values.price} onPrice={(price) => setValues((v) => ({ ...v, price }))} />}
           <label className="flex items-center gap-2 text-sm"><input className="size-4 accent-brand-700" {...bind('price_negotiable', 'checkbox')} /> Price is negotiable</label>
         </section>
 

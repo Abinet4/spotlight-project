@@ -17,7 +17,7 @@ const ACTIONS = {
  * marketplace team corrects them here; every change goes to the audit log.
  */
 function DetailsForm({ seller, onSaved, onCancel }) {
-  const [values, setValues] = useState({ store_name: seller.store_name, tin_number: seller.tin_number ?? '', business_type: seller.business_type })
+  const [values, setValues] = useState({ store_name: seller.store_name, tin_number: seller.tin_number ?? '', business_type: seller.business_type, vat_registered: !!seller.vat_registered, vat_number: seller.vat_number ?? '' })
   const [errors, setErrors] = useState({})
   const [busy, setBusy] = useState(false)
   const bind = (name) => ({ id: `${name}-${seller.id}`, value: values[name], onChange: (e) => setValues((v) => ({ ...v, [name]: e.target.value })), 'aria-invalid': errors[name] ? true : undefined })
@@ -46,7 +46,14 @@ function DetailsForm({ seller, onSaved, onCancel }) {
           {Object.entries(BUSINESS_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
       </Field>
-      <p className="text-xs text-stone-500 sm:col-span-3">The store page keeps its web address after a rename.</p>
+      <label className="flex items-center gap-2 text-sm sm:col-span-1 sm:self-end sm:pb-2">
+        <input type="checkbox" className="size-4 accent-brand-700" checked={values.vat_registered} onChange={(e) => setValues((v) => ({ ...v, vat_registered: e.target.checked }))} />
+        Registered for VAT
+      </label>
+      {values.vat_registered && (
+        <Field label="VAT registration number" name={`vat_number-${seller.id}`} error={errors.vat_number}><input className="input" {...bind('vat_number')} /></Field>
+      )}
+      <p className="text-xs text-stone-500 sm:col-span-3">The store page keeps its web address after a rename. Check the VAT certificate before marking a store as registered: its prices then include VAT on receipts.</p>
       <div className="flex gap-2 sm:col-span-3">
         <button type="submit" className="btn-primary" disabled={busy}>{busy ? 'Saving...' : 'Save details'}</button>
         <button type="button" className="btn-ghost" onClick={onCancel}>Cancel</button>
@@ -109,7 +116,7 @@ export default function AdminSellers() {
                     <StatusBadge status={s.status} />
                   </div>
                   <p className="text-stone-600">{BUSINESS_TYPES[s.business_type]} in {s.area || 'unknown area'} · {s.phone} · {s.products_count} listings</p>
-                  <p className="text-stone-600">Owner: {s.owner?.name} ({s.owner?.email}){s.tin_number ? ` · TIN ${s.tin_number}` : ''} · applied {new Date(s.created_at).toLocaleDateString()}</p>
+                  <p className="text-stone-600">Owner: {s.owner?.name} ({s.owner?.email}){s.tin_number ? ` · TIN ${s.tin_number}` : ''}{s.vat_registered ? ` · VAT ${s.vat_number}` : ''} · applied {new Date(s.created_at).toLocaleDateString()}</p>
                   {/* Address and description help decide an application; approved stores show them on their page. */}
                   {s.status === 'pending' && s.address_line && <p className="text-stone-600">Address: {s.address_line}</p>}
                   {s.status === 'pending' && s.description && <p className="mt-1 text-stone-700">{s.description}</p>}

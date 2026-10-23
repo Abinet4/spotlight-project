@@ -23,6 +23,8 @@ class SellerProfileResource extends JsonResource
             'business_type' => $this->business_type->value,
             'phone' => $this->phone,
             'tin_number' => $this->tin_number,
+            'vat_registered' => (bool) $this->vat_registered,
+            'vat_number' => $this->vat_number,
             'city' => $this->whenLoaded('city', fn () => $this->city?->name),
             'area' => $this->whenLoaded('area', fn () => $this->area?->name),
             'city_id' => $this->city_id,

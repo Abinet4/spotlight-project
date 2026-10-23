@@ -25,6 +25,8 @@ class PublicSellerResource extends JsonResource
             'city' => $this->whenLoaded('city', fn () => $this->city?->name),
             'area' => $this->whenLoaded('area', fn () => $this->area?->name),
             'offers_delivery' => $this->offers_delivery,
+            // Registered stores must show their VAT details wherever they sell.
+            'vat_number' => $this->vat_registered ? $this->vat_number : null,
             'products_count' => $this->whenCounted('products'),
             'rating' => [
                 'average' => $this->rating_count ? round($this->rating_sum / $this->rating_count, 1) : null,

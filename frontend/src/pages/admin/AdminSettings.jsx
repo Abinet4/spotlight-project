@@ -10,7 +10,7 @@ export default function AdminSettings() {
   const [errors, setErrors] = useState({})
 
   useEffect(() => {
-    if (settings.data && !form) setForm({ ...settings.data.data, commission_rate_percent: String(settings.data.data.commission_rate_percent) })
+    if (settings.data && !form) setForm({ ...settings.data.data, commission_rate_percent: String(settings.data.data.commission_rate_percent), vat_rate_percent: String(settings.data.data.vat_rate_percent) })
   }, [settings.data, form])
 
   if (settings.loading || !form) return settings.error ? <ErrorState error={settings.error} /> : <Spinner />
@@ -21,7 +21,7 @@ export default function AdminSettings() {
     setErrors({})
     try {
       const res = await api.put('/admin/settings', form)
-      setForm({ ...res.data.data, commission_rate_percent: String(res.data.data.commission_rate_percent) })
+      setForm({ ...res.data.data, commission_rate_percent: String(res.data.data.commission_rate_percent), vat_rate_percent: String(res.data.data.vat_rate_percent) })
       setNotice({ tone: 'success', text: 'Settings saved. New orders use them from now on.' })
     } catch (err) {
       const p = parseError(err)
@@ -38,6 +38,10 @@ export default function AdminSettings() {
         <Field label="Commission rate (%)" name="commission" error={errors.commission_rate_percent} hint="Charged on item prices, not on delivery fees. Up to 2 decimals, maximum 50.">
           <input id="commission" className="input" inputMode="decimal" value={form.commission_rate_percent}
             onChange={(e) => setForm({ ...form, commission_rate_percent: e.target.value })} />
+        </Field>
+        <Field label="VAT rate (%)" name="vat-rate" error={errors.vat_rate_percent} hint="Ethiopia: 15%. Only stores marked as registered for VAT charge it, inside their prices. Orders keep the rate of the day they were placed.">
+          <input id="vat-rate" className="input" inputMode="decimal" value={form.vat_rate_percent}
+            onChange={(e) => setForm({ ...form, vat_rate_percent: e.target.value })} />
         </Field>
         <label className="flex items-start gap-2 text-sm">
           <input type="checkbox" className="mt-1" checked={form.cod_enabled} onChange={(e) => setForm({ ...form, cod_enabled: e.target.checked })} />

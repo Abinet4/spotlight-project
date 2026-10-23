@@ -7,6 +7,7 @@ use App\Enums\StockType;
 use App\Models\Address;
 use App\Models\Area;
 use App\Models\CartItem;
+use App\Models\Order;
 use App\Models\Product;
 use App\Models\SellerProfile;
 use App\Models\Setting;
@@ -44,6 +45,7 @@ class CheckoutCalculator
         $pin = $address?->pin();
         $carry = self::carryFee($address);
         $this->storesSetFee = Setting::storesSetDeliveryFee();
+        $vatBp = Setting::vatRateBp();
         $visibleProductIds = Product::visible()->whereIn('products.id', $items->pluck('product_id')->filter()->all())->pluck('products.id')->flip();
         $activeSellerIds = SellerProfile::publiclyVisible()
             ->whereIn('id', $items->map(fn (CartItem $i) => $i->product?->seller_profile_id ?? $i->quote?->seller_profile_id)->filter()->unique()->all())
@@ -51,7 +53,7 @@ class CheckoutCalculator
         $zone = $area?->deliveryZone?->is_active ? $area->deliveryZone : null;
 
         $groups = $items->groupBy(fn (CartItem $i) => $i->product?->seller_profile_id ?? $i->quote?->seller_profile_id)
-            ->map(function (Collection $lines, $sellerId) use ($visibleProductIds, $activeSellerIds, $zone, $area, $fulfillment, $pin, $carry) {
+            ->map(function (Collection $lines, $sellerId) use ($visibleProductIds, $activeSellerIds, $zone, $area, $fulfillment, $pin, $carry, $vatBp) {
                 $seller = $lines->first()->product?->seller ?? $lines->first()->quote?->seller;
                 // One trip per store, so one distance; it stands in for the zone fee on every line.
                 $trip = $this->distance->quote($seller, $pin);
@@ -77,8 +79,14 @@ class CheckoutCalculator
                     $fee = $feeConfirmed ? (int) $fees->max() + $carry : null;
                 }
 
+                // A store registered for VAT has it inside its prices and delivery fee; the rest charge none.
+                $vatRate = $seller->vat_registered ? $vatBp : 0;
+
                 return [
-                    'seller' => ['id' => $seller->id, 'store_name' => $seller->store_name, 'slug' => $seller->slug, 'area' => $seller->relationLoaded('area') ? $seller->area?->name : null],
+                    'seller' => [
+                        'id' => $seller->id, 'store_name' => $seller->store_name, 'slug' => $seller->slug, 'area' => $seller->relationLoaded('area') ? $seller->area?->name : null,
+                        'vat_number' => $vatRate > 0 ? $seller->vat_number : null,
+                    ],
                     'fulfillment' => $mode,
                     'delivery_available' => $deliveryAvailable,
                     'pickup_available' => $pickupAvailable,
@@ -95,6 +103,8 @@ class CheckoutCalculator
                         'too_far' => $trip['too_far'],
                     ] : null,
                     'total_santim' => $itemsTotal + (int) $fee,
+                    'vat_rate_bp' => $vatRate,
+                    'vat_included_santim' => Order::vatIncluded($itemsTotal + (int) $fee, $vatRate),
                     'problem' => $problem,
                 ];
             })->values();
@@ -109,6 +119,7 @@ class CheckoutCalculator
             'items_total_santim' => $itemsTotal,
             'delivery_total_santim' => $deliveryTotal,
             'grand_total_santim' => $itemsTotal + $deliveryTotal,
+            'vat_included_santim' => $groups->sum('vat_included_santim'),
             'delivery_to_confirm' => $groups->contains(fn ($g) => ! $g['delivery_fee_confirmed']),
             'area' => $area ? ['id' => $area->id, 'name' => $area->name] : null,
             'has_pin' => $pin !== null,

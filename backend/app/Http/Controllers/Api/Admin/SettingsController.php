@@ -32,6 +32,7 @@ class SettingsController extends Controller
         $max = config('marketplace.commission.max_rate_percent');
         $data = $request->validate([
             'commission_rate_percent' => ['sometimes', 'numeric', 'min:0', "max:$max", 'regex:/^\d{1,2}(\.\d{1,2})?$/'],
+            'vat_rate_percent' => ['sometimes', 'numeric', 'min:0', 'max:50', 'regex:/^\d{1,2}(\.\d{1,2})?$/'],
             'cod_enabled' => ['sometimes', 'boolean'],
             'online_payments_enabled' => ['sometimes', 'boolean'],
             'commission_credit_limit_birr' => ['sometimes', 'integer', 'min:0', 'max:100000000'],
@@ -45,6 +46,7 @@ class SettingsController extends Controller
             'admins_must_use_two_step' => ['sometimes', 'boolean'],
             'everyone_must_use_two_step' => ['sometimes', 'boolean'],
         ], [], [
+            'vat_rate_percent' => 'VAT rate',
             'delivery_base_fee_birr' => 'base fee',
             'delivery_per_km_birr' => 'per km fee',
             'delivery_max_km' => 'longest trip',
@@ -119,6 +121,7 @@ class SettingsController extends Controller
     {
         return [
             'commission_rate_percent' => Setting::commissionRateBp() / 100,
+            'vat_rate_percent' => Setting::vatRateBp() / 100,
             'cod_enabled' => Setting::codEnabled(),
             'online_payments_enabled' => Setting::onlinePaymentsEnabled(),
             'commission_credit_limit_birr' => intdiv(Setting::creditLimitSantim(), 100),

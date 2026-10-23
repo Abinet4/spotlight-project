@@ -4,7 +4,7 @@ import { Alert, ErrorState, Field, PageHeader, Spinner, StatusBadge } from '../.
 import { api, parseError } from '../../lib/api'
 import { useFetch } from '../../lib/useFetch'
 
-const LOCKED = ['store_name', 'tin_number']
+const LOCKED = ['store_name', 'tin_number', 'vat_registered', 'vat_number']
 const LOCKED_HINT = 'Checked when your store was approved. Ask the marketplace team to change it.'
 
 export default function SellerProfile() {
@@ -19,7 +19,7 @@ export default function SellerProfile() {
     const p = profile.data?.data
     if (p) {
       setValues({
-        store_name: p.store_name, description: p.description ?? '', phone: p.phone, tin_number: p.tin_number ?? '',
+        store_name: p.store_name, description: p.description ?? '', phone: p.phone, tin_number: p.tin_number ?? '', vat_registered: p.vat_registered, vat_number: p.vat_number ?? '',
         area_id: String(p.area_id ?? ''), address_line: p.address_line ?? '',
         offers_delivery: p.offers_delivery,
         latitude: p.latitude, longitude: p.longitude,
@@ -44,7 +44,7 @@ export default function SellerProfile() {
     setErrors({})
     setNotice(null)
     try {
-      // A checked store's name and TIN are changed by the marketplace team, so they are not sent.
+      // A checked store's name, TIN and VAT details are changed by the marketplace team, so they are not sent.
       const body = Object.fromEntries(Object.entries(values).filter(([k]) => !(locked && LOCKED.includes(k))).map(([k, v]) => [k, v === '' ? null : v]))
       await api.put('/seller/profile', body)
       setNotice({ tone: 'success', text: 'Store profile saved.' })
@@ -73,6 +73,17 @@ export default function SellerProfile() {
           <Field label="TIN number" name="tin_number" error={errors.tin_number} hint={locked ? LOCKED_HINT : undefined}>
             <input className="input read-only:bg-stone-50 read-only:text-stone-600" readOnly={locked} placeholder={locked ? 'None' : undefined} {...bind('tin_number')} />
           </Field>
+          <div className="space-y-2 sm:col-span-2">
+            <label className="flex items-start gap-2 text-sm">
+              <input className="mt-0.5 size-4 accent-brand-700" disabled={locked} {...bind('vat_registered', 'checkbox')} />
+              <span>Registered for VAT<span className="block text-xs text-stone-500">{locked ? LOCKED_HINT : 'Your prices then include VAT, shown to shoppers and on receipts.'}</span></span>
+            </label>
+            {values.vat_registered && (
+              <Field label="VAT registration number" name="vat_number" error={errors.vat_number} hint={locked ? LOCKED_HINT : undefined}>
+                <input className="input read-only:bg-stone-50 read-only:text-stone-600" readOnly={locked} {...bind('vat_number')} />
+              </Field>
+            )}
+          </div>
           <Field label="Sub-city" name="area_id" error={errors.area_id}>
             <select className="input" {...bind('area_id')}>
               {(areas.data?.data || []).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}

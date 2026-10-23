@@ -468,7 +468,7 @@ export function SellerApply() {
   const form = useForm({
     name: '', email: '', phone: '', password: '', password_confirmation: '',
     store_name: '', business_type: 'workshop', store_phone: '', area_id: '', address_line: '',
-    description: '', tin_number: '', offers_delivery: true,
+    description: '', tin_number: '', vat_registered: false, vat_number: '', offers_delivery: true,
   })
   const [step, setStep] = useState(null)
 
@@ -539,6 +539,15 @@ export function SellerApply() {
           <Field label="TIN number (optional, speeds up verification)" name="tin_number" error={form.errors.tin_number}>
             <input className="input" {...form.bind('tin_number')} />
           </Field>
+          <label className="flex items-start gap-2 text-sm">
+            <input className="mt-0.5 size-4 accent-brand-700" {...form.bind('vat_registered', 'checkbox')} />
+            <span>My business is registered for VAT<span className="block text-xs text-stone-500">Required by the Ministry of Revenue once sales pass ETB 2 million a year. Your prices then include 15% VAT.</span></span>
+          </label>
+          {form.values.vat_registered && (
+            <Field label="VAT registration number" name="vat_number" error={form.errors.vat_number} hint="As on your VAT registration certificate. We check it before approving your store.">
+              <input className="input" {...form.bind('vat_number')} />
+            </Field>
+          )}
           <div className="flex flex-col gap-2 text-sm">
             <label className="flex items-center gap-2"><input className="size-4 accent-brand-700" {...form.bind('offers_delivery', 'checkbox')} /> I can deliver within Addis Ababa</label>
           </div>
