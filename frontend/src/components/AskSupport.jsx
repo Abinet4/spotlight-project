@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useInbox } from '../context/InboxContext'
 import { api, parseError } from '../lib/api'
 import { SUPPORT_TOPICS } from '../lib/format'
+import SupportAboutPicker, { CHOICE_NEEDED, ITEM_TOPICS, ORDER_TOPICS } from './SupportAboutPicker'
 import { Alert, Field } from './ui'
 
 const PLACEHOLDERS = {
@@ -45,6 +46,9 @@ export default function AskSupport({ product, order, seller, topic: initialTopic
   const [errors, setErrors] = useState({})
   const [error, setError] = useState(null)
   const [sending, setSending] = useState(false)
+  // Asked from the general support page: the customer says which item or order it is about.
+  const [picked, setPicked] = useState(null)
+  const picking = !product && !order && !seller
 
   if (!user) {
     return (
@@ -62,8 +66,12 @@ export default function AskSupport({ product, order, seller, topic: initialTopic
     e.preventDefault()
     setErrors({})
     setError(null)
-    if (body.trim().length < 2) {
-      setErrors({ body: 'Write your question first.' })
+    const needsChoice = picking && CHOICE_NEEDED.includes(topic) && !picked
+    if (needsChoice || body.trim().length < 2) {
+      setErrors({
+        ...(needsChoice ? { about: ORDER_TOPICS.includes(topic) ? 'Choose the order, or "It is not about one of these orders".' : 'Choose the item, or "I cannot find it here".' } : {}),
+        ...(body.trim().length < 2 ? { body: 'Write your question first.' } : {}),
+      })
       return
     }
     setSending(true)
@@ -72,8 +80,8 @@ export default function AskSupport({ product, order, seller, topic: initialTopic
         topic,
         subject: subject.trim() || null,
         body,
-        product_slug: product?.slug ?? null,
-        order_id: !product && order ? order.id : null,
+        product_slug: product?.slug ?? (picked?.kind === 'product' ? picked.item.slug : null),
+        order_id: !product && order ? order.id : picked?.kind === 'order' ? picked.item.id : null,
         seller_slug: !product && !order && seller ? seller.slug : null,
       })
       refreshUnread()
@@ -87,6 +95,14 @@ export default function AskSupport({ product, order, seller, topic: initialTopic
   }
 
   const about = product ? product.name : order ? `Order ${order.number}` : seller ? seller.store_name : null
+
+  function chooseTopic(t) {
+    setTopic(t)
+    setErrors((e) => ({ ...e, about: undefined }))
+    // An item does not answer an order question, and the other way round.
+    const family = (x) => (ORDER_TOPICS.includes(x) ? 'order' : ITEM_TOPICS.includes(x) ? 'product' : 'other')
+    if (picked?.kind !== 'none' && picked && family(t) !== picked.kind) setPicked(null)
+  }
 
   return (
     <form onSubmit={submit} className="card space-y-3 p-4" noValidate>
@@ -104,14 +120,18 @@ export default function AskSupport({ product, order, seller, topic: initialTopic
           <div className="flex flex-wrap gap-2">
             {topics.map((t) => (
               <label key={t} className={`cursor-pointer rounded-full border px-3 py-1.5 text-sm has-focus-visible:ring-2 has-focus-visible:ring-brand-500 ${topic === t ? 'border-brand-700 bg-brand-50 font-semibold text-brand-800' : 'border-stone-300 text-stone-700'}`}>
-                <input type="radio" name="support-topic" value={t} checked={topic === t} onChange={() => setTopic(t)} className="sr-only" />
+                <input type="radio" name="support-topic" value={t} checked={topic === t} onChange={() => chooseTopic(t)} className="sr-only" />
                 {SUPPORT_TOPICS[t]}
               </label>
             ))}
           </div>
         </fieldset>
       )}
-      {!about && (
+      {picking && (
+        <SupportAboutPicker topic={topic} value={picked} error={errors.about}
+          onChange={(v) => { setPicked(v); setErrors((e) => ({ ...e, about: undefined })) }} />
+      )}
+      {!about && !(picked && picked.kind !== 'none') && (
         <Field label="Subject (optional)" name="support-subject" error={errors.subject}>
           <input id="support-subject" className="input" maxLength={160} value={subject} onChange={(e) => setSubject(e.target.value)} />
         </Field>
