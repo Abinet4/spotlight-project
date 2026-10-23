@@ -122,6 +122,7 @@ export default function Catalog() {
 
   const term = params.get('q')
   const title = category ? category.name : term ? `Results for "${term}"` : 'All furniture'
+  const home = !category && !term && !slug
   const activeFilters = FILTER_KEYS.filter((k) => !['q', 'sort', 'page'].includes(k) && params.get(k)).length
   const meta = products.data?.meta
 
@@ -139,18 +140,19 @@ export default function Catalog() {
   )
 
   return (
-    <div className="container-page py-8">
+    <div className={`container-page ${home ? 'py-5' : 'py-8'}`}>
       {(slug || term) && (
         <nav aria-label="Breadcrumb" className="mb-3 text-sm text-stone-500">
           <Link to="/" className="hover:underline">All furniture</Link> <span aria-hidden="true">/</span>{' '}
           <span className="text-stone-700">{title}</span>
         </nav>
       )}
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className={`flex gap-4 ${home ? 'mb-4 items-center justify-end' : 'mb-6 flex-col sm:flex-row sm:items-end sm:justify-between'}`}>
         <div>
-          <h1 className="font-display text-3xl font-semibold tracking-tight text-stone-900 sm:text-4xl">{title}</h1>
+          {/* The front page needs no heading on screen; screen readers still get one. */}
+          <h1 className={home ? 'sr-only' : 'font-display text-3xl font-semibold tracking-tight text-stone-900 sm:text-4xl'}>{title}</h1>
           {category?.description && <p className="mt-2 max-w-2xl text-sm text-stone-600">{category.description}</p>}
-          {meta && <p className="mt-1 text-sm text-stone-500">{meta.total} {meta.total === 1 ? 'listing' : 'listings'}</p>}
+          {meta && !home && <p className="mt-1 text-sm text-stone-500">{meta.total} {meta.total === 1 ? 'listing' : 'listings'}</p>}
         </div>
         <div className="flex gap-2">
           <button type="button" className="btn-secondary lg:hidden" onClick={() => setFiltersOpen(true)} aria-haspopup="dialog">
@@ -165,12 +167,12 @@ export default function Catalog() {
       </div>
 
       {categoryList && !slug && (
-        <div className="no-scrollbar -mx-4 mb-6 flex gap-2 relative overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 lg:hidden">
+        <div className="no-scrollbar -mx-4 mb-5 flex gap-1.5 relative overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0 lg:hidden">
           {categoryList.map((c) => {
             const Icon = categoryIcon(c.slug)
             return (
-              <Link key={c.id} to={`/category/${c.slug}${params.get('q') ? `?q=${encodeURIComponent(params.get('q'))}` : ''}`} className="chip">
-                <Icon className="size-4 text-stone-500" aria-hidden="true" />{c.name}
+              <Link key={c.id} to={`/category/${c.slug}${params.get('q') ? `?q=${encodeURIComponent(params.get('q'))}` : ''}`} className="chip gap-1 px-2.5 py-1 text-[13px]">
+                <Icon className="size-3.5 text-stone-500" aria-hidden="true" />{c.name}
               </Link>
             )
           })}
