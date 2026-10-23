@@ -541,7 +541,7 @@ export function SellerApply() {
           </Field>
           <label className="flex items-start gap-2 text-sm">
             <input className="mt-0.5 size-4 accent-brand-700" {...form.bind('vat_registered', 'checkbox')} />
-            <span>My business is registered for VAT<span className="block text-xs text-stone-500">Required by the Ministry of Revenue once sales pass ETB 2 million a year. Your prices then include 15% VAT.</span></span>
+            <span>My business is registered for VAT<span className="block text-xs text-stone-500">Required by the Ministry of Revenue once sales pass ETB 2 million a year. Your VAT number then shows on your store page and receipts.</span></span>
           </label>
           {form.values.vat_registered && (
             <Field label="VAT registration number" name="vat_number" error={form.errors.vat_number} hint="As on your VAT registration certificate. We check it before approving your store.">

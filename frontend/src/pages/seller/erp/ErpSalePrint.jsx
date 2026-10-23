@@ -87,7 +87,9 @@ export default function ErpSalePrint({ marketplace = false }) {
           <div className="flex justify-between"><dt>Items</dt><dd className="tabular-nums">{money(marketplace ? s.items_total_santim : s.subtotal_santim)}</dd></div>
           {!marketplace && s.discount_santim > 0 && <div className="flex justify-between"><dt>Discount</dt><dd className="tabular-nums">-{money(s.discount_santim)}</dd></div>}
           {s.delivery_santim > 0 && <div className="flex justify-between"><dt>Delivery</dt><dd className="tabular-nums">{money(s.delivery_santim)}</dd></div>}
+          {s.vat && !s.vat.included && <div className="flex justify-between"><dt>VAT ({s.vat.rate_percent}%)</dt><dd className="tabular-nums">{money(s.vat.amount_santim)}</dd></div>}
           <div className="flex justify-between border-t border-stone-400 pt-1 text-base font-bold"><dt>Total</dt><dd className="tabular-nums">{money(s.total_santim)}</dd></div>
+          {s.vat?.included && <div className="flex justify-between text-xs"><dt>Includes VAT ({s.vat.rate_percent}%)</dt><dd className="tabular-nums">{money(s.vat.amount_santim)}</dd></div>}
           {marketplace ? (
             <div className="flex justify-between"><dt>Paid</dt><dd>{s.payment_method === 'online' ? `Online through ${brand}` : s.status === 'delivered' ? 'Cash on delivery' : 'Cash on delivery, not yet paid'}</dd></div>
           ) : !voided && (

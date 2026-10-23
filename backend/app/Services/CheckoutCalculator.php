@@ -79,13 +79,14 @@ class CheckoutCalculator
                     $fee = $feeConfirmed ? (int) $fees->max() + $carry : null;
                 }
 
-                // A store registered for VAT has it inside its prices and delivery fee; the rest charge none.
-                $vatRate = $seller->vat_registered ? $vatBp : 0;
+                // VAT is added on top of items and delivery for every order. Until the store confirms a
+                // delivery fee it covers the items only, and is worked out again when the fee is set.
+                $vat = Order::vatOn($itemsTotal + (int) $fee, $vatBp);
 
                 return [
                     'seller' => [
                         'id' => $seller->id, 'store_name' => $seller->store_name, 'slug' => $seller->slug, 'area' => $seller->relationLoaded('area') ? $seller->area?->name : null,
-                        'vat_number' => $vatRate > 0 ? $seller->vat_number : null,
+                        'vat_number' => $seller->vat_registered ? $seller->vat_number : null,
                     ],
                     'fulfillment' => $mode,
                     'delivery_available' => $deliveryAvailable,
@@ -102,9 +103,9 @@ class CheckoutCalculator
                         'estimated' => $trip['estimated'],
                         'too_far' => $trip['too_far'],
                     ] : null,
-                    'total_santim' => $itemsTotal + (int) $fee,
-                    'vat_rate_bp' => $vatRate,
-                    'vat_included_santim' => Order::vatIncluded($itemsTotal + (int) $fee, $vatRate),
+                    'vat_rate_bp' => $vatBp,
+                    'vat_santim' => $vat,
+                    'total_santim' => $itemsTotal + (int) $fee + $vat,
                     'problem' => $problem,
                 ];
             })->values();
@@ -118,8 +119,9 @@ class CheckoutCalculator
             'line_count' => $items->count(),
             'items_total_santim' => $itemsTotal,
             'delivery_total_santim' => $deliveryTotal,
-            'grand_total_santim' => $itemsTotal + $deliveryTotal,
-            'vat_included_santim' => $groups->sum('vat_included_santim'),
+            'vat_total_santim' => $groups->sum('vat_santim'),
+            'vat_rate_percent' => $vatBp / 100,
+            'grand_total_santim' => $groups->sum('total_santim'),
             'delivery_to_confirm' => $groups->contains(fn ($g) => ! $g['delivery_fee_confirmed']),
             'area' => $area ? ['id' => $area->id, 'name' => $area->name] : null,
             'has_pin' => $pin !== null,

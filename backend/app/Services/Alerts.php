@@ -55,7 +55,7 @@ class Alerts
                 ));
             }
 
-            $lines = $checkout->orders->map(fn (Order $o) => "{$o->number} from {$o->seller?->store_name}: ".self::etb($o->total_santim).($o->fulfillment === 'delivery' && $o->delivery_fee_santim === null ? ' plus delivery (the store will confirm the fee)' : ''))->all();
+            $lines = $checkout->orders->map(fn (Order $o) => "{$o->number} from {$o->seller?->store_name}: ".self::etb($o->total_santim).($o->fulfillment === 'delivery' && $o->delivery_fee_santim === null ? ' plus delivery'.($o->vat_rate_bp > 0 ? ' and its VAT' : '').' (the store will confirm the fee)' : ''))->all();
             $online = $checkout->isOnline();
             $this->notify($checkout->customer, new Alert(
                 kind: 'checkout.placed',

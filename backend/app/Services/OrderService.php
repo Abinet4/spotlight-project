@@ -139,6 +139,7 @@ class OrderService
                 $order->commission_rate_bp = $rateBp;
                 $order->commission_santim = Order::commissionFor($group['items_total_santim'], $rateBp);
                 $order->vat_rate_bp = $group['vat_rate_bp'];
+                $order->vat_santim = $group['vat_santim'];
                 $order->vat_number = $group['seller']['vat_number'];
                 $order->payment_method = $paymentMethod;
                 $order->status = $online ? OrderStatus::AwaitingPayment : OrderStatus::PendingConfirmation;
@@ -227,9 +228,18 @@ class OrderService
                     if ($deliveryFee === null) {
                         throw ValidationException::withMessages(['delivery_fee' => 'Set the delivery fee before confirming.']);
                     }
+                    $vatInside = $order->vatInsidePrice();
                     // The store sets the transport part; carrying up stairs was priced at checkout.
                     $order->delivery_fee_santim = $deliveryFee + (int) $order->carry_fee_santim;
-                    $order->total_santim = $order->items_total_santim + $order->delivery_fee_santim;
+                    if ($vatInside) {
+                        // Placed while VAT sat inside prices: keep it that way so the customer is not charged more.
+                        $order->total_santim = $order->items_total_santim + $order->delivery_fee_santim;
+                        $order->vat_santim = Order::vatInside($order->total_santim, (int) $order->vat_rate_bp);
+                    } else {
+                        // VAT now covers the delivery fee too.
+                        $order->vat_santim = Order::vatOn($order->items_total_santim + $order->delivery_fee_santim, (int) $order->vat_rate_bp);
+                        $order->total_santim = $order->items_total_santim + $order->delivery_fee_santim + $order->vat_santim;
+                    }
                 }
                 $order->confirmed_at = now();
                 if ($note) {

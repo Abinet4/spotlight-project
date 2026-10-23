@@ -95,7 +95,7 @@ class ReportController extends Controller
 
         return response()->streamDownload(function () use ($start, $end, $tz) {
             $out = fopen('php://output', 'w');
-            fputcsv($out, ['order', 'placed_at', 'status', 'store', 'customer', 'area', 'fulfillment', 'items_etb', 'delivery_etb', 'total_etb', 'vat_rate_percent', 'vat_included_etb', 'store_vat_number', 'commission_rate_percent', 'commission_etb', 'payment_method', 'payment_status', 'delivered_at', 'cancelled_at', 'cancelled_by'], escape: '');
+            fputcsv($out, ['order', 'placed_at', 'status', 'store', 'customer', 'area', 'fulfillment', 'items_etb', 'delivery_etb', 'total_etb', 'vat_rate_percent', 'vat_etb', 'store_vat_number', 'commission_rate_percent', 'commission_etb', 'payment_method', 'payment_status', 'delivered_at', 'cancelled_at', 'cancelled_by'], escape: '');
             Order::whereBetween('created_at', [$start, $end])
                 ->with(['seller:id,store_name', 'customer:id,name', 'checkout:id,area_name'])
                 ->orderBy('id')

@@ -227,10 +227,10 @@ export default function Checkout() {
           <dl className="space-y-1 border-t border-stone-100 pt-3 text-sm">
             <div className="flex justify-between"><dt>Items</dt><dd>{formatETB(p.items_total_santim)}</dd></div>
             <div className="flex justify-between"><dt>Delivery</dt><dd>{formatETB(p.delivery_total_santim) || 'ETB 0'}{p.delivery_to_confirm && ' + to confirm'}</dd></div>
-            <div className="flex justify-between text-base font-bold text-stone-900"><dt>Total</dt><dd>{formatETB(p.grand_total_santim)}</dd></div>
-            {p.vat_included_santim > 0 && (
-              <div className="flex justify-between text-xs text-stone-500"><dt>Includes VAT{p.groups.length > 1 ? ' from VAT-registered stores' : ''}</dt><dd>{formatETB(p.vat_included_santim)}</dd></div>
+            {p.vat_rate_percent > 0 && (
+              <div className="flex justify-between"><dt>VAT ({p.vat_rate_percent}%)</dt><dd>{formatETB(p.vat_total_santim)}{p.delivery_to_confirm && ' + on delivery'}</dd></div>
             )}
+            <div className="flex justify-between border-t border-stone-100 pt-1 text-base font-bold text-stone-900"><dt>Total</dt><dd>{formatETB(p.grand_total_santim)}</dd></div>
           </dl>
           {p.delivery_to_confirm && <p className="text-xs text-stone-500">A seller will confirm their delivery fee before preparing your order. You can cancel if it does not suit you.</p>}
           {chosen === 'online' && <p className="text-xs text-stone-500">Your items are held for {online.window_minutes || 30} minutes while you pay. Sellers see the order once payment goes through.</p>}

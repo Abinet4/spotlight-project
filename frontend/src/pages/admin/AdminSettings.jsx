@@ -39,7 +39,7 @@ export default function AdminSettings() {
           <input id="commission" className="input" inputMode="decimal" value={form.commission_rate_percent}
             onChange={(e) => setForm({ ...form, commission_rate_percent: e.target.value })} />
         </Field>
-        <Field label="VAT rate (%)" name="vat-rate" error={errors.vat_rate_percent} hint="Ethiopia: 15%. Only stores marked as registered for VAT charge it, inside their prices. Orders keep the rate of the day they were placed.">
+        <Field label="VAT rate (%)" name="vat-rate" error={errors.vat_rate_percent} hint="Ethiopia: 15%. Added at checkout on every order, on the items and the delivery fee, and shown as its own line. Orders keep the rate of the day they were placed. 0 turns VAT off.">
           <input id="vat-rate" className="input" inputMode="decimal" value={form.vat_rate_percent}
             onChange={(e) => setForm({ ...form, vat_rate_percent: e.target.value })} />
         </Field>

@@ -14,7 +14,7 @@ import ShareMenu from '../components/ShareMenu'
 import VariantPicker from '../components/VariantPicker'
 import { ErrorState } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
-import { usePaymentWording } from '../context/ConfigContext'
+import { useConfig, usePaymentWording } from '../context/ConfigContext'
 import { BUSINESS_TYPES, CONDITION_LABELS, formatDimensions, formatETB } from '../lib/format'
 import { rememberViewed } from '../lib/localList'
 import { useFetch } from '../lib/useFetch'
@@ -65,6 +65,7 @@ export default function ProductDetail() {
   const similar = useFetch(p ? `/products/${encodeURIComponent(p.slug)}/similar` : null)
   const recent = useRecentlyViewed(slug)
   const pay = usePaymentWording()
+  const config = useConfig()
   const [contactOpen, setContactOpen] = useState(false)
   const [picked, setPicked] = useState(null)
 
@@ -122,7 +123,7 @@ export default function ProductDetail() {
             {!variant && new Set(variants.map((v) => v.price_santim)).size > 1 && <span className="text-sm text-stone-500">Price depends on the option</span>}
             {p.price_negotiable && <span className="rounded-full bg-clay-500/10 px-2.5 py-1 text-xs font-semibold text-clay-600">Price negotiable</span>}
           </div>
-          {p.seller?.vat && <p className="mt-1 text-xs text-stone-500">Includes {p.seller.vat.rate_percent}% VAT · Store VAT registration {p.seller.vat.number}</p>}
+          {config.vat_rate_percent > 0 && <p className="mt-1 text-xs text-stone-500">Plus {config.vat_rate_percent}% VAT at checkout</p>}
           <p className={`mt-2 inline-flex items-center gap-1.5 text-sm font-medium ${p.is_available ? 'text-emerald-700' : 'text-red-700'}`}>
             {!p.is_available ? 'Out of stock. Ask Betoch about restocking.'
               : variant ? (variant.is_available ? `In stock (${variant.stock_quantity} available)` : 'This option is out of stock.')
