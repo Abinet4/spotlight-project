@@ -43,6 +43,11 @@ return [
 
     // Default only: administrators change the live rate in Admin > Settings. Each order stores
     // the rate used when it was placed, so changes never rewrite past orders.
+    'tax' => [
+        // Value added tax (Ethiopia: 15%). Only stores registered for VAT charge it, inside their prices.
+        'vat_rate_percent' => (float) env('MARKETPLACE_VAT_RATE_PERCENT', 15),
+    ],
+
     'commission' => [
         'default_rate_percent' => (float) env('MARKETPLACE_DEFAULT_COMMISSION_PERCENT', 10),
         'max_rate_percent' => 50,

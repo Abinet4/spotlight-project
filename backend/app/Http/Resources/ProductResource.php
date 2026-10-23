@@ -83,6 +83,8 @@ class ProductResource extends JsonResource
                 'store_name' => $this->seller->store_name,
                 'slug' => $this->seller->slug,
                 'area' => $this->seller->relationLoaded('area') ? $this->seller->area?->name : null,
+                // Registered stores must show their VAT number wherever they sell (VAT Proclamation 1341/2024).
+                'vat' => $this->storeVat(),
             ]),
             'image' => $this->whenLoaded('primaryImage', fn () => $this->primaryImage?->thumbUrl()),
             // A photo without its copies has nothing public to show; its store still sees it to remove it.
@@ -110,5 +112,16 @@ class ProductResource extends JsonResource
         }
 
         return $request->attributes->get('stores_set_delivery_fee');
+    }
+
+    /** Only where the full store was loaded (the listing page); lists load a few columns and skip it. */
+    private function storeVat(): ?array
+    {
+        $attributes = $this->seller->getAttributes();
+        if (! array_key_exists('vat_registered', $attributes) || ! $this->seller->vat_registered) {
+            return null;
+        }
+
+        return ['rate_percent' => Setting::vatRateBp() / 100, 'number' => $this->seller->vat_number];
     }
 }

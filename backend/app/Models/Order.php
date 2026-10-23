@@ -32,6 +32,7 @@ class Order extends Model
             'paid_santim' => 'integer',
             'commission_rate_bp' => 'integer',
             'commission_santim' => 'integer',
+            'vat_rate_bp' => 'integer',
             'paid_at' => 'datetime',
             'confirmed_at' => 'datetime',
             'delivered_at' => 'datetime',
@@ -86,6 +87,23 @@ class Order extends Model
     /**
      * Commission rounded half up in integer santim: no floats touch money.
      */
+    /** VAT inside the order total (items and delivery), at the rate frozen when it was placed. */
+    public function vatSantim(): int
+    {
+        return self::vatIncluded((int) $this->total_santim, (int) $this->vat_rate_bp);
+    }
+
+    /** The VAT part of a price that includes VAT: amount x rate / (100% + rate), rounded to the santim. */
+    public static function vatIncluded(int $amountSantim, int $rateBp): int
+    {
+        if ($rateBp <= 0 || $amountSantim <= 0) {
+            return 0;
+        }
+        $base = 10000 + $rateBp;
+
+        return intdiv($amountSantim, $base) * $rateBp + intdiv(($amountSantim % $base) * $rateBp + intdiv($base, 2), $base);
+    }
+
     public static function commissionFor(int $itemsTotalSantim, int $rateBp): int
     {
         // Split the total so the multiplication cannot overflow 64-bit integers on very large orders.

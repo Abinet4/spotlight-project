@@ -17,6 +17,7 @@ use App\Services\AuditLogger;
 use App\Services\SignInCodes;
 use App\Support\PhoneNumber;
 use App\Support\Slug;
+use App\Support\VatDetails;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -86,9 +87,11 @@ class AuthController extends Controller
             'address_line' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:2000'],
             'tin_number' => ['nullable', 'string', 'max:32'],
+            ...VatDetails::rules(),
             'offers_custom_orders' => ['sometimes', 'boolean'],
             'offers_delivery' => ['sometimes', 'boolean'],
         ]);
+        VatDetails::check((bool) ($data['vat_registered'] ?? false), $data['vat_number'] ?? null, $data['tin_number'] ?? null);
 
         $user = DB::transaction(function () use ($data, $audit) {
             $user = User::create([
@@ -108,6 +111,8 @@ class AuthController extends Controller
                 'business_type' => $data['business_type'],
                 'phone' => $data['store_phone'],
                 'tin_number' => $data['tin_number'] ?? null,
+                'vat_registered' => (bool) ($data['vat_registered'] ?? false),
+                'vat_number' => ($data['vat_registered'] ?? false) ? trim($data['vat_number']) : null,
                 'city_id' => $area->city_id,
                 'area_id' => $area->id,
                 'address_line' => $data['address_line'] ?? null,

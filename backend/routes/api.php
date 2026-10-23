@@ -67,6 +67,8 @@ Route::get('/config', fn () => response()->json([
     'max_product_images' => config('marketplace.products.max_images'),
     'max_image_kb' => config('marketplace.products.max_image_kb'),
     'cod_enabled' => Setting::codEnabled(),
+    // Charged by stores registered for VAT, inside their prices.
+    'vat_rate_percent' => Setting::vatRateBp() / 100,
     // Sign-up asks for a mobile number and a texted code (Admin > Settings, everyone uses two-step).
     'phone_required' => Setting::everyoneMustUseTwoStep() && app(SignInCodes::class)->available(),
     'online_payments' => [

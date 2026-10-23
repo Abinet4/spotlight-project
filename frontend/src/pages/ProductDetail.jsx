@@ -124,6 +124,7 @@ export default function ProductDetail() {
             {!variant && new Set(variants.map((v) => v.price_santim)).size > 1 && <span className="text-sm text-stone-500">Price depends on the option</span>}
             {p.price_negotiable && <span className="rounded-full bg-clay-500/10 px-2.5 py-1 text-xs font-semibold text-clay-600">Price negotiable</span>}
           </div>
+          {p.seller?.vat && <p className="mt-1 text-xs text-stone-500">Includes {p.seller.vat.rate_percent}% VAT · Store VAT registration {p.seller.vat.number}</p>}
           <p className={`mt-2 inline-flex items-center gap-1.5 text-sm font-medium ${p.is_available ? 'text-emerald-700' : 'text-red-700'}`}>
             {madeToOrder && <Clock className="size-4" aria-hidden="true" />}
             {madeToOrder

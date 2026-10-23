@@ -19,6 +19,7 @@ class Setting extends Model
 
     public const DEFAULTS = [
         'commission_rate_percent' => 'marketplace.commission.default_rate_percent',
+        'vat_rate_percent' => 'marketplace.tax.vat_rate_percent',
         'cod_enabled' => 'marketplace.payments.cod_enabled',
         'online_payments_enabled' => 'marketplace.payments.online_enabled',
         'commission_credit_limit_birr' => 'marketplace.commission.credit_limit_birr',
@@ -46,6 +47,14 @@ class Setting extends Model
     public static function commissionRateBp(): int
     {
         return (int) round(((float) static::value('commission_rate_percent')) * 100);
+    }
+
+    /**
+     * VAT in basis points (15% = 1500), charged by stores registered for VAT.
+     */
+    public static function vatRateBp(): int
+    {
+        return (int) round(((float) static::value('vat_rate_percent')) * 100);
     }
 
     /**

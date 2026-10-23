@@ -138,6 +138,8 @@ class OrderService
                 $order->total_santim = $group['total_santim'];
                 $order->commission_rate_bp = $rateBp;
                 $order->commission_santim = Order::commissionFor($group['items_total_santim'], $rateBp);
+                $order->vat_rate_bp = $group['vat_rate_bp'];
+                $order->vat_number = $group['seller']['vat_number'];
                 $order->payment_method = $paymentMethod;
                 $order->status = $online ? OrderStatus::AwaitingPayment : OrderStatus::PendingConfirmation;
                 $order->customer_note = $note;

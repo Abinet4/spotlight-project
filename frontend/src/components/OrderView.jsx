@@ -97,7 +97,11 @@ export default function OrderView({ order, viewer, actions, itemExtra }) {
             </p>
           )}
           <div className="flex justify-between border-t border-stone-100 pt-2 text-base font-bold"><span>Total</span><span>{formatETB(order.total_santim)}</span></div>
+          {order.vat && (
+            <div className="flex justify-between text-xs text-stone-600"><span>Includes VAT ({order.vat.rate_percent}%)</span><span>{formatETB(order.vat.included_santim)}</span></div>
+          )}
           <p className="pt-1 text-xs text-stone-500">{paymentSummary(order)}</p>
+          <TaxDetails order={order} />
           {order.refund && (
             <p className={`mt-1 rounded-lg p-2 text-xs ${order.refund.status === 'refunded' ? 'bg-emerald-50 text-emerald-900' : 'bg-amber-50 text-amber-900'}`}>
               {order.refund.status === 'refunded'
@@ -146,6 +150,19 @@ export default function OrderView({ order, viewer, actions, itemExtra }) {
           </section>
         )}
       </aside>
+    </div>
+  )
+}
+
+/** The store's tax numbers, as on a receipt. The store's own fiscal receipt is the official tax invoice. */
+function TaxDetails({ order }) {
+  const tin = order.seller?.tin_number
+  if (!order.vat && !tin) return null
+  return (
+    <div className="mt-2 space-y-0.5 border-t border-stone-100 pt-2 text-xs text-stone-500">
+      {tin && <p>Store TIN {tin}</p>}
+      {order.vat?.number && <p>Store VAT registration {order.vat.number}</p>}
+      {order.vat && <p>Ask the store for its fiscal receipt, the official tax invoice.</p>}
     </div>
   )
 }

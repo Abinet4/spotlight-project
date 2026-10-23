@@ -150,6 +150,21 @@ erDiagram
 | seller_request_messages | seller_request_id (restrict), author_id, author_role (admin/seller/system), body, proposal columns (price_santim, quantity, delivery_fee_santim, production_days, valid_until), quote_id once Betoch sent it as an offer |
 | quotes | + support_ticket_id, seller_request_id (both restrict); conversation_id is now nullable. Rolling the migration back is refused while any quote has no conversation, so offers sent through support are never deleted |
 
+### Added for VAT
+
+| Table | Columns |
+|---|---|
+| seller_profiles | + vat_registered (bool, default false), vat_number |
+| orders | + vat_rate_bp (0 when the store was not registered), vat_number: both frozen when the order is placed |
+
+**VAT (Ministry of Revenue rules).** Ethiopia charges 15% VAT (VAT Proclamation 1341/2024); a business must register once its sales pass ETB 2 million a year, and only registered businesses may charge it. Each store pays its own VAT; Betoch is not the supplier of a local store's goods. Turnover tax was repealed in 2025 (Income Tax Amendment Proclamation 1395/2025), so stores not registered for VAT charge nothing extra.
+- A store says it is registered (with its VAT number and TIN) when applying; after approval only an admin changes it (Admin > Sellers), and the change is audited.
+- Prices of a registered store include VAT: the price shoppers see is what they pay. The listing form can work it out from the price before VAT. VAT inside an order is `total x rate / (100% + rate)`, rounded to the santim, so it covers delivery too and follows a delivery fee confirmed later.
+- The listing page, store page, cart, checkout, order pages and the store's printed receipt show the VAT and the store's VAT number; the sales export has `vat_rate_percent`, `vat_included_etb` and `store_vat_number`.
+- The site's receipt is not the official tax invoice: registered stores must issue their own fiscal (EFD) receipt, and the order page says so.
+- The rate is an admin setting (`MARKETPLACE_VAT_RATE_PERCENT`, default 15); orders keep the rate of the day they were placed.
+- Commission is still worked out on item prices as before. Not yet covered: VAT on Betoch's own commission once Betoch registers, and VAT on shop sales and profit in the seller ERP.
+
 Foreign keys use `restrict` where deleting the parent would destroy history (sellers, categories, cities) and `cascade` only for pure child rows (images, favorites).
 
 ## Business rules implemented

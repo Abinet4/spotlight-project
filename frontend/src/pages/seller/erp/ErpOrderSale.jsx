@@ -83,6 +83,7 @@ export default function ErpOrderSale() {
           <div className="flex justify-between"><dt>Items</dt><dd className="tabular-nums">{money(o.items_total_santim)}</dd></div>
           {o.delivery_santim > 0 && <div className="flex justify-between"><dt>Delivery</dt><dd className="tabular-nums">{money(o.delivery_santim)}</dd></div>}
           <div className="flex justify-between border-t border-stone-200 pt-1 font-bold"><dt>Total</dt><dd className="tabular-nums">{money(o.total_santim)}</dd></div>
+          {o.vat && <div className="flex justify-between text-xs text-stone-600"><dt>Includes VAT ({o.vat.rate_percent}%) · VAT reg. {o.vat.number}</dt><dd className="tabular-nums">{money(o.vat.included_santim)}</dd></div>}
         </dl>
       </section>
 

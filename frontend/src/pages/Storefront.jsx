@@ -33,6 +33,7 @@ export default function Storefront() {
               <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-800">Verified seller</span>
               {s.offers_custom_orders && <span className="rounded-full bg-brand-50 px-2.5 py-1 font-semibold text-brand-800">Custom orders</span>}
               {s.offers_delivery && <span className="rounded-full bg-stone-100 px-2.5 py-1 font-semibold text-stone-700">Delivers in Addis Ababa</span>}
+              {s.vat_number && <span className="rounded-full bg-stone-100 px-2.5 py-1 font-semibold text-stone-700">VAT registered · {s.vat_number}</span>}
             </div>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">

@@ -9,6 +9,7 @@ use App\Http\Resources\SellerProfileResource;
 use App\Models\SellerProfile;
 use App\Services\Alerts;
 use App\Services\AuditLogger;
+use App\Support\VatDetails;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
@@ -68,11 +69,18 @@ class SellerController extends Controller
             'store_name' => ['sometimes', 'string', 'min:2', 'max:120'],
             'tin_number' => ['sometimes', 'nullable', 'string', 'max:32'],
             'business_type' => ['sometimes', Rule::enum(BusinessType::class)],
-        ], [], ['tin_number' => 'TIN number', 'business_type' => 'kind of business']);
+            ...VatDetails::rules(),
+        ], [], ['tin_number' => 'TIN number', 'business_type' => 'kind of business', 'vat_number' => 'VAT number']);
 
         $data = array_map(fn ($v) => is_string($v) ? (trim($v) === '' ? null : trim($v)) : $v, $data);
         if (array_key_exists('store_name', $data) && $data['store_name'] === null) {
             throw ValidationException::withMessages(['store_name' => 'Enter the store name.']);
+        }
+        $registered = (bool) ($data['vat_registered'] ?? $seller->vat_registered);
+        VatDetails::check($registered, array_key_exists('vat_number', $data) ? $data['vat_number'] : $seller->vat_number,
+            array_key_exists('tin_number', $data) ? $data['tin_number'] : $seller->tin_number);
+        if (! $registered && $seller->vat_number !== null) {
+            $data['vat_number'] = null;
         }
 
         DB::transaction(function () use ($seller, $data, $audit) {

@@ -312,6 +312,7 @@ class SaleController extends Controller
             'items_total_santim' => $order->items_total_santim,
             'delivery_santim' => (int) $order->delivery_fee_santim,
             'total_santim' => $order->total_santim,
+            'vat' => $order->vat_rate_bp > 0 ? ['rate_percent' => $order->vat_rate_bp / 100, 'included_santim' => $order->vatSantim(), 'number' => $order->vat_number] : null,
             'commission_santim' => $order->commission_santim,
             'returned_santim' => (int) $recorded->sum(fn ($r) => $r->creditSantim()),
             'refunded_santim' => (int) $recorded->sum('refund_santim'),

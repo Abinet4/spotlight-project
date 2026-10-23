@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 // status, reviewed_at and reviewed_by are set only by admin review actions.
 #[Fillable([
-    'store_name', 'description', 'business_type', 'phone', 'tin_number',
+    'store_name', 'description', 'business_type', 'phone', 'tin_number', 'vat_registered', 'vat_number',
     'city_id', 'area_id', 'address_line', 'offers_custom_orders', 'offers_delivery', 'latitude', 'longitude',
 ])]
 class SellerProfile extends Model
@@ -39,6 +39,7 @@ class SellerProfile extends Model
             'status' => SellerStatus::class,
             'offers_custom_orders' => 'boolean',
             'offers_delivery' => 'boolean',
+            'vat_registered' => 'boolean',
             'reviewed_at' => 'datetime',
         ];
     }
