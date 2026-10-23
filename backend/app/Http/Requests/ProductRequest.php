@@ -40,12 +40,11 @@ class ProductRequest extends FormRequest
             'price' => [$required, 'string', $money],
             'price_negotiable' => ['sometimes', 'boolean'],
             'condition' => [$required, Rule::enum(ProductCondition::class)],
-            'stock_type' => [$required, Rule::enum(StockType::class)],
+            // Betoch sells finished furniture only: every listing is in stock with a count.
+            'stock_type' => ['sometimes', Rule::in([StockType::InStock->value])],
             'stock_quantity' => ['nullable', 'integer', 'min:0', 'max:100000'],
             // The stock shown when the form was opened; a mismatch on save means an order came in meanwhile.
             'stock_expected' => ['nullable', 'integer', 'min:0'],
-            'production_days' => ['nullable', 'integer', 'min:1', 'max:365'],
-            'custom_order_available' => ['sometimes', 'boolean'],
             'width_cm' => ['nullable', 'integer', 'min:1', 'max:2000'],
             'depth_cm' => ['nullable', 'integer', 'min:1', 'max:2000'],
             'height_cm' => ['nullable', 'integer', 'min:1', 'max:2000'],
@@ -66,6 +65,7 @@ class ProductRequest extends FormRequest
     {
         return [
             'price.regex' => 'Enter the price in birr, for example 12500 or 12500.50.',
+            'stock_type.in' => 'Betoch sells finished furniture only, so a listing must be in stock.',
             'delivery_fee.regex' => 'Enter the delivery fee in birr, for example 300 or 300.50.',
         ];
     }
@@ -77,12 +77,8 @@ class ProductRequest extends FormRequest
                 return;
             }
 
-            $stockType = $this->input('stock_type');
-            if ($stockType === StockType::InStock->value && $this->input('stock_quantity') === null && ! $this->isUpdate()) {
+            if ($this->input('stock_quantity') === null && ! $this->isUpdate()) {
                 $validator->errors()->add('stock_quantity', 'Enter how many units are in stock.');
-            }
-            if ($stockType === StockType::MadeToOrder->value && $this->input('production_days') === null && ! $this->isUpdate()) {
-                $validator->errors()->add('production_days', 'Enter the estimated production time in days.');
             }
 
             if ($this->has('price') && Money::toSantim($this->input('price')) < 100) {

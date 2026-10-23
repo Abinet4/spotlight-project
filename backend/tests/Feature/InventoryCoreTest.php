@@ -261,10 +261,12 @@ class InventoryCoreTest extends TestCase
         ], $sent);
     }
 
-    public function test_made_to_order_switch_writes_stock_off_with_history(): void
+    public function test_a_listing_cannot_switch_to_made_to_order(): void
     {
-        $this->as($this->seller->user)->putJson("/api/seller/products/{$this->sofa->id}", ['stock_type' => 'made_to_order', 'production_days' => 14])->assertOk()
-            ->assertJsonPath('data.stock_quantity', 0);
-        $this->assertSame(-50, $this->history($this->sofa));
+        $before = $this->history($this->sofa);
+        $this->as($this->seller->user)->putJson("/api/seller/products/{$this->sofa->id}", ['stock_type' => 'made_to_order', 'production_days' => 14])
+            ->assertUnprocessable()->assertJsonValidationErrors('stock_type');
+        $this->assertSame(50, $this->sofa->fresh()->stock_quantity);
+        $this->assertSame($before, $this->history($this->sofa));
     }
 }

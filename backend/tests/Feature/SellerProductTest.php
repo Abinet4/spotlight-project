@@ -122,8 +122,7 @@ class SellerProductTest extends TestCase
             ['category_id' => 99999],
             ['condition' => 'broken'],
             ['stock_type' => 'in_stock', 'stock_quantity' => null],
-            ['stock_type' => 'made_to_order', 'production_days' => null],
-            ['production_days' => 0, 'stock_type' => 'made_to_order'],
+            ['stock_type' => 'made_to_order', 'production_days' => 21],
             ['offers_delivery' => false, 'pickup_available' => false],
             ['width_cm' => 5000],
             ['name' => 'ab'],
@@ -144,14 +143,26 @@ class SellerProductTest extends TestCase
             ->assertUnprocessable()->assertJsonValidationErrors('category_id');
     }
 
-    public function test_made_to_order_listing_normalizes_stock(): void
+    public function test_listings_are_finished_furniture_in_stock(): void
     {
-        $this->postJson('/api/seller/products', $this->productPayload([
-            'stock_type' => 'made_to_order', 'stock_quantity' => 50, 'production_days' => 21, 'custom_order_available' => true,
-        ]))->assertCreated()
-            ->assertJsonPath('data.stock_quantity', 0)
-            ->assertJsonPath('data.production_days', 21)
-            ->assertJsonPath('data.is_available', true);
+        $this->postJson('/api/seller/products', $this->productPayload(['stock_type' => 'made_to_order', 'production_days' => 21]))
+            ->assertUnprocessable()->assertJsonValidationErrors('stock_type');
+
+        // Without a stock type the listing is in stock; leftover custom and production fields are ignored.
+        $payload = $this->productPayload(['stock_quantity' => 4, 'production_days' => 21, 'custom_order_available' => true]);
+        unset($payload['stock_type']);
+        $id = $this->postJson('/api/seller/products', $payload)->assertCreated()
+            ->assertJsonPath('data.stock_type', 'in_stock')
+            ->assertJsonPath('data.stock_quantity', 4)
+            ->assertJsonPath('data.production_days', null)
+            ->assertJsonMissingPath('data.custom_order_available')
+            ->json('data.id');
+
+        $this->postJson('/api/seller/products', array_merge($payload, ['stock_quantity' => null]))
+            ->assertUnprocessable()->assertJsonValidationErrors('stock_quantity');
+        $this->putJson("/api/seller/products/{$id}", ['stock_type' => 'made_to_order', 'production_days' => 10])
+            ->assertUnprocessable()->assertJsonValidationErrors('stock_type');
+        $this->assertSame('in_stock', Product::find($id)->stock_type->value);
     }
 
     public function test_uploads_reject_non_images_oversized_and_too_many(): void
@@ -228,17 +239,13 @@ class SellerProductTest extends TestCase
         $this->assertDatabaseHas('audit_logs', ['action' => 'product.updated', 'subject_id' => $product->id]);
     }
 
-    public function test_update_cannot_leave_listing_without_delivery_or_pickup_or_production_time(): void
+    public function test_update_cannot_leave_listing_without_delivery_or_pickup(): void
     {
         $id = $this->postJson('/api/seller/products', $this->productPayload(['pickup_available' => false]))->json('data.id');
 
         $this->putJson("/api/seller/products/{$id}", ['offers_delivery' => false])
             ->assertUnprocessable()->assertJsonValidationErrors('offers_delivery');
-        $this->putJson("/api/seller/products/{$id}", ['stock_type' => 'made_to_order'])
-            ->assertUnprocessable()->assertJsonValidationErrors('production_days');
         $this->putJson("/api/seller/products/{$id}", ['offers_delivery' => false, 'pickup_available' => true])->assertOk();
-        $this->putJson("/api/seller/products/{$id}", ['stock_type' => 'made_to_order', 'production_days' => 10])
-            ->assertOk()->assertJsonPath('data.stock_quantity', 0);
         $this->putJson("/api/seller/products/{$id}", ['stock_type' => 'in_stock', 'stock_quantity' => 3])
             ->assertOk()->assertJsonPath('data.production_days', null)->assertJsonPath('data.stock_quantity', 3);
     }

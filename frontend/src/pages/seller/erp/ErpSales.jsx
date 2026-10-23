@@ -172,7 +172,7 @@ function ByItem({ products }) {
           {products.map((p) => (
             <tr key={`${p.product_id}:${p.variant_id}`}>
               <td className="rtable-title px-4 py-2.5">
-                {p.product_id ? <Link to={`/seller/erp/inventory/${p.product_id}`} className="hover:underline">{p.name}{p.label ? ` (${p.label})` : ''}</Link> : <span className="text-stone-600">Custom orders and other lines</span>}
+                {p.product_id ? <Link to={`/seller/erp/inventory/${p.product_id}`} className="hover:underline">{p.name}{p.label ? ` (${p.label})` : ''}</Link> : <span className="text-stone-600">Price offers and other lines</span>}
               </td>
               <td data-label="Sold" className="px-3 py-2.5 text-right tabular-nums">{p.units}<span className="block text-xs text-stone-500">{[p.marketplace_units && `${p.marketplace_units} marketplace`, p.offline_units && `${p.offline_units} shop`].filter(Boolean).join(', ')}</span></td>
               <td data-label="Returned" className="px-3 py-2.5 text-right tabular-nums">{p.returned_units || ''}</td>

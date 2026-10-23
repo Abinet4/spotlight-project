@@ -20,11 +20,10 @@ export default function AddToCart({ product, variant = null, full = false, compa
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
 
-  const inStock = product.stock_type === 'in_stock'
   const needsOption = (product.variants || []).length > 0 || product.options_count > 0
   const stock = variant ? variant.stock_quantity : product.stock_quantity
-  const max = Math.max(1, Math.min(inStock ? stock : 10, 99))
-  if (inStock && product.stock_quantity < 1) return null
+  const max = Math.max(1, Math.min(stock, 99))
+  if (product.stock_quantity < 1) return null
 
   if (!user) {
     return <Link to="/login" state={{ from: location.pathname }} className={`btn-primary ${full ? 'w-full' : ''}`}>Sign in to buy</Link>
@@ -59,7 +58,7 @@ export default function AddToCart({ product, variant = null, full = false, compa
     }
     return <button type="button" className={`btn-primary ${full ? 'w-full' : ''}`} onClick={pick}>Choose an option</button>
   }
-  if (inStock && variant && variant.stock_quantity < 1) {
+  if (variant && variant.stock_quantity < 1) {
     return <button type="button" className={`btn-primary ${full ? 'w-full' : ''}`} disabled>Out of stock</button>
   }
   if (compact) {

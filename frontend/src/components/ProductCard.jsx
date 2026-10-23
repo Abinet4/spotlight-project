@@ -36,7 +36,6 @@ function Badge({ tone, children }) {
 
 export default function ProductCard({ product }) {
   const [quickView, setQuickView] = useState(false)
-  const madeToOrder = product.stock_type === 'made_to_order'
   const url = `/products/${product.slug}`
 
   return (
@@ -45,7 +44,6 @@ export default function ProductCard({ product }) {
         <ProductImage src={product.image} alt="" className="aspect-[4/3] w-full transition duration-500 ease-out group-hover:scale-[1.04]" />
         <div className="pointer-events-none absolute top-2.5 left-2.5 flex flex-wrap gap-1.5">
           {!product.is_available && <Badge tone="red">Out of stock</Badge>}
-          {madeToOrder && <Badge tone="brand">Made to order</Badge>}
           {product.condition !== 'new' && <Badge tone="dark">{CONDITION_LABELS[product.condition]}</Badge>}
         </div>
         <div className="absolute top-2.5 right-2.5 z-10 flex flex-col gap-2">

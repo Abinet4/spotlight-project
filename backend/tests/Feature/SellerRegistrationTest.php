@@ -28,7 +28,6 @@ class SellerRegistrationTest extends TestCase
             'business_type' => 'workshop',
             'store_phone' => '+251911223344',
             'area_id' => $this->area('yeka')->id,
-            'offers_custom_orders' => true,
         ], $overrides);
     }
 

@@ -9,21 +9,20 @@ import VariantEditor from './VariantEditor'
 
 const EMPTY = {
   name: '', category_id: '', description: '', price: '', price_negotiable: false,
-  condition: 'new', stock_type: 'in_stock', stock_quantity: '1', production_days: '', custom_order_available: false,
+  condition: 'new', stock_quantity: '1',
   width_cm: '', depth_cm: '', height_cm: '', material: '', color: '',
   area_id: '', offers_delivery: true, pickup_available: false, delivery_fee: '', delivery_notes: '',
 }
 
-const BOOL_FIELDS = ['price_negotiable', 'custom_order_available', 'offers_delivery', 'pickup_available']
+const BOOL_FIELDS = ['price_negotiable', 'offers_delivery', 'pickup_available']
 
 function fromProduct(p) {
   return {
     ...EMPTY,
     name: p.name, category_id: String(p.category?.id ?? ''), description: p.description,
     price: p.price.endsWith('.00') ? p.price.slice(0, -3) : p.price,
-    price_negotiable: p.price_negotiable, condition: p.condition, stock_type: p.stock_type,
-    stock_quantity: String(p.stock_quantity ?? ''), production_days: String(p.production_days ?? ''),
-    custom_order_available: p.custom_order_available,
+    price_negotiable: p.price_negotiable, condition: p.condition,
+    stock_quantity: String(p.stock_quantity ?? ''),
     width_cm: String(p.dimensions.width_cm ?? ''), depth_cm: String(p.dimensions.depth_cm ?? ''), height_cm: String(p.dimensions.height_cm ?? ''),
     material: p.material ?? '', color: p.color ?? '', area_id: String(p.area_id ?? ''),
     offers_delivery: p.delivery.offers_delivery, pickup_available: p.delivery.pickup_available,
@@ -154,7 +153,6 @@ export default function SellerProductForm() {
   if (existing.loading) return <Spinner />
   if (existing.error) return <ErrorState error={existing.error} />
 
-  const madeToOrder = values.stock_type === 'made_to_order'
   const canSubmit = !product || ['draft', 'rejected'].includes(product.status)
 
   return (
@@ -200,18 +198,9 @@ export default function SellerProductForm() {
 
         <section className="card space-y-4 p-5">
           <h2 className="font-semibold text-stone-900">Availability</h2>
+          <p className="text-sm text-stone-600">Betoch sells finished furniture only. List pieces that are built and ready to deliver, and how many you have.</p>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Stock type" name="stock_type" error={errors.stock_type}>
-              <select className="input" {...bind('stock_type')}>
-                <option value="in_stock">Ready-made, in stock</option>
-                <option value="made_to_order">Made to order</option>
-              </select>
-            </Field>
-            {madeToOrder ? (
-              <Field label="Production time (days)" name="production_days" error={errors.production_days}>
-                <input className="input" inputMode="numeric" {...bind('production_days')} />
-              </Field>
-            ) : hasOptions ? (
+            {hasOptions ? (
               <div className="text-sm">
                 <p className="label">Units in stock</p>
                 <p className="mt-2 text-stone-700">{product.stock_quantity} in total, set for each option below.</p>
@@ -222,7 +211,6 @@ export default function SellerProductForm() {
               </Field>
             )}
           </div>
-          <label className="flex items-center gap-2 text-sm"><input className="size-4 accent-brand-700" {...bind('custom_order_available', 'checkbox')} /> Customers can request custom sizes or finishes</label>
           {editing && <p className="text-xs text-stone-500"><a href="#options-title" className="font-semibold text-brand-700 hover:underline">Options</a> (sizes, colors, materials) are below the Save button.</p>}
         </section>
 

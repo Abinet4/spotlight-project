@@ -24,7 +24,6 @@ class PublicSellerResource extends JsonResource
             'business_type' => $this->business_type->value,
             'city' => $this->whenLoaded('city', fn () => $this->city?->name),
             'area' => $this->whenLoaded('area', fn () => $this->area?->name),
-            'offers_custom_orders' => $this->offers_custom_orders,
             'offers_delivery' => $this->offers_delivery,
             'products_count' => $this->whenCounted('products'),
             'rating' => [

@@ -468,7 +468,7 @@ export function SellerApply() {
   const form = useForm({
     name: '', email: '', phone: '', password: '', password_confirmation: '',
     store_name: '', business_type: 'workshop', store_phone: '', area_id: '', address_line: '',
-    description: '', tin_number: '', offers_custom_orders: false, offers_delivery: true,
+    description: '', tin_number: '', offers_delivery: true,
   })
   const [step, setStep] = useState(null)
 
@@ -541,7 +541,6 @@ export function SellerApply() {
           </Field>
           <div className="flex flex-col gap-2 text-sm">
             <label className="flex items-center gap-2"><input className="size-4 accent-brand-700" {...form.bind('offers_delivery', 'checkbox')} /> I can deliver within Addis Ababa</label>
-            <label className="flex items-center gap-2"><input className="size-4 accent-brand-700" {...form.bind('offers_custom_orders', 'checkbox')} /> I accept custom furniture orders</label>
           </div>
         </fieldset>
         <button type="submit" className="btn-primary w-full" disabled={form.busy}>{form.busy ? 'Submitting...' : 'Submit application'}</button>

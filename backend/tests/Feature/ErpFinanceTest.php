@@ -307,11 +307,11 @@ class ErpFinanceTest extends TestCase
         $products = $this->report('products')->json('data');
         $this->assertSame([6, 2 + 1, 3, 1], [$products[0]['units'], $products[0]['marketplace_units'], $products[0]['offline_units'], $products[0]['returned_units']]);
         $this->assertSame($products[0]['net_santim'] - 600_000 * 5, $products[0]['gross_profit_santim']);
-        $this->assertSame(['Custom and free-text lines', null, null], [$products[1]['name'], $products[1]['cost_santim'], $products[1]['gross_profit_santim']]);
+        $this->assertSame(['Price offers and free-text lines', null, null], [$products[1]['name'], $products[1]['cost_santim'], $products[1]['gross_profit_santim']]);
         $bySales = $this->report('products', 'period=30d&sort=revenue_santim&dir=asc')->json('data');
-        $this->assertSame('Custom and free-text lines', $bySales[0]['name']);
+        $this->assertSame('Price offers and free-text lines', $bySales[0]['name']);
         // Empty values go last whichever way the column is sorted.
-        $this->assertSame('Custom and free-text lines', $this->report('products', 'period=30d&sort=gross_profit_santim&dir=asc')->json('data.1.name'));
+        $this->assertSame('Price offers and free-text lines', $this->report('products', 'period=30d&sort=gross_profit_santim&dir=asc')->json('data.1.name'));
 
         // Valuation includes a hidden listing that still holds units; low stock does not list it.
         $hidden = Product::factory()->create(['seller_profile_id' => $this->seller->id, 'category_id' => $this->category()->id, 'status' => 'archived',
@@ -367,7 +367,7 @@ class ErpFinanceTest extends TestCase
         // CSV: every row in the same order, money in birr, empty where it cannot be worked out.
         $csv = $this->csv('/api/seller/erp/reports/products.csv?period=30d');
         $this->assertStringStartsWith("name,option,units,marketplace_units,offline_units,returned_units,revenue_etb,returned_etb,net_etb,cost_etb,gross_profit_etb\n", $csv);
-        $this->assertMatchesRegularExpression('/\n"Custom and free-text lines",,1,0,1,0,[0-9.]+,0\.00,[0-9.]+,,\n/', $csv);
+        $this->assertMatchesRegularExpression('/\n"Price offers and free-text lines",,1,0,1,0,[0-9.]+,0\.00,[0-9.]+,,\n/', $csv);
         $this->assertSame(1, AuditLog::where('action', 'erp.report_exported')->count());
         $finance = $this->csv('/api/seller/erp/finance.csv?period=7d&group=day');
         $this->assertSame(1 + 7 + 1, substr_count($finance, "\n"));

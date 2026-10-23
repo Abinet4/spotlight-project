@@ -273,8 +273,7 @@ class AlertTest extends TestCase
     public function test_offers_alert_the_customer_and_answers_reach_the_store_without_the_customer_name(): void
     {
         $admin = $this->admin();
-        $this->seller->forceFill(['offers_custom_orders' => true])->save();
-        $ticket = $this->askSupport($this->buyer, ['topic' => 'custom', 'seller_slug' => $this->seller->slug, 'body' => 'Can you make it 9,000?'])->json('data.id');
+        $ticket = $this->askSupport($this->buyer, ['topic' => 'price', 'seller_slug' => $this->seller->slug, 'body' => 'Can you make it 9,000?'])->json('data.id');
         $this->sent = [];
 
         ['quote' => $quoteId] = $this->relayOffer($ticket, $admin, $this->seller);

@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 // seller_profile_id, slug, status, moderation fields and is_featured are never mass assigned.
 #[Fillable([
     'category_id', 'name', 'description', 'price_santim', 'price_negotiable',
-    'condition', 'stock_type', 'stock_quantity', 'production_days', 'custom_order_available',
+    'condition', 'stock_type', 'stock_quantity', 'production_days',
     'width_cm', 'depth_cm', 'height_cm', 'material', 'color',
     'area_id', 'offers_delivery', 'pickup_available', 'delivery_fee_santim', 'delivery_notes',
 ])]
@@ -46,7 +46,6 @@ class Product extends Model
             'reorder_quantity' => 'integer',
             'production_days' => 'integer',
             'price_negotiable' => 'boolean',
-            'custom_order_available' => 'boolean',
             'offers_delivery' => 'boolean',
             'pickup_available' => 'boolean',
             'is_featured' => 'boolean',

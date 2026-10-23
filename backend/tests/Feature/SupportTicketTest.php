@@ -70,7 +70,10 @@ class SupportTicketTest extends TestCase
             ->assertJsonPath('data.subject', 'Order '.$order->number)
             ->assertJsonPath('data.order.number', $order->number)
             ->assertJsonMissingPath('data.order.total_santim');
-        $this->askSupport($this->buyer, ['topic' => 'custom', 'seller_slug' => $this->seller->slug, 'subject' => 'A bigger table', 'body' => 'Can a store make a 10-seat table?'])
+        // Betoch sells finished furniture only, so custom-order questions are no longer taken.
+        $this->askSupport($this->buyer, ['topic' => 'custom', 'seller_slug' => $this->seller->slug, 'body' => 'Can a store make a 10-seat table?'])
+            ->assertUnprocessable()->assertJsonValidationErrors('topic');
+        $this->askSupport($this->buyer, ['topic' => 'product', 'seller_slug' => $this->seller->slug, 'subject' => 'A bigger table', 'body' => 'Does this store have a 10-seat table?'])
             ->assertCreated()->assertJsonPath('data.subject', 'A bigger table')->assertJsonPath('data.store.slug', $this->seller->slug);
         $this->askSupport($this->buyer, ['topic' => 'delivery', 'body' => 'Do you deliver to Sululta?'])
             ->assertCreated()->assertJsonPath('data.subject', 'Delivery')->assertJsonPath('data.product', null);

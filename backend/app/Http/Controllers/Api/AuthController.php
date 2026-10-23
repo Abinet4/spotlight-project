@@ -86,7 +86,6 @@ class AuthController extends Controller
             'address_line' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:2000'],
             'tin_number' => ['nullable', 'string', 'max:32'],
-            'offers_custom_orders' => ['sometimes', 'boolean'],
             'offers_delivery' => ['sometimes', 'boolean'],
         ]);
 
@@ -111,7 +110,6 @@ class AuthController extends Controller
                 'city_id' => $area->city_id,
                 'area_id' => $area->id,
                 'address_line' => $data['address_line'] ?? null,
-                'offers_custom_orders' => $data['offers_custom_orders'] ?? false,
                 'offers_delivery' => $data['offers_delivery'] ?? true,
             ]);
             $profile->slug = Slug::unique(SellerProfile::class, $data['store_name']);

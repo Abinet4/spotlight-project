@@ -58,7 +58,8 @@ class SupportController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'topic' => ['required', Rule::enum(SupportTopic::class)],
+            // Custom orders are no longer taken; the topic stays only so old inquiries still read.
+            'topic' => ['required', Rule::enum(SupportTopic::class)->except(SupportTopic::Custom)],
             'subject' => ['nullable', 'string', 'max:160'],
             'body' => ['required', 'string', 'min:2', 'max:3000'],
             'product_slug' => ['nullable', 'string', 'max:200', 'prohibits:order_id,seller_slug'],

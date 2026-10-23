@@ -16,7 +16,6 @@ function deliveryText(p) {
 }
 
 function availability(p) {
-  if (p.stock_type === 'made_to_order') return `Made to order, about ${p.production_days} days`
   return p.is_available ? `In stock (${p.stock_quantity})` : 'Out of stock'
 }
 
@@ -29,7 +28,6 @@ const ROWS = [
   ['Color', (p) => p.color || '-'],
   ['Condition', (p) => CONDITION_LABELS[p.condition]],
   ['Delivery', deliveryText],
-  ['Custom orders', (p) => (p.custom_order_available ? 'Accepted' : 'No')],
   ['Seller', (p) => <Link to={`/sellers/${p.seller.slug}`} className="font-medium text-brand-700 hover:underline">{p.seller.store_name}</Link>],
   ['Location', (p) => p.area || p.seller.area || '-'],
 ]

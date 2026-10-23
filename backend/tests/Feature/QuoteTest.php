@@ -33,7 +33,7 @@ class QuoteTest extends TestCase
         $this->seedReferenceData();
         $this->seller = $this->approvedSeller();
         $product = Product::factory()->published()->create([
-            'seller_profile_id' => $this->seller->id, 'category_id' => $this->category()->id, 'custom_order_available' => true,
+            'seller_profile_id' => $this->seller->id, 'category_id' => $this->category()->id,
         ]);
         $this->buyer = $this->customer();
         $this->chat = $this->oldConversation($this->buyer, $this->seller, $product);
@@ -116,7 +116,7 @@ class QuoteTest extends TestCase
     public function test_sending_an_offer_is_validated(): void
     {
         $admin = $this->admin();
-        $ticket = $this->askSupport($this->buyer, ['topic' => 'custom', 'seller_slug' => $this->seller->slug, 'body' => 'A 240 cm sofa please'])->json('data.id');
+        $ticket = $this->askSupport($this->buyer, ['topic' => 'price', 'seller_slug' => $this->seller->slug, 'body' => 'A 240 cm sofa please'])->json('data.id');
         ['request' => $request] = $this->relayOffer($ticket, $admin, $this->seller, ['quantity' => 1000, 'price' => '9999999999.99']);
         // The proposal was the largest allowed; its total does not overflow.
         $this->assertSame(999999999999 * 1000, Quote::latest('id')->first()->totalSantim());
