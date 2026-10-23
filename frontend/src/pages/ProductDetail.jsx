@@ -4,9 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 import AddToCart from '../components/AddToCart'
 import CompareButton from '../components/CompareButton'
 import AskSupport from '../components/AskSupport'
-import DeliveryEstimate from '../components/DeliveryEstimate'
 import FavoriteButton from '../components/FavoriteButton'
-import FitCheck from '../components/FitCheck'
 import Gallery from '../components/Gallery'
 import ProductRail from '../components/ProductRail'
 import { RatingSummary, ReviewList } from '../components/Reviews'
@@ -153,15 +151,13 @@ export default function ProductDetail() {
                 <p className="font-semibold text-stone-900">Delivery and pickup</p>
                 <ul className="space-y-1 text-stone-600">
                   {p.delivery.offers_delivery && (
-                    <li>Delivery in Addis Ababa: {p.delivery.fee_santim === null ? 'price depends on your address, check it below' : p.delivery.fee_santim === 0 ? 'free' : formatETB(p.delivery.fee_santim)}</li>
+                    <li>Delivery in Addis Ababa: {p.delivery.fee_santim === null ? 'price depends on your address, shown at checkout' : p.delivery.fee_santim === 0 ? 'free' : formatETB(p.delivery.fee_santim)}</li>
                   )}
                   {p.delivery.pickup_available && <li>Pickup available{p.area ? ` in ${p.area}` : ''}</li>}
                   {p.delivery.notes && <li>{p.delivery.notes}</li>}
                 </ul>
-                {p.delivery.offers_delivery && <div className="pt-2"><DeliveryEstimate slug={p.slug} /></div>}
               </div>
             </div>
-            <FitCheck dimensions={p.dimensions} />
             <div className="flex gap-3 p-4 text-sm">
               <Banknote className="mt-0.5 size-5 shrink-0 text-brand-700" aria-hidden="true" />
               <p className="text-stone-600"><span className="font-semibold text-stone-900">{pay.short}</span> The seller confirms your order and delivery details before preparing it.</p>
