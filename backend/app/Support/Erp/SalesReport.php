@@ -127,7 +127,7 @@ final class SalesReport
     }
 
     /**
-     * Units and money per stock item, most sold first. Custom-quote lines and free-text lines are
+     * Units and money per stock item, most sold first. Price-offer lines and free-text lines are
      * one "other" row, since they are not stock items.
      *
      * @return list<array<string, mixed>>

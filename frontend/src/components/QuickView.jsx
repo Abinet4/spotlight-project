@@ -59,7 +59,7 @@ export default function QuickView({ slug, onClose }) {
                     )}
                   </ul>
                   <p className={`text-sm font-medium ${p.is_available ? 'text-emerald-700' : 'text-red-700'}`}>
-                    {p.stock_type === 'made_to_order' ? `Made to order in about ${p.production_days} days` : p.is_available ? 'In stock' : 'Out of stock'}
+                    {p.is_available ? 'In stock' : 'Out of stock'}
                   </p>
                   <AddToCart product={p} />
                   <div className="flex flex-wrap gap-2">

@@ -10,7 +10,7 @@ enum SupportTopic: string
     case Product = 'product';
     case Availability = 'availability';
     case Price = 'price';
-    case Custom = 'custom';
+    case Custom = 'custom'; // Retired: no new custom-order inquiries, old ones still read.
     case Delivery = 'delivery';
     case Order = 'order';
     case Return = 'return';

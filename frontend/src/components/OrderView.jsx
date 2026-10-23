@@ -57,7 +57,7 @@ export default function OrderView({ order, viewer, actions, itemExtra }) {
                   {i.variant_label && <p className="text-stone-700">{i.variant_label}</p>}
                   <p className="text-stone-600">
                     {i.quantity} x {formatETB(i.unit_price_santim)}
-                    {i.quote_id && ' · custom quote'}
+                    {i.quote_id && ' · price offer'}
                     {i.production_days ? ` · ready in about ${i.production_days} days` : ''}
                   </p>
                 </div>

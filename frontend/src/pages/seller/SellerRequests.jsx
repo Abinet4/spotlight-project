@@ -79,7 +79,7 @@ function today(offsetDays = 0) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-const EMPTY_PROPOSAL = { price: '', quantity: 1, delivery_fee: '', production_days: '', valid_until: today(7) }
+const EMPTY_PROPOSAL = { price: '', quantity: 1, delivery_fee: '', valid_until: today(7) }
 
 function ProposalFields({ value, onChange, errors }) {
   // While the marketplace prices delivery, a store can only offer it free.
@@ -111,9 +111,6 @@ function ProposalFields({ value, onChange, errors }) {
           {errors.delivery_fee && <p className="mt-1 text-xs text-red-700">{errors.delivery_fee}</p>}
         </div>
       )}
-      <Field label="Production days (optional)" name="p-days" error={errors.production_days}>
-        <input id="p-days" type="number" min="0" max="365" className="input" value={value.production_days} onChange={set('production_days')} />
-      </Field>
       <Field label="Price valid until" name="p-valid" error={errors.valid_until}>
         <input id="p-valid" type="date" className="input" min={today()} max={today(60)} value={value.valid_until} onChange={set('valid_until')} />
       </Field>
@@ -183,7 +180,6 @@ export function SellerRequestView() {
           ...proposal,
           quantity: Number(proposal.quantity) || 1,
           delivery_fee: String(proposal.delivery_fee).trim() || null,
-          production_days: proposal.production_days === '' ? null : Number(proposal.production_days),
         } : null,
       })
       setBody('')

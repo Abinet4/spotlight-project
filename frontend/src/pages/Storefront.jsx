@@ -31,7 +31,6 @@ export default function Storefront() {
             {s.description && <p className="mt-3 max-w-2xl text-sm text-stone-700">{s.description}</p>}
             <div className="mt-3 flex flex-wrap gap-2 text-xs">
               <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-800">Verified seller</span>
-              {s.offers_custom_orders && <span className="rounded-full bg-brand-50 px-2.5 py-1 font-semibold text-brand-800">Custom orders</span>}
               {s.offers_delivery && <span className="rounded-full bg-stone-100 px-2.5 py-1 font-semibold text-stone-700">Delivers in Addis Ababa</span>}
             </div>
           </div>

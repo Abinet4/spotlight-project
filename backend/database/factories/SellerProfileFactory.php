@@ -30,7 +30,6 @@ class SellerProfileFactory extends Factory
                 ['city_id' => $attrs['city_id'], 'slug' => 'bole'],
                 ['name' => 'Bole'],
             )->id,
-            'offers_custom_orders' => true,
             'offers_delivery' => true,
             'status' => 'pending',
         ];

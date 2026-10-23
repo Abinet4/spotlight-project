@@ -78,7 +78,7 @@ export const SUPPORT_TOPICS = {
   product: 'Product question',
   availability: 'Availability',
   price: 'Price or offer',
-  custom: 'Custom order',
+  custom: 'Custom order', // Old inquiries only: Betoch sells finished furniture.
   delivery: 'Delivery',
   order: 'My order',
   return: 'Return',
@@ -89,7 +89,7 @@ export const SUPPORT_TOPICS = {
 export const REQUEST_TOPICS = {
   stock: 'Stock check',
   specs: 'Product details',
-  price: 'Price or custom offer',
+  price: 'Price offer',
   delivery: 'Delivery arrangements',
   fulfilment: 'Order fulfilment',
   other: 'Something else',

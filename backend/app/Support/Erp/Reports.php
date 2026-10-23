@@ -171,7 +171,7 @@ final class Reports
     private static function products(int $storeId, Period $period): array
     {
         return array_map(fn ($p) => [
-            'name' => $p['product_id'] ? $p['name'] : 'Custom and free-text lines',
+            'name' => $p['product_id'] ? $p['name'] : 'Price offers and free-text lines',
             'option' => $p['label'],
             'units' => $p['units'], 'marketplace_units' => $p['marketplace_units'], 'offline_units' => $p['offline_units'], 'returned_units' => $p['returned_units'],
             'revenue_santim' => $p['revenue_santim'], 'returned_santim' => $p['returned_santim'], 'net_santim' => $p['net_santim'],

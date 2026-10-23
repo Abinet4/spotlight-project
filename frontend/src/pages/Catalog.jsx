@@ -17,10 +17,9 @@ const SORTS = [
   ['price_desc', 'Price: high to low'],
 ]
 
-const FILTER_KEYS = ['q', 'min_price', 'max_price', 'condition', 'stock_type', 'area', 'custom', 'delivery', 'in_stock', 'sort', 'page']
+const FILTER_KEYS = ['q', 'min_price', 'max_price', 'condition', 'area', 'delivery', 'in_stock', 'sort', 'page']
 
-const OPTION_LABELS = { in_stock: 'Available now', delivery: 'Delivery offered', custom: 'Custom orders accepted' }
-const STOCK_LABELS = { in_stock: 'Ready-made only', made_to_order: 'Made to order only' }
+const OPTION_LABELS = { in_stock: 'Available now', delivery: 'Delivery offered' }
 
 /** One removable chip per active filter, so shoppers see and undo what narrows the list. */
 function activeChips(params, areas) {
@@ -29,9 +28,8 @@ function activeChips(params, areas) {
   const max = params.get('max_price')
   if (min || max) chips.push([['min_price', 'max_price'], min && max ? `ETB ${min} to ${max}` : min ? `From ETB ${min}` : `Up to ETB ${max}`])
   if (params.get('condition')) chips.push([['condition'], CONDITION_LABELS[params.get('condition')] || params.get('condition')])
-  if (params.get('stock_type')) chips.push([['stock_type'], STOCK_LABELS[params.get('stock_type')] || params.get('stock_type')])
   if (params.get('area')) chips.push([['area'], areas?.find((a) => String(a.id) === params.get('area'))?.name || 'Location'])
-  for (const key of ['in_stock', 'delivery', 'custom']) if (params.get(key) === '1') chips.push([[key], OPTION_LABELS[key]])
+  for (const key of ['in_stock', 'delivery']) if (params.get(key) === '1') chips.push([[key], OPTION_LABELS[key]])
   return chips
 }
 
@@ -68,15 +66,6 @@ function Filters({ params, update, areas, onClose }) {
         </select>
       </fieldset>
 
-      <fieldset>
-        <legend className="mb-2 font-semibold text-stone-900">Availability</legend>
-        <select className="input" value={params.get('stock_type') || ''} onChange={(e) => update({ stock_type: e.target.value })}>
-          <option value="">Any availability</option>
-          <option value="in_stock">Ready-made only</option>
-          <option value="made_to_order">Made to order only</option>
-        </select>
-      </fieldset>
-
       {areas?.length > 0 && (
         <fieldset>
           <legend className="mb-2 font-semibold text-stone-900">Seller location</legend>
@@ -92,7 +81,6 @@ function Filters({ params, update, areas, onClose }) {
         {[
           ['in_stock', 'Available now'],
           ['delivery', 'Delivery offered'],
-          ['custom', 'Custom orders accepted'],
         ].map(([key, label]) => (
           <label key={key} className="flex items-center gap-2">
             <input type="checkbox" className="size-4 accent-brand-700" checked={check(key)} onChange={(e) => update({ [key]: e.target.checked ? '1' : '' })} />
@@ -233,7 +221,7 @@ export default function Catalog() {
               title={slug && categoryList && !category ? 'Category not found' : 'No furniture matches your search'}
               action={<Link to="/" className="btn-secondary">Browse all furniture</Link>}
             >
-              Try fewer filters or a different keyword. Looking for something specific? Many sellers build custom furniture to order.
+              Try fewer filters or a different keyword. Looking for something specific? Ask Betoch Support and we will check with our stores.
             </EmptyState>
           ))}
         </section>

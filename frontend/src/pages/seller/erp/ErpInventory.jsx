@@ -6,7 +6,7 @@ import { toQuery } from '../../../lib/format'
 import { useFetch } from '../../../lib/useFetch'
 import { CsvButton, StockBadge, money } from './shared'
 
-const STOCK_FILTERS = [['', 'All'], ['low', 'Low stock'], ['out', 'Out of stock'], ['ok', 'In stock'], ['made_to_order', 'Made to order']]
+const STOCK_FILTERS = [['', 'All'], ['low', 'Low stock'], ['out', 'Out of stock'], ['ok', 'In stock']]
 const SORTS = [['updated', 'Recently changed'], ['name', 'Name'], ['stock', 'Units available'], ['sku', 'SKU'], ['price', 'Price']]
 
 export default function ErpInventory() {

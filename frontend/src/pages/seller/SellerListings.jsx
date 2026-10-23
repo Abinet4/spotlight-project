@@ -80,7 +80,7 @@ export default function SellerListings() {
                     <StatusBadge status={item.status} />
                   </div>
                   <p className="text-sm text-stone-600">
-                    {formatETB(item.price_santim)} · {item.stock_type === 'made_to_order' ? `Made to order (${item.production_days} days)` : `${item.stock_quantity} in stock`}
+                    {formatETB(item.price_santim)} · {item.stock_quantity} in stock
                   </p>
                   {item.status === 'rejected' && item.moderation_note && <p className="mt-1 text-sm text-red-700">Reviewer note: {item.moderation_note}</p>}
                 </div>

@@ -31,8 +31,7 @@ export function CartLine({ line, onChange, readOnly }) {
         </p>
         {line.variant?.label && <p className="text-sm text-stone-700">{line.variant.label}</p>}
         <p className="text-sm text-stone-600">
-          {line.kind === 'quote' ? `Custom quote, ${line.quantity} x ${formatETB(line.unit_price_santim)}` : `${formatETB(line.unit_price_santim)} each`}
-          {line.product?.stock_type === 'made_to_order' && ` · made to order in ${line.product.production_days} days`}
+          {line.kind === 'quote' ? `Price offer, ${line.quantity} x ${formatETB(line.unit_price_santim)}` : `${formatETB(line.unit_price_santim)} each`}
           {line.kind === 'quote' && line.quote.production_days !== null && ` · ready ${line.quote.production_days} days after confirmation`}
         </p>
         {line.problem && <p className="mt-1 text-sm font-medium text-red-700">{line.problem}</p>}

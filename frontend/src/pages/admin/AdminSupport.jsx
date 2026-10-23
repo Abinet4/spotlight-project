@@ -739,7 +739,7 @@ function AboutCard({ ticket: t, onChanged }) {
           <ProductImage src={t.product.image} alt="" className="size-16 shrink-0 rounded-lg" />
           <div className="min-w-0">
             <Link to={`/products/${t.product.slug}`} className="font-medium text-brand-700 hover:underline">{t.product.name}</Link>
-            <p className="text-xs text-stone-600">{formatETB(t.product.price_santim)} · {t.product.status} · {t.product.stock_type === 'made_to_order' ? 'made to order' : `${t.product.stock_quantity} in stock`}</p>
+            <p className="text-xs text-stone-600">{formatETB(t.product.price_santim)} · {t.product.status} · {t.product.stock_quantity} in stock</p>
           </div>
         </div>
       )}
