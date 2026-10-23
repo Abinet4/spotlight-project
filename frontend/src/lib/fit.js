@@ -58,23 +58,3 @@ export function checkFit(dims, space) {
   const status = onPath.map((c) => c.status).sort((x, y) => order.indexOf(x) - order.indexOf(y))[0]
   return { status: status === 'unknown' ? 'fits' : status, checks, note }
 }
-
-const KEY = 'mp_space'
-
-/** Door and stair sizes kept in this browser for visitors without a saved address. */
-export function readSpace() {
-  try {
-    const v = JSON.parse(localStorage.getItem(KEY) || 'null')
-    return v && typeof v === 'object' ? v : null
-  } catch {
-    return null
-  }
-}
-
-export function writeSpace(space) {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(space))
-  } catch {
-    // Not saved; the check still works on this page.
-  }
-}
