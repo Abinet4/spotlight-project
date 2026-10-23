@@ -256,4 +256,33 @@ class CatalogTest extends TestCase
         }
         $this->getJson('/api/products')->assertStatus(429);
     }
+
+    public function test_similar_listings_rank_category_then_stock_then_price(): void
+    {
+        $sofas = $this->category('sofas-living-room');
+        $beds = $this->category('beds-mattresses');
+        $this->category('dining')->update(['is_active' => false]);
+        $one = $this->published(['category_id' => $sofas->id, 'price_santim' => 5_000_000]);
+
+        $near = $this->published(['category_id' => $sofas->id, 'price_santim' => 5_200_000]);
+        $far = $this->published(['category_id' => $sofas->id, 'price_santim' => 1_000_000]);
+        $soldOut = $this->published(['category_id' => $sofas->id, 'price_santim' => 5_000_000, 'stock_quantity' => 0]);
+        $otherKind = $this->published(['category_id' => $beds->id, 'price_santim' => 5_000_000]);
+        $cheaperOther = $this->published(['category_id' => $beds->id, 'price_santim' => 100]);
+        // Never shown: a draft, a suspended store's listing, one in a hidden category.
+        Product::factory()->create(['seller_profile_id' => $this->seller->id, 'category_id' => $sofas->id, 'price_santim' => 5_000_000]);
+        $this->published(['category_id' => $sofas->id], SellerProfile::factory()->suspended()->create());
+        $this->published(['category_id' => $this->category('dining')->id]);
+
+        $ids = collect($this->getJson("/api/products/{$one->slug}/similar")->assertOk()->json('data'))->pluck('id')->all();
+        $this->assertSame([$near->id, $far->id, $soldOut->id, $otherKind->id, $cheaperOther->id], $ids);
+
+        // At most 8, and a hidden listing has no similar row.
+        foreach (range(1, 10) as $i) {
+            $this->published(['category_id' => $sofas->id]);
+        }
+        $this->assertCount(8, $this->getJson("/api/products/{$one->slug}/similar")->json('data'));
+        $one->forceFill(['status' => 'archived'])->save();
+        $this->getJson("/api/products/{$one->slug}/similar")->assertNotFound();
+    }
 }

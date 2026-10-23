@@ -35,7 +35,7 @@ function DetailSkeleton() {
     <div className="container-page py-8" aria-busy="true">
       <span className="sr-only" role="status">Loading...</span>
       <div className="skeleton mb-6 h-4 w-60" />
-      <div className="grid gap-10 lg:grid-cols-[1.25fr_1fr]">
+      <div className="grid gap-10 lg:grid-cols-[1fr_1fr]">
         <div className="skeleton aspect-[4/3] rounded-2xl" />
         <div className="space-y-4"><div className="skeleton h-9 w-3/4" /><div className="skeleton h-4 w-1/3" /><div className="skeleton h-10 w-1/2" /><div className="skeleton h-40 rounded-2xl" /></div>
       </div>
@@ -62,7 +62,7 @@ export default function ProductDetail() {
   const { data, error, loading, reload } = useFetch(`/products/${encodeURIComponent(slug)}`)
   const p = data?.data
   const seller = useFetch(p ? `/sellers/${p.seller.slug}` : null)
-  const similar = useFetch(p ? `/products?category=${encodeURIComponent(p.category.slug)}&per_page=9` : null)
+  const similar = useFetch(p ? `/products/${encodeURIComponent(p.slug)}/similar` : null)
   const recent = useRecentlyViewed(slug)
   const pay = usePaymentWording()
   const [contactOpen, setContactOpen] = useState(false)
@@ -77,7 +77,7 @@ export default function ProductDetail() {
   const variant = variants.find((v) => v.id === picked) || (variants.length === 1 && variants[0].is_available ? variants[0] : null)
   const buyRef = useRef(null)
   const buyInView = useInView(buyRef)
-  const similarList = useMemo(() => (similar.data?.data || []).filter((x) => x.slug !== slug).slice(0, 8), [similar.data, slug])
+  const similarList = useMemo(() => (similar.data?.data || []).filter((x) => x.slug !== slug), [similar.data, slug])
 
   if (loading && !p) return <DetailSkeleton />
   if (error) {
@@ -101,7 +101,7 @@ export default function ProductDetail() {
         <span className="text-stone-700">{p.name}</span>
       </nav>
 
-      <div className="grid gap-8 lg:grid-cols-[1.25fr_1fr] lg:gap-x-12 lg:gap-y-14">
+      <div className="grid gap-8 lg:grid-cols-[1fr_1fr] lg:gap-x-12 lg:gap-y-14">
         <div className="lg:col-start-1 lg:row-start-1">
           <Gallery images={images} name={p.name} />
         </div>
@@ -205,7 +205,7 @@ export default function ProductDetail() {
       </section>
 
       {/* One lone card reads as a broken row, so the section waits for at least two. */}
-      <ProductRail title="Similar furniture" subtitle={`More from ${p.category.name}`} products={similarList.length > 1 ? similarList : []} seeAll={`/category/${p.category.slug}`} />
+      <ProductRail title="Similar furniture" subtitle="Closest in kind and price" products={similarList.length > 1 ? similarList : []} seeAll={`/category/${p.category.slug}`} />
       <ProductRail title="Recently viewed" products={recent} />
 
       {canBuy && (

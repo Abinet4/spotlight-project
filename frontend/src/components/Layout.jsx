@@ -36,7 +36,6 @@ function SearchBox({ className = '', id = 'site-search' }) {
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search sofas, beds, wardrobes..."
           className="input rounded-full border-stone-200 bg-stone-100/80 pr-24 pl-10 focus:bg-white"
           maxLength={100}
         />
@@ -246,12 +245,11 @@ function MobileDrawer({ open, onClose, onSignOut }) {
 /** Category links under the header on wide screens. Not sticky, so the sticky header stays slim. */
 function CategoryBar() {
   const { data: categories } = useCategories()
-  const linkClass = ({ isActive }) => `inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium ${isActive ? 'bg-brand-50 text-brand-800' : 'text-stone-600 hover:bg-stone-100 hover:text-stone-900'}`
+  const linkClass = ({ isActive }) => `inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-1.5 text-sm font-medium ${isActive ? 'bg-brand-50 text-brand-800' : 'text-stone-600 hover:bg-stone-100 hover:text-stone-900'}`
   if (!categories?.length) return null
   return (
     <nav aria-label="Categories" className="hidden border-b border-stone-200/80 bg-white lg:block">
-      <div className="container-page no-scrollbar flex gap-1 relative overflow-x-auto py-2">
-        <NavLink to="/" end className={linkClass}>All furniture</NavLink>
+      <div className="container-page no-scrollbar flex justify-between gap-0.5 relative overflow-x-auto py-2">
         {categories.map((c) => {
           const Icon = categoryIcon(c.slug)
           return (
