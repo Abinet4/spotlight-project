@@ -30,17 +30,16 @@ function SearchBox({ className = '', id = 'site-search' }) {
     >
       <label htmlFor={id} className="sr-only">Search furniture</label>
       <div className="relative">
-        <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-stone-400" aria-hidden="true" />
         <input
           id={id}
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          className="input rounded-full border-stone-200 bg-stone-100/80 pr-24 pl-10 focus:bg-white"
+          className="input rounded-full border-stone-200 bg-stone-100/80 pr-12 pl-4 focus:bg-white"
           maxLength={100}
         />
-        <button type="submit" className="absolute inset-y-1 right-1 rounded-full bg-brand-700 px-4 text-sm font-semibold text-white hover:bg-brand-800">
-          Search
+        <button type="submit" className="absolute inset-y-1 right-1 flex aspect-square items-center justify-center rounded-full bg-brand-700 text-white hover:bg-brand-800" aria-label="Search">
+          <Search className="size-4" aria-hidden="true" />
         </button>
       </div>
     </form>
