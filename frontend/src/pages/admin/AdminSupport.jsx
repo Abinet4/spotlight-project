@@ -121,7 +121,7 @@ function InquiryList({ params, setParams }) {
                       {t.needs_reply && <span className="rounded-full bg-amber-100 px-2 text-xs font-semibold text-amber-800">Needs reply</span>}
                     </div>
                     <p className="truncate text-stone-600">
-                      {t.customer?.name} · {t.topic_label}{t.store ? ` · ${t.store.store_name}` : ''}{t.order ? ` · ${t.order.number}` : ''}
+                      {t.customer?.name} · {t.topic_label}{t.product && t.product.name !== t.subject ? ` · ${t.product.name}` : ''}{t.store ? ` · ${t.store.store_name}` : ''}{t.order ? ` · ${t.order.number}` : ''}{!t.product && !t.order && !t.store ? ' · no item picked' : ''}
                     </p>
                     <p className="truncate text-stone-500">{t.last_message?.from === 'customer' ? 'Customer: ' : 'Betoch: '}{t.last_message?.body}</p>
                   </div>
@@ -706,6 +706,145 @@ function useLive(url) {
   return fetched
 }
 
+/**
+ * What the inquiry is about, at the top so it is the first thing read on any screen. When the customer
+ * did not pick a listing or order, the admin can link one after asking, so stores can be asked about it.
+ */
+function AboutCard({ ticket: t, onChanged }) {
+  const [linking, setLinking] = useState(null)
+  const linked = t.product || t.order
+  const closed = t.status === 'closed'
+
+  return (
+    <section className={`card space-y-3 p-4 text-sm ${linked || t.store ? '' : 'border-amber-300 bg-amber-50/60'}`} aria-labelledby="about-heading">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 id="about-heading" className="font-semibold text-stone-900">About</h2>
+        {!closed && !linking && (
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="btn-ghost px-2 py-1 text-sm" onClick={() => setLinking('product')}>{t.product ? 'Change listing' : 'Link a listing'}</button>
+            {t.customer?.recent_orders?.length > 0 && (
+              <button type="button" className="btn-ghost px-2 py-1 text-sm" onClick={() => setLinking('order')}>{t.order ? 'Change order' : 'Link an order'}</button>
+            )}
+          </div>
+        )}
+      </div>
+      {!linked && !t.store && (
+        <p className="flex items-start gap-2 text-amber-900">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          The customer did not pick an item or order. Read the question, ask the customer if it is unclear, then link it here.
+        </p>
+      )}
+      {t.product && (
+        <div className="flex gap-3">
+          <ProductImage src={t.product.image} alt="" className="size-16 shrink-0 rounded-lg" />
+          <div className="min-w-0">
+            <Link to={`/products/${t.product.slug}`} className="font-medium text-brand-700 hover:underline">{t.product.name}</Link>
+            <p className="text-xs text-stone-600">{formatETB(t.product.price_santim)} · {t.product.status} · {t.product.stock_type === 'made_to_order' ? 'made to order' : `${t.product.stock_quantity} in stock`}</p>
+          </div>
+        </div>
+      )}
+      {t.order && (
+        <p><Link to={`/admin/orders/${t.order.id}`} className="font-medium text-brand-700 hover:underline">Order {t.order.number}</Link>
+          <span className="block text-xs text-stone-600">{ORDER_STATUS_LABELS[t.order.status]} · {formatETB(t.order.total_santim)} · {t.order.payment_method === 'online' ? 'online' : 'cash on delivery'}, {t.order.payment_status}</span></p>
+      )}
+      {t.store && (
+        <div>
+          <p className="flex flex-wrap items-center gap-2"><span className="text-stone-500">Store</span> <span className="font-medium text-stone-900">{t.store.store_name}</span> <StatusBadge status={t.store.status} /></p>
+          {t.store.phone && <p className="text-xs text-stone-600">Store phone {t.store.phone}</p>}
+        </div>
+      )}
+      {linking === 'product' && <LinkListing ticket={t} onCancel={() => setLinking(null)} onDone={() => { setLinking(null); onChanged() }} />}
+      {linking === 'order' && <LinkOrder ticket={t} onCancel={() => setLinking(null)} onDone={() => { setLinking(null); onChanged() }} />}
+    </section>
+  )
+}
+
+function useLink(ticket, onDone) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  async function link(payload) {
+    setBusy(true)
+    setError(null)
+    try {
+      await api.put(`/admin/support/tickets/${ticket.id}`, payload)
+      onDone()
+    } catch (err) {
+      setError(firstError(err))
+      setBusy(false)
+    }
+  }
+  return { busy, error, link }
+}
+
+/** Search listings by name and link one. */
+function LinkListing({ ticket, onCancel, onDone }) {
+  const [term, setTerm] = useState('')
+  const [found, setFound] = useState({ term: '', items: [] })
+  const { busy, error, link } = useLink(ticket, onDone)
+  const q = term.trim()
+
+  useEffect(() => {
+    if (q.length < 2) return undefined
+    let live = true
+    const timer = setTimeout(() => {
+      api.get('/products', { params: { q, per_page: 8 } })
+        .then((res) => live && setFound({ term: q, items: res.data.data }))
+        .catch(() => live && setFound({ term: q, items: [] }))
+    }, 250)
+    return () => { live = false; clearTimeout(timer) }
+  }, [q])
+  const items = found.term === q ? found.items : []
+
+  return (
+    <div className="space-y-2 rounded-lg border border-stone-200 bg-white p-3">
+      <label htmlFor="link-listing" className="label">Listing name</label>
+      <input id="link-listing" type="search" className="input" autoFocus value={term} onChange={(e) => setTerm(e.target.value)} placeholder="For example: sofa, Merkato" />
+      {error && <p className="text-sm font-medium text-red-700">{error}</p>}
+      {q.length >= 2 && found.term === q && items.length === 0 && <p className="text-sm text-stone-600">No published listing matches.</p>}
+      <ul className="divide-y divide-stone-100">
+        {items.map((p) => (
+          <li key={p.id} className="flex items-center gap-3 py-2">
+            <ProductImage src={p.image} alt="" className="size-10 shrink-0 rounded-md" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-medium text-stone-900">{p.name}</p>
+              <p className="truncate text-xs text-stone-500">{p.seller?.store_name} · {formatETB(p.price_santim)}</p>
+            </div>
+            <button type="button" className="btn-secondary px-3 py-1.5" disabled={busy || p.id === ticket.product?.id} onClick={() => link({ product_id: p.id })}>
+              {p.id === ticket.product?.id ? 'Linked' : 'Link'}
+            </button>
+          </li>
+        ))}
+      </ul>
+      <button type="button" className="btn-ghost" onClick={onCancel}>Cancel</button>
+    </div>
+  )
+}
+
+/** Pick one of the customer's latest orders. */
+function LinkOrder({ ticket, onCancel, onDone }) {
+  const { busy, error, link } = useLink(ticket, onDone)
+  return (
+    <div className="space-y-2 rounded-lg border border-stone-200 bg-white p-3">
+      <p className="label">The customer's latest orders</p>
+      {error && <p className="text-sm font-medium text-red-700">{error}</p>}
+      <ul className="divide-y divide-stone-100">
+        {ticket.customer.recent_orders.map((o) => (
+          <li key={o.id} className="flex items-center gap-3 py-2">
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-medium text-stone-900">Order {o.number} · {o.store_name}</p>
+              <p className="truncate text-xs text-stone-500">{[o.items.join(', '), ORDER_STATUS_LABELS[o.status] || o.status, timeAgo(o.created_at)].filter(Boolean).join(' · ')}</p>
+            </div>
+            <button type="button" className="btn-secondary px-3 py-1.5" disabled={busy || o.id === ticket.order?.id} onClick={() => link({ order_id: o.id })}>
+              {o.id === ticket.order?.id ? 'Linked' : 'Link'}
+            </button>
+          </li>
+        ))}
+      </ul>
+      <button type="button" className="btn-ghost" onClick={onCancel}>Cancel</button>
+    </div>
+  )
+}
+
 /** /admin/support/:id */
 export function AdminSupportTicket() {
   const { id } = useParams()
@@ -744,6 +883,8 @@ export function AdminSupportTicket() {
             )}
           </header>
 
+          <AboutCard ticket={t} onChanged={reload} />
+
           <ol className="space-y-3" aria-label="Inquiry history">
             {t.messages.map((m) => <TimelineItem key={m.id} m={m} customerName={t.customer?.name} />)}
           </ol>
@@ -776,30 +917,6 @@ export function AdminSupportTicket() {
               </>
             )}
           </section>
-          {(t.product || t.order || t.store) && (
-            <section className="card space-y-2 p-4 text-sm" aria-label="About">
-              <h2 className="font-semibold text-stone-900">About</h2>
-              {t.product && (
-                <div className="flex gap-2">
-                  <ProductImage src={t.product.image} alt="" className="size-12 shrink-0 rounded-lg" />
-                  <div className="min-w-0">
-                    <Link to={`/products/${t.product.slug}`} className="font-medium text-brand-700 hover:underline">{t.product.name}</Link>
-                    <p className="text-xs text-stone-600">{formatETB(t.product.price_santim)} · {t.product.status} · {t.product.stock_type === 'made_to_order' ? 'made to order' : `${t.product.stock_quantity} in stock`}</p>
-                  </div>
-                </div>
-              )}
-              {t.order && (
-                <p><Link to={`/admin/orders/${t.order.id}`} className="font-medium text-brand-700 hover:underline">Order {t.order.number}</Link>
-                  <span className="block text-xs text-stone-600">{ORDER_STATUS_LABELS[t.order.status]} · {formatETB(t.order.total_santim)} · {t.order.payment_method === 'online' ? 'online' : 'cash on delivery'}, {t.order.payment_status}</span></p>
-              )}
-              {t.store && (
-                <div>
-                  <p className="flex flex-wrap items-center gap-2 font-medium">{t.store.store_name} <StatusBadge status={t.store.status} /></p>
-                  {t.store.phone && <p className="text-xs text-stone-600">Store phone {t.store.phone}</p>}
-                </div>
-              )}
-            </section>
-          )}
           <OfferList offers={t.offers} onChanged={reload} />
         </aside>
       </div>

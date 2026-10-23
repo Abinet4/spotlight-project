@@ -11,6 +11,8 @@ use App\Http\Resources\ConversationResource;
 use App\Http\Resources\SupportMessageResource;
 use App\Http\Resources\SupportTicketResource;
 use App\Models\Conversation;
+use App\Models\Order;
+use App\Models\Product;
 use App\Models\SupportTicket;
 use App\Models\User;
 use App\Services\AuditLogger;
@@ -132,6 +134,8 @@ class SupportController extends Controller
             'assigned_to' => ['sometimes', 'nullable', 'integer'],
             'escalated' => ['sometimes', 'boolean'],
             'escalation_reason' => ['nullable', 'string', 'max:300'],
+            'product_id' => ['sometimes', 'required', 'integer', 'prohibits:order_id'],
+            'order_id' => ['sometimes', 'required', 'integer'],
         ]);
         $admin = $request->user();
 
@@ -146,6 +150,17 @@ class SupportController extends Controller
 
         $ticket = DB::transaction(function () use ($id, $admin, $data, $assignee) {
             $ticket = SupportTicket::lockForUpdate()->findOrFail($id);
+            if (isset($data['product_id'])) {
+                $product = Product::find($data['product_id'])
+                    ?? throw ValidationException::withMessages(['product_id' => 'Choose a listing that still exists.']);
+                $this->support->link($ticket, $admin, $product, null);
+            }
+            if (isset($data['order_id'])) {
+                // Only the customer's own orders, so a support answer never reveals someone else's.
+                $order = Order::where('customer_id', $ticket->customer_id)->find($data['order_id'])
+                    ?? throw ValidationException::withMessages(['order_id' => 'Choose one of this customer\'s orders.']);
+                $this->support->link($ticket, $admin, null, $order);
+            }
             if (array_key_exists('assigned_to', $data)) {
                 $this->support->assign($ticket, $admin, $assignee);
             }
@@ -205,6 +220,10 @@ class SupportController extends Controller
             'customer', 'assignee', 'product.primaryImage', 'order', 'seller', 'quotes.seller', 'messages.author',
             'sellerRequests' => fn ($q) => $q->with(['seller', 'creator', 'product', 'order', 'messages.author', 'messages.quote']),
         ]);
+
+        // The customer's latest orders, to see what they bought and to link one to the inquiry.
+        $ticket->customer?->setRelation('recentOrders', Order::where('customer_id', $ticket->customer_id)
+            ->with(['seller:id,store_name', 'items:id,order_id,name'])->latest('id')->limit(10)->get());
 
         return (new SupportTicketResource($ticket))->as('admin');
     }

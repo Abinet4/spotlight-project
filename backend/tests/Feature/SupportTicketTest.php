@@ -248,6 +248,63 @@ class SupportTicketTest extends TestCase
         $this->getJson('/api/admin/support/tickets?status=lost')->assertUnprocessable();
     }
 
+    public function test_admin_links_a_listing_or_order_when_the_customer_did_not_pick_one(): void
+    {
+        // Asked from the general support page: nothing attached.
+        $id = $this->askSupport($this->buyer, ['topic' => 'availability', 'body' => 'Is the brown sofa available in grey?'])
+            ->assertCreated()->assertJsonPath('data.subject', 'Availability')->assertJsonPath('data.store', null)->json('data.id');
+        $order = $this->placeOrder(1);
+        $otherStore = $this->approvedSeller();
+        $table = Product::factory()->published()->create(['seller_profile_id' => $otherStore->id, 'category_id' => $this->category()->id]);
+
+        $this->actAs($this->admin)->getJson("/api/admin/support/tickets/$id")->assertOk()
+            ->assertJsonPath('data.product', null)
+            ->assertJsonPath('data.customer.recent_orders.0.number', $order->number)
+            ->assertJsonPath('data.customer.recent_orders.0.store_name', $this->seller->store_name);
+
+        // Linking a listing brings its store, and the filled-in subject follows; it is logged.
+        $this->putJson("/api/admin/support/tickets/$id", ['product_id' => $this->sofa->id])->assertOk()
+            ->assertJsonPath('data.product.id', $this->sofa->id)
+            ->assertJsonPath('data.store.id', $this->seller->id)
+            ->assertJsonPath('data.subject', $this->sofa->name);
+        $this->assertTrue(SupportMessage::where('support_ticket_id', $id)->where('internal', true)->where('body', 'Linked to listing "'.$this->sofa->name.'"')->exists());
+        $this->assertTrue(AuditLog::where('action', 'support.linked')->where('subject_id', $id)->exists());
+
+        // Changing it to another store's listing moves the store too; the same link again adds no event.
+        $this->putJson("/api/admin/support/tickets/$id", ['product_id' => $table->id])->assertOk()
+            ->assertJsonPath('data.store.id', $otherStore->id)->assertJsonPath('data.subject', $table->name);
+        $this->putJson("/api/admin/support/tickets/$id", ['product_id' => $table->id])->assertOk();
+        $this->assertSame(2, SupportMessage::where('support_ticket_id', $id)->where('body', 'like', 'Linked to%')->count());
+
+        // An order replaces the listing; the customer sees what it is about now, but no notes.
+        $this->putJson("/api/admin/support/tickets/$id", ['order_id' => $order->id])->assertOk()
+            ->assertJsonPath('data.order.id', $order->id)->assertJsonPath('data.product', null)
+            ->assertJsonPath('data.store.id', $this->seller->id)->assertJsonPath('data.subject', 'Order '.$order->number);
+        $this->actAs($this->buyer)->getJson("/api/support/tickets/$id")->assertOk()
+            ->assertJsonPath('data.order.number', $order->number)
+            ->assertJsonCount(1, 'data.messages');
+    }
+
+    public function test_linking_rules(): void
+    {
+        $id = $this->askSupport($this->buyer, ['topic' => 'other', 'subject' => 'My own words', 'body' => 'Question'])->json('data.id');
+        $other = $this->placeOrder(1, $this->customer());
+        $this->actAs($this->admin);
+
+        $this->putJson("/api/admin/support/tickets/$id", ['order_id' => $other->id])->assertUnprocessable()->assertJsonValidationErrors('order_id');
+        $this->putJson("/api/admin/support/tickets/$id", ['product_id' => 999999])->assertUnprocessable()->assertJsonValidationErrors('product_id');
+        $this->putJson("/api/admin/support/tickets/$id", ['product_id' => $this->sofa->id, 'order_id' => $other->id])->assertUnprocessable();
+        $this->putJson("/api/admin/support/tickets/$id", ['product_id' => null])->assertUnprocessable();
+        $this->assertNull(SupportTicket::findOrFail($id)->product_id);
+
+        // A subject the customer typed is kept.
+        $this->putJson("/api/admin/support/tickets/$id", ['product_id' => $this->sofa->id])->assertOk()->assertJsonPath('data.subject', 'My own words');
+
+        // Only admins can link.
+        $this->actAs($this->buyer)->putJson("/api/admin/support/tickets/$id", ['product_id' => $this->sofa->id])->assertForbidden();
+        $this->actAs($this->seller->user)->putJson("/api/admin/support/tickets/$id", ['product_id' => $this->sofa->id])->assertForbidden();
+    }
+
     public function test_customers_see_only_their_own_inquiries(): void
     {
         $id = $this->askSupport($this->buyer)->json('data.id');

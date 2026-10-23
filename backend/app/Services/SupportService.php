@@ -184,6 +184,32 @@ class SupportService
         }
     }
 
+    /**
+     * Point an inquiry at the listing or order it is about, when the customer did not pick one or picked
+     * the wrong one. The store follows the listing or order; a subject that was only filled in for the
+     * customer follows too, while one the customer typed is kept.
+     */
+    public function link(SupportTicket $ticket, User $admin, ?Product $product, ?Order $order): void
+    {
+        if ($ticket->product_id === $product?->id && $ticket->order_id === $order?->id) {
+            return;
+        }
+        $ticket->loadMissing(['product', 'order']);
+        $filledIn = [$ticket->topic->label(), $ticket->product?->name, $ticket->order ? 'Order '.$ticket->order->number : null];
+        if (in_array($ticket->subject, array_filter($filledIn), true)) {
+            $ticket->subject = $product?->name ?? 'Order '.$order->number;
+        }
+        $ticket->product_id = $product?->id;
+        $ticket->order_id = $order?->id;
+        $ticket->seller_profile_id = $product?->seller_profile_id ?? $order->seller_profile_id;
+        $ticket->save();
+        $ticket->unsetRelation('product')->unsetRelation('order')->unsetRelation('seller');
+
+        $what = $product ? 'listing "'.$product->name.'"' : 'order '.$order->number;
+        $this->append($ticket, $admin, 'admin', 'event', true, 'Linked to '.$what, meta: ['product_id' => $product?->id, 'order_id' => $order?->id]);
+        $this->audit->log('support.linked', $ticket, ['product_id' => $product?->id, 'order_id' => $order?->id]);
+    }
+
     public function escalate(SupportTicket $ticket, User $admin, bool $on, ?string $reason): void
     {
         if ($on === ($ticket->escalated_at !== null) && (! $on || $reason === $ticket->escalation_reason)) {
