@@ -12,7 +12,7 @@ import { useInbox } from '../context/InboxContext'
 import { categoryIcon, useCategories } from '../lib/categories'
 import { Spinner } from './ui'
 
-function SearchBox({ className = '', id = 'site-search' }) {
+function SearchBox({ className = '', id = 'site-search', onClose }) {
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const [q, setQ] = useState(params.get('q') || '')
@@ -26,7 +26,9 @@ function SearchBox({ className = '', id = 'site-search' }) {
       onSubmit={(e) => {
         e.preventDefault()
         navigate(q.trim() ? `/?q=${encodeURIComponent(q.trim())}` : '/')
+        onClose?.()
       }}
+      onKeyDown={(e) => e.key === 'Escape' && onClose?.()}
     >
       <label htmlFor={id} className="sr-only">Search furniture</label>
       <div className="relative">
@@ -37,12 +39,22 @@ function SearchBox({ className = '', id = 'site-search' }) {
           onChange={(e) => setQ(e.target.value)}
           className="input rounded-full border-stone-200 bg-stone-100/80 pr-12 pl-4 focus:bg-white"
           maxLength={100}
+          autoFocus
         />
         <button type="submit" className="absolute inset-y-1 right-1 flex aspect-square items-center justify-center rounded-full bg-brand-700 text-white hover:bg-brand-800" aria-label="Search">
           <Search className="size-4" aria-hidden="true" />
         </button>
       </div>
     </form>
+  )
+}
+
+/** The header's search: one icon that opens the search box under the header. */
+function SearchButton({ open, onToggle }) {
+  return (
+    <button type="button" className="icon-btn" aria-label={open ? 'Close search' : 'Search'} aria-expanded={open} aria-controls="site-search-panel" onClick={onToggle}>
+      {open ? <X className="size-5" aria-hidden="true" /> : <Search className="size-5" aria-hidden="true" />}
+    </button>
   )
 }
 
@@ -330,9 +342,11 @@ export default function Layout() {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
   const location = useLocation()
 
   useEffect(() => setMenuOpen(false), [location.pathname])
+  useEffect(() => setSearchOpen(false), [location.pathname, location.search])
   // The admin and seller areas are work tools: no shop search, category bar or shop footer.
   // Exact prefixes, so the public store pages under /sellers/ keep the shop look.
   const inArea = (base) => location.pathname === base || location.pathname.startsWith(`${base}/`)
@@ -354,13 +368,13 @@ export default function Layout() {
             <img src="/favicon.svg" alt="" className="size-8 shrink-0" />
             <span className="truncate font-display text-lg font-semibold tracking-tight sm:text-xl">{name}</span>
           </Link>
-          {workArea
-            ? <span className="shrink-0 rounded-full bg-stone-100 px-2.5 py-1 text-xs font-semibold text-stone-600">{workArea}</span>
-            : <SearchBox className="hidden flex-1 md:block md:max-w-xl" />}
+          {workArea && <span className="shrink-0 rounded-full bg-stone-100 px-2.5 py-1 text-xs font-semibold text-stone-600">{workArea}</span>}
           <nav className="ml-auto hidden items-center gap-1 lg:flex" aria-label="Account">
+            {!workArea && <SearchButton open={searchOpen} onToggle={() => setSearchOpen((o) => !o)} />}
             <DesktopActions onSignOut={handleSignOut} workArea={workArea} />
           </nav>
           <div className="ml-auto flex shrink-0 items-center gap-0.5 lg:hidden">
+            {!workArea && <SearchButton open={searchOpen} onToggle={() => setSearchOpen((o) => !o)} />}
             {user?.role === 'customer' && <CartLink />}
             {user && <AlertsLink />}
             {!user && <Link to="/login" className="icon-btn" aria-label="Sign in"><User className="size-5" aria-hidden="true" /></Link>}
@@ -376,9 +390,9 @@ export default function Layout() {
             </button>
           </div>
         </div>
-        {!workArea && (
-          <div className="container-page pb-3 md:hidden">
-            <SearchBox id="site-search-mobile" />
+        {!workArea && searchOpen && (
+          <div id="site-search-panel" className="container-page pb-3">
+            <SearchBox className="mx-auto max-w-2xl" onClose={() => setSearchOpen(false)} />
           </div>
         )}
       </header>

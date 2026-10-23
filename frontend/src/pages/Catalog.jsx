@@ -147,12 +147,12 @@ export default function Catalog() {
           <span className="text-stone-700">{title}</span>
         </nav>
       )}
-      <div className={`flex gap-4 ${home ? 'mb-4 flex-wrap items-center justify-between gap-y-2' : 'mb-6 flex-col sm:flex-row sm:items-end sm:justify-between'}`}>
+      <div className={`flex gap-4 ${home ? 'mb-4 items-center justify-end' : 'mb-6 flex-col sm:flex-row sm:items-end sm:justify-between'}`}>
         <div>
           {/* The front page needs no heading on screen; screen readers still get one. */}
           <h1 className={home ? 'sr-only' : 'font-display text-3xl font-semibold tracking-tight text-stone-900 sm:text-4xl'}>{title}</h1>
           {category?.description && <p className="mt-2 max-w-2xl text-sm text-stone-600">{category.description}</p>}
-          {meta && <p className="mt-1 text-sm text-stone-500">{meta.total} {meta.total === 1 ? 'listing' : 'listings'}</p>}
+          {meta && !home && <p className="mt-1 text-sm text-stone-500">{meta.total} {meta.total === 1 ? 'listing' : 'listings'}</p>}
         </div>
         <div className="flex gap-2">
           <button type="button" className="btn-secondary lg:hidden" onClick={() => setFiltersOpen(true)} aria-haspopup="dialog">
