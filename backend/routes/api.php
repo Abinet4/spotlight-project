@@ -109,6 +109,7 @@ Route::middleware('throttle:catalog')->group(function () {
     Route::get('/delivery-zones', [DeliveryController::class, 'zones']);
     Route::get('/products/{slug}/delivery-estimate', [DeliveryController::class, 'estimate'])->middleware('throttle:distance');
     Route::get('/products/{slug}/reviews', [ReviewController::class, 'forProduct']);
+    Route::get('/products/{slug}/similar', [CatalogController::class, 'similar']);
     Route::get('/sellers/{slug}/reviews', [ReviewController::class, 'forSeller']);
 });
 

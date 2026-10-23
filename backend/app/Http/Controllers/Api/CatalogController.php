@@ -138,6 +138,31 @@ class CatalogController extends Controller
         return new ProductResource($query->firstOrFail());
     }
 
+    /**
+     * Up to 8 other listings like this one: its own category first, then in stock before sold out, then the
+     * closest price. Other categories fill the row when its own has few listings.
+     */
+    public function similar(Request $request, string $slug): AnonymousResourceCollection
+    {
+        $product = Product::visible()->where('slug', $slug)->firstOrFail(['products.id', 'products.category_id', 'products.price_santim']);
+        $price = (int) $product->price_santim;
+
+        $query = Product::visible()
+            ->whereKeyNot($product->id)
+            ->with(['primaryImage', 'category:id,name,slug', 'seller:id,store_name,slug,area_id', 'seller.area:id,name', 'area:id,name'])
+            ->withCount('variants')
+            ->orderByRaw('CASE WHEN products.category_id = ? THEN 0 ELSE 1 END', [$product->category_id])
+            ->orderByRaw('CASE WHEN products.stock_quantity > 0 THEN 0 ELSE 1 END')
+            // Price distance without subtracting past zero: MySQL rejects negative results on unsigned columns.
+            ->orderByRaw('CASE WHEN products.price_santim >= ? THEN products.price_santim - ? ELSE ? - products.price_santim END', [$price, $price, $price])
+            ->orderByDesc('products.id')
+            ->limit(8);
+
+        $this->withFavoriteFlag($request, $query);
+
+        return ProductResource::collection($query->get());
+    }
+
     public function seller(string $slug): JsonResponse
     {
         $seller = SellerProfile::publiclyVisible()
