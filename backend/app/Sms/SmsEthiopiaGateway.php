@@ -53,7 +53,7 @@ class SmsEthiopiaGateway implements SmsGateway
             return is_scalar($id) ? (string) $id : null;
         }
 
-        $detail = is_array($json) ? ($json['message'] ?? $json['error'] ?? json_encode($json)) : $response->body();
+        $detail = is_array($json) ? ($json['error_message'] ?? $json['message'] ?? $json['error'] ?? json_encode($json)) : $response->body();
 
         // 4xx answers (bad key, bad number, no balance) will not fix themselves on retry.
         throw new SmsFailed('SMS Ethiopia refused the SMS (HTTP '.$response->status().'): '.mb_substr((string) (is_scalar($detail) ? $detail : json_encode($detail)), 0, 300), retryable: $response->serverError());

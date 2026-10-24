@@ -12,6 +12,7 @@ use App\Services\ExpenseService;
 use App\Support\Dates;
 use App\Support\Erp\Period;
 use App\Support\Money;
+use App\Support\Spreadsheet;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -150,18 +151,16 @@ class ExpenseController extends Controller
         $filters = ['status' => 'recorded'] + $this->filters($request);
         $audit->log('erp.expenses_exported', $store, $period->toArray());
 
-        return response()->streamDownload(function () use ($store, $period, $filters) {
-            $out = fopen('php://output', 'w');
-            fputcsv($out, ['date', 'number', 'category', 'description', 'paid_to', 'payment_method', 'reference', 'amount_etb', 'receipt_attached'], escape: '');
+        return Spreadsheet::download(Spreadsheet::formatOf($request), 'expenses-'.$period->from->toDateString().'-to-'.$period->to->toDateString(), function (callable $put) use ($store, $period, $filters) {
+            $put(['date', 'number', 'category', 'description', 'paid_to', 'payment_method', 'reference', 'amount_etb', 'receipt_attached']);
             $this->query($store->id, $period, $filters)->with('category:id,name')->orderBy('spent_on')->orderBy('id')
-                ->chunk(500, function ($rows) use ($out) {
+                ->chunk(500, function ($rows) use ($put) {
                     foreach ($rows as $e) {
-                        fputcsv($out, [$e->spent_on->toDateString(), $e->number, ReportController::cell($e->category?->name), ReportController::cell($e->description),
-                            ReportController::cell($e->paid_to), $e->payment_method, ReportController::cell($e->reference), Money::toBirr($e->amount_santim), $e->attachment_path ? 'yes' : 'no'], escape: '');
+                        $put([$e->spent_on->toDateString(), $e->number, ReportController::cell($e->category?->name), ReportController::cell($e->description),
+                            ReportController::cell($e->paid_to), $e->payment_method, ReportController::cell($e->reference), Money::toBirr($e->amount_santim), $e->attachment_path ? 'yes' : 'no']);
                     }
                 });
-            fclose($out);
-        }, 'expenses-'.$period->from->toDateString().'-to-'.$period->to->toDateString().'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+        });
     }
 
     public function categories(Request $request): JsonResponse

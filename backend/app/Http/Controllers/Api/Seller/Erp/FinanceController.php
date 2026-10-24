@@ -8,6 +8,7 @@ use App\Services\AuditLogger;
 use App\Support\Erp\Finance;
 use App\Support\Erp\Period;
 use App\Support\Money;
+use App\Support\Spreadsheet;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -47,16 +48,14 @@ class FinanceController extends Controller
         $audit->log('erp.finance_exported', $store, $period->toArray() + ['group' => $group]);
         $head = array_map(fn ($f) => str_replace('_santim', '_etb', $f), self::CSV);
 
-        return response()->streamDownload(function () use ($finance, $head) {
-            $out = fopen('php://output', 'w');
-            fputcsv($out, ['period', 'from', 'to', ...$head], escape: '');
+        return Spreadsheet::download(Spreadsheet::formatOf($request), 'finance-'.$period->from->toDateString().'-to-'.$period->to->toDateString(), function (callable $put) use ($finance, $head) {
+            $put(['period', 'from', 'to', ...$head]);
             foreach ([...$finance['buckets'], $finance['total']] as $row) {
-                fputcsv($out, [$row['key'], $row['from'], $row['to'], ...array_map(
+                $put([$row['key'], $row['from'], $row['to'], ...array_map(
                     fn ($f) => str_ends_with($f, '_santim') ? Money::toBirr($row[$f]) : $row[$f], self::CSV,
-                )], escape: '');
+                )]);
             }
-            fclose($out);
-        }, 'finance-'.$period->from->toDateString().'-to-'.$period->to->toDateString().'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+        });
     }
 
     /** Day, week or month; by default days up to a month, weeks up to four months, then months. */

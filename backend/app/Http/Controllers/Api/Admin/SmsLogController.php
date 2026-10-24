@@ -5,11 +5,16 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Setting;
 use App\Models\SmsMessage;
+use App\Services\AuditLogger;
 use App\Sms\SmsGateway;
+use App\Sms\SmsTrouble;
 use App\Support\PhoneNumber;
+use App\Support\Spreadsheet;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Every SMS the platform tried to send, newest first, for checking delivery problems and cost.
@@ -18,22 +23,7 @@ class SmsLogController extends Controller
 {
     public function index(Request $request, SmsGateway $gateway): JsonResponse
     {
-        $filters = $request->validate([
-            'status' => ['nullable', Rule::in(SmsMessage::STATUSES)],
-            'q' => ['nullable', 'string', 'max:40'],
-        ]);
-        $phone = isset($filters['q']) ? PhoneNumber::ethiopianMobile($filters['q']) : null;
-
-        $page = SmsMessage::with('user:id,name,email')
-            ->when($filters['status'] ?? null, fn ($q, $s) => $q->where('status', $s))
-            ->when($filters['q'] ?? null, function ($q, $term) use ($phone) {
-                $q->where(function ($q) use ($term, $phone) {
-                    $q->where('to', $phone ?? $term)
-                        ->orWhereHas('user', fn ($u) => $u->where('email', 'like', '%'.addcslashes($term, '%_\\').'%'));
-                });
-            })
-            ->orderByDesc('id')
-            ->paginate(30);
+        $page = $this->query($request)->paginate(30);
 
         $since = now()->subDays(30);
         $counts = SmsMessage::where('created_at', '>=', $since)->selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status');
@@ -47,6 +37,8 @@ class SmsLogController extends Controller
                 'status' => $m->status,
                 'driver' => $m->driver,
                 'error' => $m->error,
+                'explanation' => SmsTrouble::explain($m->error),
+                'provider_message_id' => $m->provider_message_id,
                 'attempts' => $m->attempts,
                 'user' => $m->user ? ['id' => $m->user->id, 'name' => $m->user->name, 'email' => $m->user->email] : null,
                 'created_at' => $m->created_at?->toIso8601String(),
@@ -62,5 +54,58 @@ class SmsLogController extends Controller
                 'sms_enabled' => Setting::smsEnabled(),
             ],
         ]);
+    }
+
+    /** Every text the page's filters match, oldest first, with each field in its own column. */
+    public function export(Request $request, AuditLogger $audit): StreamedResponse
+    {
+        $query = $this->query($request);
+        $format = Spreadsheet::formatOf($request);
+        $tz = config('marketplace.timezone');
+        $audit->log('sms.exported', null, ['format' => $format, ...array_filter($request->only(['status', 'q']))]);
+        $time = fn ($t) => $t?->setTimezone($tz)->format('Y-m-d H:i:s');
+
+        return Spreadsheet::download($format, 'text-messages-'.now($tz)->format('Y-m-d-His'), function (callable $put) use ($query, $time) {
+            $put(['id', 'created_at', 'sent_at', 'status', 'kind', 'to', 'name', 'email', 'message', 'provider', 'provider_message_id', 'attempts', 'problem', 'provider_error']);
+            $query->reorder()->chunkById(500, function ($messages) use ($put, $time) {
+                foreach ($messages as $m) {
+                    $put([
+                        $m->id,
+                        $time($m->created_at),
+                        $time($m->sent_at),
+                        $m->status,
+                        $m->kind,
+                        ReportController::cell($m->to),
+                        ReportController::cell($m->user?->name),
+                        ReportController::cell($m->user?->email),
+                        ReportController::cell($m->body),
+                        $m->driver,
+                        ReportController::cell($m->provider_message_id),
+                        $m->attempts,
+                        SmsTrouble::explain($m->error),
+                        ReportController::cell($m->error),
+                    ]);
+                }
+            });
+        });
+    }
+
+    private function query(Request $request): Builder
+    {
+        $filters = $request->validate([
+            'status' => ['nullable', Rule::in(SmsMessage::STATUSES)],
+            'q' => ['nullable', 'string', 'max:40'],
+        ]);
+        $phone = isset($filters['q']) ? PhoneNumber::ethiopianMobile($filters['q']) : null;
+
+        return SmsMessage::with('user:id,name,email')
+            ->when($filters['status'] ?? null, fn ($q, $s) => $q->where('status', $s))
+            ->when($filters['q'] ?? null, function ($q, $term) use ($phone) {
+                $q->where(function ($q) use ($term, $phone) {
+                    $q->where('to', $phone ?? $term)
+                        ->orWhereHas('user', fn ($u) => $u->where('email', 'like', '%'.addcslashes($term, '%_\\').'%'));
+                });
+            })
+            ->orderByDesc('id');
     }
 }

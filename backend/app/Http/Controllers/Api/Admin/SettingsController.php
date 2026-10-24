@@ -66,7 +66,13 @@ class SettingsController extends Controller
                 $stored = is_bool($value) ? ($value ? '1' : '0') : trim((string) $value);
                 Setting::updateOrCreate(['key' => $key], ['value' => $stored, 'updated_by' => $request->user()->id]);
             }
-            $audit->log('settings.updated', null, ['before' => $before, 'after' => $this->current()]);
+            // Only what changed, and nothing when a save changed nothing (the page saves each switch on its own).
+            $after = $this->current();
+            $changed = array_keys(array_filter($after, fn ($value, $key) => ($before[$key] ?? null) !== $value, ARRAY_FILTER_USE_BOTH));
+            if ($changed !== []) {
+                $keys = array_flip($changed);
+                $audit->log('settings.updated', null, ['before' => array_intersect_key($before, $keys), 'after' => array_intersect_key($after, $keys)]);
+            }
         });
 
         return response()->json(['data' => $this->current(), 'meta' => $this->meta()]);

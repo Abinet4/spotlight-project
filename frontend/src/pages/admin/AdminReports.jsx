@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Alert, ErrorState, PageHeader, Spinner, Stats } from '../../components/ui'
-import { api, parseError } from '../../lib/api'
+import DownloadButton from '../../components/DownloadButton'
+import { ErrorState, PageHeader, Spinner, Stats } from '../../components/ui'
 import { formatETB, toQuery } from '../../lib/format'
 import { useFetch } from '../../lib/useFetch'
 
@@ -13,23 +13,6 @@ export default function AdminReports() {
   const to = params.get('to') || ''
   const [form, setForm] = useState({ from, to })
   const res = useFetch(`/admin/reports/summary?${toQuery({ from, to })}`)
-  const [downloadError, setDownloadError] = useState(null)
-
-  async function download() {
-    setDownloadError(null)
-    try {
-      const r = await api.get(`/admin/reports/orders.csv?${toQuery({ from, to })}`, { responseType: 'blob' })
-      const url = URL.createObjectURL(r.data)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `orders-${res.data.data.from}-to-${res.data.data.to}.csv`
-      a.click()
-      URL.revokeObjectURL(url)
-    } catch (err) {
-      setDownloadError(parseError(err).message)
-    }
-  }
-
   const d = res.data?.data
   const maxDay = d ? Math.max(1, ...d.days.map((x) => x.gross_santim)) : 1
   const activeDays = d ? d.days.filter((x) => x.orders > 0).reverse() : []
@@ -41,9 +24,8 @@ export default function AdminReports() {
         <label className="text-sm">From<input type="date" className="input mt-1 w-auto" value={form.from} onChange={(e) => setForm({ ...form, from: e.target.value })} /></label>
         <label className="text-sm">To<input type="date" className="input mt-1 w-auto" value={form.to} onChange={(e) => setForm({ ...form, to: e.target.value })} /></label>
         <button type="submit" className="btn-secondary">Show</button>
-        {d && <button type="button" className="btn-ghost" onClick={download}>Download orders (CSV)</button>}
+        {d && <DownloadButton path="/admin/reports/orders" query={toQuery({ from, to })} filename={`orders-${d.from}-to-${d.to}`} label="Download orders (Excel)" />}
       </form>
-      {downloadError && <div className="mb-4"><Alert tone="error">{downloadError}</Alert></div>}
       {res.loading && !res.data ? <Spinner /> : res.error ? <ErrorState error={res.error} /> : (
         <>
           <p className="mb-2 text-sm text-stone-600">{d.from} to {d.to}</p>

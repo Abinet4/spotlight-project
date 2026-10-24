@@ -2,12 +2,13 @@ import { ArrowDown, ArrowUp, ChevronsUpDown, Printer } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ErrorState, PageHeader, Pagination, Spinner } from '../../../components/ui'
+import DownloadButton from '../../../components/DownloadButton'
 import { useConfig } from '../../../context/ConfigContext'
 import { api, parseError } from '../../../lib/api'
 import { toQuery } from '../../../lib/format'
 import { useFetch } from '../../../lib/useFetch'
 import { GroupPicker, useGroup } from './ErpFinance'
-import { CsvButton, MOVEMENT_LABELS, PO_STATUS, PeriodPicker, money, usePeriod } from './shared'
+import { MOVEMENT_LABELS, PO_STATUS, PeriodPicker, money, usePeriod } from './shared'
 
 /** Words for the codes in enum columns; `brand` is the marketplace's name. */
 const labels = (brand) => ({
@@ -92,7 +93,7 @@ export default function ErpReports() {
   const shown = printing ?? data
   const rangeQuery = data?.range ? `period=custom&from=${data.range.from}&to=${data.range.to}` : ''
   const more = MORE[key]
-  const filename = `${key.replace('_', '-')}${data?.range ? `-${data.range.from}-to-${data.range.to}` : ''}.csv`
+  const filename = `${key.replace('_', '-')}${data?.range ? `-${data.range.from}-to-${data.range.to}` : ''}`
 
   return (
     <>
@@ -124,7 +125,7 @@ export default function ErpReports() {
               {printing && <p className="hidden text-xs text-stone-500 print:block">{name}. Printed {printing.printedAt.toLocaleString('en-GB', { timeZone: 'Africa/Addis_Ababa', dateStyle: 'medium', timeStyle: 'short' })}.</p>}
             </div>
             <div className="flex shrink-0 flex-wrap gap-2 print:hidden">
-              <CsvButton url={`/seller/erp/reports/${key}.csv?${query}`} filename={filename} />
+              <DownloadButton path={`/seller/erp/reports/${key}`} query={query} filename={filename} />
               <span className="inline-flex flex-col">
                 <button type="button" className="btn-secondary" onClick={print} disabled={!data || !!printing}><Printer className="size-4" aria-hidden="true" />{printing ? 'Preparing...' : 'Print'}</button>
                 {printError && <span role="alert" className="mt-1 text-xs text-red-700">{printError}</span>}

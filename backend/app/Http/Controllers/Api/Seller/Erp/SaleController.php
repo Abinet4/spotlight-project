@@ -21,6 +21,7 @@ use App\Support\Erp\Period;
 use App\Support\Erp\SaleFigures;
 use App\Support\Erp\SalesReport;
 use App\Support\Money;
+use App\Support\Spreadsheet;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -142,50 +143,48 @@ class SaleController extends Controller
         // Names and descriptions people typed must not run as spreadsheet formulas.
         $text = ReportController::cell(...);
 
-        return response()->streamDownload(function () use ($store, $period, $start, $end, $birr, $text) {
-            $out = fopen('php://output', 'w');
-            fputcsv($out, ['date', 'type', 'document', 'for', 'customer', 'item', 'quantity', 'amount_etb', 'unit_cost_etb', 'back_in_stock'], escape: '');
+        return Spreadsheet::download(Spreadsheet::formatOf($request), 'sales-'.$period->from->toDateString().'-to-'.$period->to->toDateString(), function (callable $put) use ($store, $period, $start, $end, $birr, $text) {
+            $put(['date', 'type', 'document', 'for', 'customer', 'item', 'quantity', 'amount_etb', 'unit_cost_etb', 'back_in_stock']);
             Order::where('seller_profile_id', $store->id)->where('status', OrderStatus::Delivered->value)->whereBetween('delivered_at', [$start, $end])
-                ->with(['customer:id,name', 'items'])->orderBy('delivered_at')->chunk(200, function ($orders) use ($out, $period, $birr, $text) {
+                ->with(['customer:id,name', 'items'])->orderBy('delivered_at')->chunk(200, function ($orders) use ($put, $period, $birr, $text) {
                     foreach ($orders as $o) {
                         foreach ($o->items as $i) {
-                            fputcsv($out, [$period->dayOf($o->delivered_at), 'marketplace_sale', $o->number, '', $text($o->customer?->name),
-                                $text($i->name.($i->variant_label ? " ({$i->variant_label})" : '')), $i->quantity, $birr($i->line_total_santim), $birr($i->unit_cost_santim), ''], escape: '');
+                            $put([$period->dayOf($o->delivered_at), 'marketplace_sale', $o->number, '', $text($o->customer?->name),
+                                $text($i->name.($i->variant_label ? " ({$i->variant_label})" : '')), $i->quantity, $birr($i->line_total_santim), $birr($i->unit_cost_santim), '']);
                         }
                         if ($o->delivery_fee_santim) {
-                            fputcsv($out, [$period->dayOf($o->delivered_at), 'marketplace_sale', $o->number, '', $text($o->customer?->name), 'Delivery', '', $birr($o->delivery_fee_santim), '', ''], escape: '');
+                            $put([$period->dayOf($o->delivered_at), 'marketplace_sale', $o->number, '', $text($o->customer?->name), 'Delivery', '', $birr($o->delivery_fee_santim), '', '']);
                         }
                     }
                 });
             OfflineSale::where('seller_profile_id', $store->id)->where('status', 'completed')
                 ->whereDate('sale_date', '>=', $period->from->toDateString())->whereDate('sale_date', '<=', $period->to->toDateString())
-                ->with('items')->orderBy('sale_date')->orderBy('id')->chunk(200, function ($sales) use ($out, $birr, $text) {
+                ->with('items')->orderBy('sale_date')->orderBy('id')->chunk(200, function ($sales) use ($put, $birr, $text) {
                     foreach ($sales as $s) {
                         foreach ($s->items as $i) {
-                            fputcsv($out, [$s->sale_date->toDateString(), 'offline_sale', $s->number, '', $text($s->customer_name), $text($i->description), $i->quantity, $birr($i->net_santim), $birr($i->unit_cost_santim), ''], escape: '');
+                            $put([$s->sale_date->toDateString(), 'offline_sale', $s->number, '', $text($s->customer_name), $text($i->description), $i->quantity, $birr($i->net_santim), $birr($i->unit_cost_santim), '']);
                         }
                         if ($s->delivery_santim) {
-                            fputcsv($out, [$s->sale_date->toDateString(), 'offline_sale', $s->number, '', $text($s->customer_name), 'Delivery', '', $birr($s->delivery_santim), '', ''], escape: '');
+                            $put([$s->sale_date->toDateString(), 'offline_sale', $s->number, '', $text($s->customer_name), 'Delivery', '', $birr($s->delivery_santim), '', '']);
                         }
                     }
                 });
             SaleReturn::where('seller_profile_id', $store->id)->where('status', 'recorded')
                 ->whereDate('returned_on', '>=', $period->from->toDateString())->whereDate('returned_on', '<=', $period->to->toDateString())
                 ->with(['items', 'sale:id,number,customer_name', 'order:id,number,customer_id', 'order.customer:id,name'])->orderBy('returned_on')->orderBy('id')
-                ->chunk(200, function ($returns) use ($out, $birr, $text) {
+                ->chunk(200, function ($returns) use ($put, $birr, $text) {
                     foreach ($returns as $r) {
                         $for = $r->sale?->number ?? $r->order?->number;
                         $customer = $r->sale?->customer_name ?? $r->order?->customer?->name;
                         foreach ($r->items as $i) {
-                            fputcsv($out, [$r->returned_on->toDateString(), 'return', $r->number, $for, $text($customer), $text($i->description), -$i->quantity, $birr(-$i->credit_santim), $birr($i->unit_cost_santim), $i->restocked ? 'yes' : 'no'], escape: '');
+                            $put([$r->returned_on->toDateString(), 'return', $r->number, $for, $text($customer), $text($i->description), -$i->quantity, $birr(-$i->credit_santim), $birr($i->unit_cost_santim), $i->restocked ? 'yes' : 'no']);
                         }
                         if ($r->delivery_credit_santim) {
-                            fputcsv($out, [$r->returned_on->toDateString(), 'return', $r->number, $for, $text($customer), 'Delivery', '', $birr(-$r->delivery_credit_santim), '', ''], escape: '');
+                            $put([$r->returned_on->toDateString(), 'return', $r->number, $for, $text($customer), 'Delivery', '', $birr(-$r->delivery_credit_santim), '', '']);
                         }
                     }
                 });
-            fclose($out);
-        }, 'sales-'.$period->from->toDateString().'-to-'.$period->to->toDateString().'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+        });
     }
 
     public function showOffline(Request $request, int $id): JsonResponse

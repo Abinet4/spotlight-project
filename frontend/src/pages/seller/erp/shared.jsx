@@ -1,8 +1,8 @@
-import { Download, Search } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useOutletContext, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { api, parseError } from '../../../lib/api'
+import { parseError } from '../../../lib/api'
 import { formatETB, toQuery } from '../../../lib/format'
 import { useFetch } from '../../../lib/useFetch'
 
@@ -195,37 +195,6 @@ export function PeriodPicker({ value, long = false }) {
         </form>
       )}
     </div>
-  )
-}
-
-/** Download a CSV from the API (it needs the sign-in token, so a plain link would not work). */
-export function CsvButton({ url, filename, label = 'Download CSV' }) {
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState(null)
-  async function download() {
-    setBusy(true)
-    setError(null)
-    try {
-      const r = await api.get(url, { responseType: 'blob' })
-      const href = URL.createObjectURL(r.data)
-      const a = document.createElement('a')
-      a.href = href
-      a.download = filename
-      a.click()
-      URL.revokeObjectURL(href)
-    } catch (err) {
-      setError(parseError(err).message)
-    } finally {
-      setBusy(false)
-    }
-  }
-  return (
-    <span className="inline-flex flex-col">
-      <button type="button" className="btn-secondary" onClick={download} disabled={busy}>
-        <Download className="size-4" aria-hidden="true" />{busy ? 'Preparing...' : label}
-      </button>
-      {error && <span role="alert" className="mt-1 text-xs text-red-700">{error}</span>}
-    </span>
   )
 }
 

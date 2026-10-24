@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import DownloadButton from '../../components/DownloadButton'
 import { Alert, EmptyState, ErrorState, PageHeader, Pagination, Spinner, Stats } from '../../components/ui'
 import { formatDateTime, toQuery } from '../../lib/format'
 import { useFetch } from '../../lib/useFetch'
@@ -18,10 +19,21 @@ export default function AdminSms() {
   const [search, setSearch] = useState(q)
   const list = useFetch(`/admin/sms?${toQuery({ status, q, page: params.get('page') || '' })}`)
   const meta = list.data?.meta
+  // One line per kind of problem, so a provider account issue is explained once, not under every text.
+  const problems = [...new Set((list.data?.data || []).filter((m) => m.status === 'failed' && m.explanation).map((m) => m.explanation))]
 
   return (
     <>
-      <PageHeader title="Text messages" />
+      <PageHeader title="Text messages"
+        actions={<DownloadButton path="/admin/sms" query={toQuery({ status, q })} filename={`text-messages${status ? `-${status}` : ''}`} />} />
+      {problems.length > 0 && (
+        <div className="mb-4">
+          <Alert tone="error">
+            <span className="font-semibold">Some texts on this page did not go out.</span>
+            {problems.map((p) => <span key={p} className="mt-1 block">{p}</span>)}
+          </Alert>
+        </div>
+      )}
       {meta && !meta.delivers && (
         <div className="mb-4"><Alert tone="warning">No SMS provider is set up, so texts are only logged here, not sent. The README says how to connect AfroMessage.</Alert></div>
       )}
@@ -60,7 +72,12 @@ export default function AdminSms() {
                     {m.attempts > 1 && <span className="text-stone-500">{m.attempts} attempts</span>}
                   </div>
                   <p className="mt-1 break-words text-sm text-stone-800">{m.body}</p>
-                  {m.error && <p className="mt-1 break-words text-xs font-medium text-red-700">{m.error}</p>}
+                  {m.error && (
+                    <details className="mt-1 text-xs">
+                      <summary className="cursor-pointer font-medium text-red-700">{m.status === 'failed' ? 'Not sent' : 'An earlier try failed'} · show the provider's message</summary>
+                      <p className="mt-1 rounded bg-stone-50 p-2 font-mono break-words text-stone-600">{m.error}</p>
+                    </details>
+                  )}
                 </li>
               )
             })}
