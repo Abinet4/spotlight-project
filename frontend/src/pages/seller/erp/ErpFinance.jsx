@@ -1,9 +1,10 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { Alert, ErrorState, PageHeader, Spinner, Stats } from '../../../components/ui'
+import DownloadButton from '../../../components/DownloadButton'
 import { useConfig } from '../../../context/ConfigContext'
 import { toQuery } from '../../../lib/format'
 import { useFetch } from '../../../lib/useFetch'
-import { CsvButton, PeriodPicker, money, usePeriod } from './shared'
+import { PeriodPicker, money, usePeriod } from './shared'
 
 export const GROUPS = [['day', 'Days'], ['week', 'Weeks'], ['month', 'Months']]
 
@@ -49,7 +50,7 @@ export default function ErpFinance() {
   return (
     <>
       <PageHeader title="Finance & profit" subtitle="Worked out from your sales, purchases, expenses and marketplace account. An estimate to run the business, not tax accounts."
-        actions={d && <CsvButton url={`/seller/erp/finance.csv?${query}`} filename={`finance-${d.range.from}-to-${d.range.to}.csv`} />} />
+        actions={d && <DownloadButton path="/seller/erp/finance" query={query} filename={`finance-${d.range.from}-to-${d.range.to}`} />} />
       <div className="mb-4 flex flex-wrap items-end gap-2">
         <PeriodPicker value={period} long />
         <GroupPicker value={group} onChange={setGroup} current={d?.group} />

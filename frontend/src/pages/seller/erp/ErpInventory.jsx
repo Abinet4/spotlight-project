@@ -2,9 +2,10 @@ import { Search } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { EmptyState, ErrorState, PageHeader, Pagination, Spinner, StatusBadge } from '../../../components/ui'
+import DownloadButton from '../../../components/DownloadButton'
 import { toQuery } from '../../../lib/format'
 import { useFetch } from '../../../lib/useFetch'
-import { CsvButton, StockBadge, money } from './shared'
+import { StockBadge, money } from './shared'
 
 const STOCK_FILTERS = [['', 'All'], ['low', 'Low stock'], ['out', 'Out of stock'], ['ok', 'In stock']]
 const SORTS = [['updated', 'Recently changed'], ['name', 'Name'], ['stock', 'Units available'], ['sku', 'SKU'], ['price', 'Price']]
@@ -25,7 +26,7 @@ export default function ErpInventory() {
   return (
     <>
       <PageHeader title="Inventory" subtitle="Every listing and option with its stock, value and history. Change stock here or on the listing."
-        actions={<CsvButton url={`/seller/erp/inventory.csv?${toQuery({ ...filters, page: '' })}`} filename="inventory.csv" />} />
+        actions={<DownloadButton path="/seller/erp/inventory" query={toQuery({ ...filters, page: '' })} filename="inventory" />} />
 
       <div className="mb-4 space-y-3">
         <form role="search" className="flex gap-2" onSubmit={(e) => { e.preventDefault(); set({ q }) }}>

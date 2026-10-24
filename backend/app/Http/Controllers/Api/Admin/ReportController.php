@@ -10,6 +10,7 @@ use App\Models\Refund;
 use App\Models\SellerLedgerEntry;
 use App\Services\AuditLogger;
 use App\Support\Dates;
+use App\Support\Spreadsheet;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -85,48 +86,76 @@ class ReportController extends Controller
     }
 
     /**
-     * Orders placed in the range as CSV, for spreadsheets and accounting.
+     * Orders placed in the range for spreadsheets and accounting, as an Excel workbook or CSV: every order
+     * field, the delivery details, the items and any refund.
      */
     public function export(Request $request, AuditLogger $audit): StreamedResponse
     {
         [$from, $to, $start, $end] = $this->range($request);
         $tz = config('marketplace.timezone');
-        $audit->log('report.exported', null, ['from' => $from->toDateString(), 'to' => $to->toDateString()]);
+        $format = Spreadsheet::formatOf($request);
+        $audit->log('report.exported', null, ['from' => $from->toDateString(), 'to' => $to->toDateString(), 'format' => $format]);
+        $time = fn ($t) => $t?->setTimezone($tz)->format('Y-m-d H:i');
 
-        return response()->streamDownload(function () use ($start, $end, $tz) {
-            $out = fopen('php://output', 'w');
-            fputcsv($out, ['order', 'placed_at', 'status', 'store', 'customer', 'area', 'fulfillment', 'items_etb', 'delivery_etb', 'total_etb', 'vat_rate_percent', 'vat_etb', 'store_vat_number', 'commission_rate_percent', 'commission_etb', 'payment_method', 'payment_status', 'delivered_at', 'cancelled_at', 'cancelled_by'], escape: '');
+        // The first 20 columns keep their order from earlier exports; later ones were added after.
+        $header = ['order', 'placed_at', 'status', 'store', 'customer', 'area', 'fulfillment', 'items_etb', 'delivery_etb', 'total_etb',
+            'vat_rate_percent', 'vat_etb', 'store_vat_number', 'commission_rate_percent', 'commission_etb', 'payment_method', 'payment_status',
+            'delivered_at', 'cancelled_at', 'cancelled_by',
+            'customer_email', 'recipient', 'phone', 'address', 'landmark', 'floor', 'items', 'item_count', 'carry_fee_etb', 'distance_km',
+            'paid_etb', 'paid_at', 'confirmed_at', 'customer_note', 'store_note', 'cancel_reason', 'refund_status', 'refund_etb', 'refund_reference'];
+
+        return Spreadsheet::download($format, 'orders-'.$from->toDateString().'-to-'.$to->toDateString(), function (callable $row) use ($header, $start, $end, $time) {
+            $row($header);
             Order::whereBetween('created_at', [$start, $end])
-                ->with(['seller:id,store_name', 'customer:id,name', 'checkout:id,area_name'])
+                ->with(['seller:id,store_name', 'customer:id,name,email', 'checkout', 'items:id,order_id,name,variant_label,quantity', 'refund'])
                 ->orderBy('id')
-                ->chunkById(500, function ($orders) use ($out, $tz) {
+                ->chunkById(500, function ($orders) use ($row, $time) {
                     foreach ($orders as $o) {
-                        fputcsv($out, array_map(self::cell(...), [
+                        $c = $o->checkout;
+                        $row([
                             $o->number,
-                            $o->created_at?->setTimezone($tz)->format('Y-m-d H:i'),
+                            $time($o->created_at),
                             $o->status->value,
-                            $o->seller?->store_name,
-                            $o->customer?->name,
-                            $o->checkout?->area_name,
+                            self::cell($o->seller?->store_name),
+                            self::cell($o->customer?->name),
+                            self::cell($c?->area_name),
                             $o->fulfillment,
                             self::birr($o->items_total_santim),
                             $o->delivery_fee_santim === null ? '' : self::birr($o->delivery_fee_santim),
                             self::birr($o->total_santim),
                             number_format($o->vat_rate_bp / 100, 2, '.', ''),
                             self::birr($o->vatSantim()),
-                            $o->vat_number,
+                            self::cell($o->vat_number),
                             number_format($o->commission_rate_bp / 100, 2, '.', ''),
                             self::birr($o->commission_santim),
                             $o->payment_method,
                             $o->payment_status,
-                            $o->delivered_at?->setTimezone($tz)->format('Y-m-d H:i'),
-                            $o->cancelled_at?->setTimezone($tz)->format('Y-m-d H:i'),
+                            $time($o->delivered_at),
+                            $time($o->cancelled_at),
                             $o->cancelled_by,
-                        ]), escape: '');
+                            self::cell($o->customer?->email),
+                            self::cell($c?->recipient_name),
+                            self::cell($c?->phone),
+                            self::cell($c?->address_line),
+                            self::cell($c?->landmark),
+                            $c?->floor,
+                            self::cell($o->items->map(fn ($i) => $i->quantity.' x '.$i->name.($i->variant_label ? ' ('.$i->variant_label.')' : ''))->implode('; ')),
+                            (int) $o->items->sum('quantity'),
+                            $o->carry_fee_santim ? self::birr((int) $o->carry_fee_santim) : '',
+                            $o->delivery_distance_m === null ? '' : number_format($o->delivery_distance_m / 1000, 1, '.', ''),
+                            $o->paid_santim ? self::birr((int) $o->paid_santim) : '',
+                            $time($o->paid_at),
+                            $time($o->confirmed_at),
+                            self::cell($o->customer_note),
+                            self::cell($o->seller_note),
+                            self::cell($o->cancel_reason),
+                            $o->refund?->status,
+                            $o->refund ? self::birr((int) $o->refund->amount_santim) : '',
+                            self::cell($o->refund?->reference),
+                        ]);
                     }
                 });
-            fclose($out);
-        }, 'orders-'.$from->toDateString().'-to-'.$to->toDateString().'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+        });
     }
 
     /**

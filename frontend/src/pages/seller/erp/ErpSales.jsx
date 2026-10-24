@@ -2,9 +2,10 @@ import { Search } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { EmptyState, ErrorState, PageHeader, Pagination, Spinner, Stats } from '../../../components/ui'
+import DownloadButton from '../../../components/DownloadButton'
 import { toQuery } from '../../../lib/format'
 import { useFetch } from '../../../lib/useFetch'
-import { Badge, CsvButton, DayBars, PeriodPicker, SALE_STATUS, money, usePeriod, useReadOnly } from './shared'
+import { Badge, DayBars, PeriodPicker, SALE_STATUS, money, usePeriod, useReadOnly } from './shared'
 
 const SOURCES = [['', 'All sales'], ['marketplace', 'Marketplace'], ['offline', 'Shop sales']]
 const STATUSES = [['', 'Any'], ['owing', 'Customer owes (any date)'], ['voided', 'Voided']]
@@ -25,7 +26,7 @@ export default function ErpSales() {
   const rows = list.data?.data || []
   const filtered = filters.source || filters.status || filters.q
   const inProgress = r ? Object.values(r.in_progress || {}).reduce((n, c) => n + c, 0) : 0
-  const csvName = r ? `sales-${r.range.from}-to-${r.range.to}.csv` : 'sales.csv'
+  const fileName = r ? `sales-${r.range.from}-to-${r.range.to}` : 'sales'
 
   return (
     <>
@@ -33,7 +34,7 @@ export default function ErpSales() {
         subtitle="Marketplace orders count on the day they were delivered; your own shop sales on their sale date. Returns count on the day the goods came back."
         actions={<>
           {!readOnly && <Link to="/seller/erp/sales/new" className="btn-primary">New shop sale</Link>}
-          <CsvButton url={`/seller/erp/sales.csv?${period.query}`} filename={csvName} />
+          <DownloadButton path="/seller/erp/sales" query={period.query} filename={fileName} />
         </>} />
       <div className="mb-4"><PeriodPicker value={period} /></div>
 

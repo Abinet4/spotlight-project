@@ -18,6 +18,7 @@ use App\Support\Dates;
 use App\Support\Erp\StockFigures;
 use App\Support\Erp\StoreLock;
 use App\Support\Money;
+use App\Support\Spreadsheet;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -283,20 +284,18 @@ class InventoryController extends Controller
         $tz = config('marketplace.timezone');
         $text = ReportController::cell(...);
 
-        return response()->streamDownload(function () use ($store, $data, $tz, $text) {
-            $out = fopen('php://output', 'w');
-            fputcsv($out, ['date_time', 'listing', 'option', 'location', 'type', 'change', 'available_after', 'at_location_after', 'order', 'by', 'note'], escape: '');
-            $this->movementQuery($store->id, $data)->chunkById(500, function ($rows) use ($out, $tz, $text) {
+        return Spreadsheet::download(Spreadsheet::formatOf($request), 'stock-history-'.now($tz)->toDateString(), function (callable $put) use ($store, $data, $tz, $text) {
+            $put(['date_time', 'listing', 'option', 'location', 'type', 'change', 'available_after', 'at_location_after', 'order', 'by', 'note']);
+            $this->movementQuery($store->id, $data)->chunkById(500, function ($rows) use ($put, $tz, $text) {
                 foreach ($rows as $m) {
                     $r = self::movement($m, withProduct: true);
-                    fputcsv($out, [
+                    $put([
                         $m->created_at?->setTimezone($tz)->format('Y-m-d H:i'), $text($r['product']['name'] ?? ''), $text($r['variant']), $text($r['warehouse']),
                         $r['type'], $r['quantity'], $r['available_after'], $r['location_after'], $r['order']['number'] ?? '', $text($r['by']), $text($r['note']),
-                    ], escape: '');
+                    ]);
                 }
             });
-            fclose($out);
-        }, 'stock-history-'.now($tz)->toDateString().'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+        });
     }
 
     /** @return array<string, mixed> */
@@ -334,24 +333,22 @@ class InventoryController extends Controller
         $filters = $this->filters($request);
         $audit->log('inventory.exported', $store);
 
-        return response()->streamDownload(function () use ($store, $filters) {
-            $out = fopen('php://output', 'w');
-            fputcsv($out, ['listing', 'option', 'sku', 'listing_status', 'stock_type', 'available', 'held_for_orders', 'sold', 'low_stock_level', 'state', 'price_etb', 'cost_etb', 'value_at_cost_etb', 'value_at_price_etb'], escape: '');
-            $this->query($store->id, $filters)->with('variants')->chunk(200, function ($products) use ($out) {
+        return Spreadsheet::download(Spreadsheet::formatOf($request), 'inventory-'.now(config('marketplace.timezone'))->toDateString(), function (callable $put) use ($store, $filters) {
+            $put(['listing', 'option', 'sku', 'listing_status', 'stock_type', 'available', 'held_for_orders', 'sold', 'low_stock_level', 'state', 'price_etb', 'cost_etb', 'value_at_cost_etb', 'value_at_price_etb']);
+            $this->query($store->id, $filters)->with('variants')->chunk(200, function ($products) use ($put) {
                 $figures = new StockFigures($products, $this->inventory);
                 foreach ($products as $p) {
                     foreach ($figures->items($p) as $it) {
-                        fputcsv($out, array_map(ReportController::cell(...), [
+                        $put(array_map(ReportController::cell(...), [
                             $p->name, $it['label'], $it['sku'], $p->status->value, $p->stock_type->value,
                             $it['tracked'] ? $it['available'] : '', $it['held'], $it['sold'], $it['tracked'] ? $it['low_level'] : '', $it['state'],
                             Money::toBirr($it['price_santim']), Money::toBirr($it['cost_price_santim']),
                             Money::toBirr($it['value_cost_santim']), $it['tracked'] ? Money::toBirr($it['value_price_santim']) : '',
-                        ]), escape: '');
+                        ]));
                     }
                 }
             });
-            fclose($out);
-        }, 'inventory-'.now(config('marketplace.timezone'))->toDateString().'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+        });
     }
 
     /** @return array<string, mixed> */

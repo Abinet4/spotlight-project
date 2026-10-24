@@ -9,6 +9,7 @@ use App\Services\AuditLogger;
 use App\Support\Erp\Period;
 use App\Support\Erp\Reports;
 use App\Support\Money;
+use App\Support\Spreadsheet;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -68,11 +69,10 @@ class ReportController extends Controller
         $audit->log('erp.report_exported', $store, ['report' => $report] + ($def['period'] ? $period->toArray() : []));
         $name = str_replace('_', '-', $report).($def['period'] ? '-'.$period->from->toDateString().'-to-'.$period->to->toDateString() : '-'.now(config('marketplace.timezone'))->toDateString());
 
-        return response()->streamDownload(function () use ($def, $rows) {
-            $out = fopen('php://output', 'w');
-            fputcsv($out, array_map(fn ($c) => str_replace('_santim', '_etb', $c['key']), $def['columns']), escape: '');
+        return Spreadsheet::download(Spreadsheet::formatOf($request), $name, function (callable $put) use ($def, $rows) {
+            $put(array_map(fn ($c) => str_replace('_santim', '_etb', $c['key']), $def['columns']));
             foreach ($rows as $row) {
-                fputcsv($out, array_map(function ($c) use ($row) {
+                $put(array_map(function ($c) use ($row) {
                     $v = $row[$c['key']] ?? null;
 
                     return match ($c['type']) {
@@ -81,10 +81,9 @@ class ReportController extends Controller
                         // Names and notes people typed must not run as spreadsheet formulas.
                         default => AdminReportController::cell($v),
                     };
-                }, $def['columns']), escape: '');
+                }, $def['columns']));
             }
-            fclose($out);
-        }, $name.'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+        });
     }
 
     /**

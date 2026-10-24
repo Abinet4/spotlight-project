@@ -2,11 +2,12 @@ import { Paperclip, Search } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { EmptyState, ErrorState, PageHeader, Pagination, Spinner, Stats } from '../../../components/ui'
+import DownloadButton from '../../../components/DownloadButton'
 import { api } from '../../../lib/api'
 import { newIdempotencyKey, toQuery } from '../../../lib/format'
 import { useFetch } from '../../../lib/useFetch'
 import { today } from './SaleParts'
-import { Badge, CsvButton, Err, PAY_METHODS, PeriodPicker, cleanBirr, money, toSantim, usePeriod, useReadOnly, useSubmit } from './shared'
+import { Badge, Err, PAY_METHODS, PeriodPicker, cleanBirr, money, toSantim, usePeriod, useReadOnly, useSubmit } from './shared'
 
 const STATUS = { recorded: ['Recorded', 'bg-emerald-100 text-emerald-800'], voided: ['Voided', 'bg-stone-200 text-stone-700'] }
 const RECEIPTS = [['', 'Any'], ['without', 'No receipt'], ['with', 'With receipt']]
@@ -47,7 +48,7 @@ export default function ErpExpenses() {
         actions={<>
           {!readOnly && panel !== 'new' && <button type="button" className="btn-primary" onClick={() => setPanel('new')}>Record expense</button>}
           {!readOnly && <button type="button" className="btn-ghost" onClick={() => setPanel(panel === 'categories' ? null : 'categories')} aria-expanded={panel === 'categories'}>Categories</button>}
-          <CsvButton url={`/seller/erp/expenses.csv?${period.query}${csvQuery ? `&${csvQuery}` : ''}`} filename={meta ? `expenses-${meta.range.from}-to-${meta.range.to}.csv` : 'expenses.csv'} />
+          <DownloadButton path="/seller/erp/expenses" query={`${period.query}${csvQuery ? `&${csvQuery}` : ''}`} filename={meta ? `expenses-${meta.range.from}-to-${meta.range.to}` : 'expenses'} />
         </>} />
 
       {panel === 'new' && (

@@ -8,6 +8,7 @@ use App\Support\Erp\Reports;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\BuildsErpWorld;
 use Tests\Concerns\PlacesOrders;
+use Tests\Concerns\ReadsWorkbooks;
 use Tests\TestCase;
 
 /**
@@ -21,7 +22,7 @@ use Tests\TestCase;
  */
 class ErpIsolationTest extends TestCase
 {
-    use BuildsErpWorld, PlacesOrders, RefreshDatabase;
+    use BuildsErpWorld, PlacesOrders, ReadsWorkbooks, RefreshDatabase;
 
     protected function setUp(): void
     {
@@ -36,7 +37,7 @@ class ErpIsolationTest extends TestCase
         sort($listed);
         sort($withId);
         $this->assertSame($withId, $listed, 'An ERP address with a record id is missing from routes() (or listed but gone).');
-        $this->assertCount(69, $this->erpRoutes(), 'The number of ERP addresses changed; check the new ones are scoped to the store and listed here.');
+        $this->assertCount(75, $this->erpRoutes(), 'The number of ERP addresses changed; check the new ones are scoped to the store and listed here.');
     }
 
     public function test_another_store_gets_not_found_for_every_record_and_changes_nothing(): void
@@ -193,13 +194,15 @@ class ErpIsolationTest extends TestCase
             $this->assertContains($res->getStatusCode(), [200, 404, 422], $path);
             $this->assertStringNotContainsString('Alpha', $res->getContent(), $path);
         }
-        foreach (['inventory.csv', 'movements.csv', 'sales.csv', 'expenses.csv', 'finance.csv'] as $path) {
-            $csv = $this->get('/api/seller/erp/'.$path.'?period=year')->assertOk()->streamedContent();
-            $this->assertStringNotContainsString('Alpha', $csv, $path);
-        }
+        $downloads = ['inventory', 'movements', 'sales', 'expenses', 'finance'];
         foreach (array_keys(Reports::definitions()) as $report) {
-            $csv = $this->get("/api/seller/erp/reports/{$report}.csv?period=year")->assertOk()->streamedContent();
-            $this->assertStringNotContainsString('Alpha', $csv, $report);
+            $downloads[] = "reports/{$report}";
+        }
+        foreach ($downloads as $path) {
+            $csv = $this->get('/api/seller/erp/'.$path.'.csv?period=year')->assertOk()->streamedContent();
+            $this->assertStringNotContainsString('Alpha', $csv, $path);
+            $xlsx = $this->get('/api/seller/erp/'.$path.'.xlsx?period=year')->assertOk()->streamedContent();
+            $this->assertStringNotContainsString('Alpha', json_encode($this->workbookRows($xlsx), JSON_UNESCAPED_UNICODE), $path.'.xlsx');
         }
     }
 

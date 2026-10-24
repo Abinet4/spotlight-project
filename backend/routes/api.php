@@ -249,12 +249,14 @@ Route::prefix('seller')->middleware(['auth:sanctum', 'role:seller'])->group(func
         Route::get('/overview', ErpOverviewController::class);
         Route::get('/inventory', [ErpInventoryController::class, 'index']);
         Route::get('/inventory.csv', [ErpInventoryController::class, 'export'])->middleware('throttle:erp-exports');
+        Route::get('/inventory.xlsx', [ErpInventoryController::class, 'export'])->middleware('throttle:erp-exports');
         Route::get('/inventory/{id}', [ErpInventoryController::class, 'show'])->whereNumber('id');
         Route::put('/inventory/{id}', [ErpInventoryController::class, 'update'])->whereNumber('id')->middleware('throttle:erp-writes');
         Route::post('/inventory/{id}/adjust', [ErpInventoryController::class, 'adjust'])->whereNumber('id')->middleware('throttle:erp-writes');
         Route::post('/inventory/{id}/sku', [ErpInventoryController::class, 'generateSku'])->whereNumber('id')->middleware('throttle:erp-writes');
         Route::get('/movements', [ErpInventoryController::class, 'movements']);
         Route::get('/movements.csv', [ErpInventoryController::class, 'exportMovements'])->middleware('throttle:erp-exports');
+        Route::get('/movements.xlsx', [ErpInventoryController::class, 'exportMovements'])->middleware('throttle:erp-exports');
         Route::get('/items', [ErpInventoryController::class, 'pick']);
         Route::get('/settings', [ErpSettingsController::class, 'show']);
         Route::put('/settings', [ErpSettingsController::class, 'update'])->middleware('throttle:erp-writes');
@@ -302,6 +304,7 @@ Route::prefix('seller')->middleware(['auth:sanctum', 'role:seller'])->group(func
         Route::get('/sales', [ErpSaleController::class, 'index']);
         Route::get('/sales/report', [ErpSaleController::class, 'report']);
         Route::get('/sales.csv', [ErpSaleController::class, 'export'])->middleware('throttle:erp-exports');
+        Route::get('/sales.xlsx', [ErpSaleController::class, 'export'])->middleware('throttle:erp-exports');
         Route::get('/sales/offline/{id}', [ErpSaleController::class, 'showOffline'])->whereNumber('id');
         Route::get('/sales/orders/{id}', [ErpSaleController::class, 'showOrder'])->whereNumber('id');
         Route::middleware('throttle:erp-writes')->group(function () {
@@ -317,6 +320,7 @@ Route::prefix('seller')->middleware(['auth:sanctum', 'role:seller'])->group(func
 
         Route::get('/expenses', [ErpExpenseController::class, 'index']);
         Route::get('/expenses.csv', [ErpExpenseController::class, 'export'])->middleware('throttle:erp-exports');
+        Route::get('/expenses.xlsx', [ErpExpenseController::class, 'export'])->middleware('throttle:erp-exports');
         Route::get('/expenses/{id}', [ErpExpenseController::class, 'show'])->whereNumber('id');
         Route::get('/expenses/{id}/attachment', [ErpExpenseController::class, 'attachment'])->whereNumber('id');
         Route::get('/expense-categories', [ErpExpenseController::class, 'categories']);
@@ -331,8 +335,10 @@ Route::prefix('seller')->middleware(['auth:sanctum', 'role:seller'])->group(func
 
         Route::get('/finance', [ErpFinanceController::class, 'show']);
         Route::get('/finance.csv', [ErpFinanceController::class, 'export'])->middleware('throttle:erp-exports');
+        Route::get('/finance.xlsx', [ErpFinanceController::class, 'export'])->middleware('throttle:erp-exports');
         Route::get('/reports', [ErpReportController::class, 'index']);
         Route::get('/reports/{report}.csv', [ErpReportController::class, 'export'])->whereIn('report', array_keys(Reports::definitions()))->middleware('throttle:erp-exports');
+        Route::get('/reports/{report}.xlsx', [ErpReportController::class, 'export'])->whereIn('report', array_keys(Reports::definitions()))->middleware('throttle:erp-exports');
         Route::get('/reports/{report}', [ErpReportController::class, 'show'])->whereIn('report', array_keys(Reports::definitions()));
     });
 });
@@ -341,6 +347,8 @@ Route::prefix('seller')->middleware(['auth:sanctum', 'role:seller'])->group(func
 Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(function () {
     Route::get('/summary', [DashboardController::class, 'summary']);
     Route::get('/audit-logs', [DashboardController::class, 'auditLogs']);
+    Route::get('/audit-logs.csv', [DashboardController::class, 'exportAuditLogs']);
+    Route::get('/audit-logs.xlsx', [DashboardController::class, 'exportAuditLogs']);
 
     Route::get('/sellers', [AdminSellerController::class, 'index']);
     Route::get('/sellers/{seller}', [AdminSellerController::class, 'show']);
@@ -388,10 +396,13 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
 
     Route::get('/reports/summary', [ReportController::class, 'summary']);
     Route::get('/reports/orders.csv', [ReportController::class, 'export']);
+    Route::get('/reports/orders.xlsx', [ReportController::class, 'export']);
 
     Route::get('/settings', [SettingsController::class, 'show']);
     Route::put('/settings', [SettingsController::class, 'update']);
     Route::get('/sms', [SmsLogController::class, 'index']);
+    Route::get('/sms.csv', [SmsLogController::class, 'export']);
+    Route::get('/sms.xlsx', [SmsLogController::class, 'export']);
 
     // Support inbox
     Route::get('/support/tickets', [AdminSupportController::class, 'index']);
