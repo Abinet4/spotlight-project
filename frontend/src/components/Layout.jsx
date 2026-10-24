@@ -1,7 +1,7 @@
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle, Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react'
 import { Bell, ChevronDown, GitCompareArrows, Heart, Inbox, LayoutDashboard, LifeBuoy, LogOut, Menu as MenuIcon, Search, ShoppingBag, Store, User, X } from 'lucide-react'
 import { Suspense, useEffect, useState } from 'react'
-import { Link, NavLink, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { useAlerts } from '../context/AlertsContext'
 import { useAuth } from '../context/AuthContext'
@@ -10,49 +10,13 @@ import { useCompare } from '../context/CompareContext'
 import { useConfig, usePaymentWording } from '../context/ConfigContext'
 import { useInbox } from '../context/InboxContext'
 import { categoryIcon, useCategories } from '../lib/categories'
+import SearchBox from './SearchBox'
 import { Spinner } from './ui'
 
-function SearchBox({ className = '', id = 'site-search', onClose }) {
-  const navigate = useNavigate()
-  const [params] = useSearchParams()
-  const [q, setQ] = useState(params.get('q') || '')
-
-  useEffect(() => setQ(params.get('q') || ''), [params])
-
-  return (
-    <form
-      role="search"
-      className={className}
-      onSubmit={(e) => {
-        e.preventDefault()
-        navigate(q.trim() ? `/?q=${encodeURIComponent(q.trim())}` : '/')
-        onClose?.()
-      }}
-      onKeyDown={(e) => e.key === 'Escape' && onClose?.()}
-    >
-      <label htmlFor={id} className="sr-only">Search furniture</label>
-      <div className="relative">
-        <input
-          id={id}
-          type="search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          className="input rounded-full border-stone-200 bg-stone-100/80 pr-12 pl-4 focus:bg-white"
-          maxLength={100}
-          autoFocus
-        />
-        <button type="submit" className="absolute inset-y-1 right-1 flex aspect-square items-center justify-center rounded-full bg-brand-700 text-white hover:bg-brand-800" aria-label="Search">
-          <Search className="size-4" aria-hidden="true" />
-        </button>
-      </div>
-    </form>
-  )
-}
-
-/** The header's search: one icon that opens the search box under the header. */
+/** The header's search: one icon that opens the search box beside it (under the header on phones). */
 function SearchButton({ open, onToggle }) {
   return (
-    <button type="button" className="icon-btn" aria-label={open ? 'Close search' : 'Search'} aria-expanded={open} aria-controls="site-search-panel" onClick={onToggle}>
+    <button type="button" className="icon-btn" aria-label={open ? 'Close search' : 'Search'} aria-expanded={open} onClick={onToggle}>
       {open ? <X className="size-5" aria-hidden="true" /> : <Search className="size-5" aria-hidden="true" />}
     </button>
   )
@@ -369,11 +333,14 @@ export default function Layout() {
             <span className="truncate font-display text-lg font-semibold tracking-tight sm:text-xl">{name}</span>
           </Link>
           {workArea && <span className="shrink-0 rounded-full bg-stone-100 px-2.5 py-1 text-xs font-semibold text-stone-600">{workArea}</span>}
-          <nav className="ml-auto hidden items-center gap-1 lg:flex" aria-label="Account">
+          {/* From tablet width the search box opens in the header, right beside its icon. */}
+          {!workArea && searchOpen && <SearchBox id="site-search" className="ml-auto hidden w-64 md:block lg:w-80" onClose={() => setSearchOpen(false)} />}
+          {/* With the search box open it takes the free space's place, so the icons stay right beside it. */}
+          <nav className={`hidden items-center gap-1 lg:flex ${searchOpen && !workArea ? '' : 'ml-auto'}`} aria-label="Account">
             {!workArea && <SearchButton open={searchOpen} onToggle={() => setSearchOpen((o) => !o)} />}
             <DesktopActions onSignOut={handleSignOut} workArea={workArea} />
           </nav>
-          <div className="ml-auto flex shrink-0 items-center gap-0.5 lg:hidden">
+          <div className={`ml-auto flex shrink-0 items-center gap-0.5 lg:hidden ${searchOpen && !workArea ? 'md:ml-0' : ''}`}>
             {!workArea && <SearchButton open={searchOpen} onToggle={() => setSearchOpen((o) => !o)} />}
             {user?.role === 'customer' && <CartLink />}
             {user && <AlertsLink />}
@@ -390,9 +357,10 @@ export default function Layout() {
             </button>
           </div>
         </div>
+        {/* Phones have no room beside the icons, so the box takes its own line. */}
         {!workArea && searchOpen && (
-          <div id="site-search-panel" className="container-page pb-3">
-            <SearchBox className="mx-auto max-w-2xl" onClose={() => setSearchOpen(false)} />
+          <div className="container-page pb-3 md:hidden">
+            <SearchBox id="site-search-mobile" onClose={() => setSearchOpen(false)} />
           </div>
         )}
       </header>

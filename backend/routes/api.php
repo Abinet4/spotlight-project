@@ -104,6 +104,7 @@ Route::middleware('throttle:catalog')->group(function () {
     Route::get('/categories', [CatalogController::class, 'categories']);
     Route::get('/areas', [CatalogController::class, 'areas']);
     Route::get('/products', [CatalogController::class, 'products']);
+    Route::get('/search/suggest', [CatalogController::class, 'suggest']);
     Route::get('/products/{slug}', [CatalogController::class, 'product']);
     Route::get('/sellers/{slug}', [CatalogController::class, 'seller']);
     Route::get('/delivery-zones', [DeliveryController::class, 'zones']);
