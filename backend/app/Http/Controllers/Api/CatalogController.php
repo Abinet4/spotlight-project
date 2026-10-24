@@ -163,6 +163,36 @@ class CatalogController extends Controller
         return ProductResource::collection($query->get());
     }
 
+    /**
+     * Listings to suggest while the customer types in search: names that start with what was typed come
+     * first, then names with a word starting with it, then any other match; in stock before sold out.
+     */
+    public function suggest(Request $request): JsonResponse
+    {
+        $term = trim((string) $request->validate(['q' => ['required', 'string', 'max:100']])['q']);
+        if (mb_strlen($term) < 2) {
+            return response()->json(['data' => []]);
+        }
+        $escaped = str_replace(['!', '%', '_'], ['!!', '!%', '!_'], mb_strtolower($term));
+
+        $products = Product::visible()
+            ->search($term)
+            ->with('primaryImage')
+            ->orderByRaw("CASE WHEN LOWER(products.name) LIKE ? ESCAPE '!' THEN 0 WHEN LOWER(products.name) LIKE ? ESCAPE '!' THEN 1 WHEN LOWER(products.name) LIKE ? ESCAPE '!' THEN 2 ELSE 3 END",
+                [$escaped.'%', '% '.$escaped.'%', '%'.$escaped.'%'])
+            ->orderByRaw('CASE WHEN products.stock_quantity > 0 THEN 0 ELSE 1 END')
+            ->orderByDesc('products.id')
+            ->limit(6)
+            ->get(['products.id', 'products.slug', 'products.name', 'products.price_santim']);
+
+        return response()->json(['data' => $products->map(fn (Product $p) => [
+            'slug' => $p->slug,
+            'name' => $p->name,
+            'price_santim' => (int) $p->price_santim,
+            'image' => $p->primaryImage?->thumbUrl(),
+        ])->values()]);
+    }
+
     public function seller(string $slug): JsonResponse
     {
         $seller = SellerProfile::publiclyVisible()
