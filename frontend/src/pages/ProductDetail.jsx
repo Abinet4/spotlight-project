@@ -66,6 +66,7 @@ export default function ProductDetail() {
   const config = useConfig()
   const [contactOpen, setContactOpen] = useState(false)
   const [picked, setPicked] = useState(null)
+  const [chosen, setChosen] = useState({ for: null, quantity: 1 })
 
   useEffect(() => {
     if (p?.slug) rememberViewed(p.slug)
@@ -74,6 +75,10 @@ export default function ProductDetail() {
   // A single option needs no choice; with several the customer picks, so nobody buys the wrong color by default.
   const variants = p?.variants || []
   const variant = variants.find((v) => v.id === picked) || (variants.length === 1 && variants[0].is_available ? variants[0] : null)
+  // One quantity for the buy box and the phone buy bar; another listing or option starts again at 1.
+  const buyFor = `${slug}:${variant?.id ?? ''}`
+  const quantity = chosen.for === buyFor ? chosen.quantity : 1
+  const setQuantity = (n) => setChosen({ for: buyFor, quantity: n })
   const buyRef = useRef(null)
   const buyInView = useInView(buyRef)
   const similarList = useMemo(() => (similar.data?.data || []).filter((x) => x.slug !== slug), [similar.data, slug])
@@ -130,7 +135,7 @@ export default function ProductDetail() {
 
           <div id="buy" ref={buyRef} className="mt-6 space-y-3 scroll-mt-24">
             <VariantPicker product={p} value={variant} onChange={(v) => setPicked(v.id)} />
-            <AddToCart key={variant?.id ?? 'none'} product={p} variant={variant} full />
+            <AddToCart key={variant?.id ?? 'none'} product={p} variant={variant} full quantity={quantity} onQuantityChange={setQuantity} />
             <div className="flex flex-wrap gap-2">
               {!contactOpen && (
                 <button type="button" className="btn-secondary" onClick={() => setContactOpen(true)}>
@@ -210,9 +215,12 @@ export default function ProductDetail() {
           <div className="flex items-center gap-3">
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs text-stone-500">{p.name}</p>
-              <p className="text-lg font-bold text-stone-900">{formatETB(variant ? variant.price_santim : p.price_santim)}</p>
+              <p className="flex flex-wrap items-baseline gap-x-1 text-lg font-bold text-stone-900">
+                <span className="whitespace-nowrap">{formatETB((variant ? variant.price_santim : p.price_santim) * quantity)}</span>
+                {quantity > 1 && <span className="text-xs font-normal whitespace-nowrap text-stone-500">for {quantity}</span>}
+              </p>
             </div>
-            <AddToCart product={p} variant={variant} compact />
+            <AddToCart product={p} variant={variant} compact quantity={quantity} onQuantityChange={setQuantity} />
           </div>
         </div>
       )}
