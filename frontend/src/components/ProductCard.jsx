@@ -63,14 +63,14 @@ export default function ProductCard({ product }) {
         {product.seller && (
           <p className="truncate text-xs text-stone-500">{product.seller.store_name}{product.area ? ` · ${product.area}` : ''}</p>
         )}
-        <h3 className="line-clamp-2 text-[15px] leading-snug font-semibold text-stone-900">
+        <h3 className="line-clamp-2 text-sm leading-snug font-semibold text-stone-900">
           <Link to={url} className="after:absolute after:inset-0 after:content-[''] focus-visible:outline-none" aria-label={product.name}>
             {product.name}
           </Link>
         </h3>
         <RatingSummary rating={product.rating} className="text-xs" />
         <div className="mt-auto flex flex-wrap items-baseline gap-x-2 pt-1">
-          <span className="text-base font-bold whitespace-nowrap text-stone-900 sm:text-lg">{formatETB(product.price_santim)}</span>
+          <span className="text-[15px] font-bold whitespace-nowrap text-stone-900 sm:text-base">{formatETB(product.price_santim)}</span>
           {product.price_negotiable && <span className="text-xs font-medium text-clay-600">Negotiable</span>}
         </div>
       </div>
