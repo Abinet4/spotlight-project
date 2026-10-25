@@ -267,7 +267,7 @@ function Footer({ name }) {
       <div className="container-page grid gap-10 py-14 text-sm sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
         <div>
           <p className="flex items-center gap-2 font-display text-xl font-semibold text-white">
-            <img src="/favicon.svg" alt="" className="size-7 rounded-md bg-white/90 p-0.5" />{name}
+            <img src="/logo-white.svg" alt="" className="size-8" />{name}
           </p>
           <p className="mt-3 max-w-xs text-brand-200">Furniture from trusted shops, workshops and makers in Addis Ababa. {pay.short}</p>
         </div>
