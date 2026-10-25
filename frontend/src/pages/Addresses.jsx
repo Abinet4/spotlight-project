@@ -9,9 +9,8 @@ import { useFetch } from '../lib/useFetch'
 
 const EMPTY = {
   label: '', recipient_name: '', phone: '', area_id: '', address_line: '', landmark: '', is_default: false,
-  latitude: null, longitude: null, floor: '', has_lift: null, door_width_cm: '', stair_width_cm: '', lift_door_width_cm: '',
+  latitude: null, longitude: null, floor: '', has_lift: null,
 }
-const NUMBERS = ['floor', 'door_width_cm', 'stair_width_cm', 'lift_door_width_cm']
 
 function AddressForm({ initial, areas, onSaved, onCancel }) {
   const config = useConfig()
@@ -27,10 +26,9 @@ function AddressForm({ initial, areas, onSaved, onCancel }) {
     setErrors({})
     setError(null)
     const payload = { ...form, area_id: form.area_id ? Number(form.area_id) : null }
-    for (const k of NUMBERS) payload[k] = form[k] === '' || form[k] === null ? null : Number(form[k])
-    // The lift only matters above the ground floor; its door only when there is one.
+    payload.floor = form.floor === '' || form.floor === null ? null : Number(form.floor)
+    // The lift only matters above the ground floor.
     if (!(payload.floor > 0)) payload.has_lift = null
-    if (!payload.has_lift) payload.lift_door_width_cm = null
     try {
       if (form.id) await api.put(`/addresses/${form.id}`, payload)
       else await api.post('/addresses', payload)
@@ -93,22 +91,6 @@ function AddressForm({ initial, areas, onSaved, onCancel }) {
             </div>
           )}
         </div>
-        <p className="text-xs text-stone-500">Optional: measure the narrowest point in cm so listings can tell you whether a piece will fit.</p>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <Field label="Front door width" name="a-door" error={errors.door_width_cm}>
-            <input id="a-door" className="input" type="number" inputMode="numeric" min={40} max={400} value={form.door_width_cm ?? ''} onChange={set('door_width_cm')} />
-          </Field>
-          {Number(form.floor) > 0 && (
-            <Field label="Stair width" name="a-stairs" error={errors.stair_width_cm}>
-              <input id="a-stairs" className="input" type="number" inputMode="numeric" min={40} max={400} value={form.stair_width_cm ?? ''} onChange={set('stair_width_cm')} />
-            </Field>
-          )}
-          {Number(form.floor) > 0 && form.has_lift && (
-            <Field label="Lift door width" name="a-liftdoor" error={errors.lift_door_width_cm}>
-              <input id="a-liftdoor" className="input" type="number" inputMode="numeric" min={40} max={400} value={form.lift_door_width_cm ?? ''} onChange={set('lift_door_width_cm')} />
-            </Field>
-          )}
-        </div>
       </fieldset>
       {!initial.is_default && (
         <label className="flex items-center gap-2 text-sm">
@@ -145,7 +127,7 @@ export default function Addresses() {
 
   return (
     <div className="container-page max-w-3xl py-8">
-      <PageHeader title="Delivery addresses" subtitle="Saved addresses are used for delivery estimates now and at checkout later."
+      <PageHeader title="Delivery addresses" subtitle="Choose one of these at checkout. Delivery is priced to the address you pick."
         actions={!editing && <button type="button" className="btn-primary" onClick={() => setEditing(EMPTY)}>Add address</button>} />
       {notice && <div className="mb-4"><Alert tone={notice.tone}>{notice.text}</Alert></div>}
       {editing && (
@@ -171,7 +153,6 @@ export default function Addresses() {
                 <p className="mt-1 flex flex-wrap gap-x-3 text-xs text-stone-500">
                   {a.latitude != null ? <a href={mapsLink(a.latitude, a.longitude)} target="_blank" rel="noreferrer" className="text-brand-700 hover:underline">Map pin set</a> : <span>No map pin</span>}
                   {a.floor > 0 && <span>Floor {a.floor}, {a.has_lift ? 'with lift' : 'no lift'}</span>}
-                  {a.door_width_cm && <span>Door {a.door_width_cm} cm</span>}
                 </p>
               </div>
               <div className="flex shrink-0 flex-wrap gap-1">
@@ -184,7 +165,7 @@ export default function Addresses() {
         </ul>
       ) : !editing && (
         <EmptyState title="No saved addresses" action={<button type="button" className="btn-primary" onClick={() => setEditing(EMPTY)}>Add address</button>}>
-          Save where you want furniture delivered to see delivery fees on every listing.
+          Save where you want furniture delivered, and pick it at checkout.
         </EmptyState>
       ))}
     </div>
