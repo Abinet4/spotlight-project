@@ -5,28 +5,8 @@ import { Alert, EmptyState, ErrorState, Field, PageHeader, Spinner } from '../co
 import { useCart } from '../context/CartContext'
 import { useConfig } from '../context/ConfigContext'
 import { api, parseError } from '../lib/api'
-import { checkFit } from '../lib/fit'
 import { formatETB, newIdempotencyKey, toQuery } from '../lib/format'
 import { useFetch } from '../lib/useFetch'
-
-/** "Will it fit" warnings for this address, only for pieces that may not get in. */
-function FitWarnings({ lines, space }) {
-  const warnings = lines
-    .map((l) => ({ l, fit: checkFit(l.product?.dimensions, space) }))
-    .filter(({ fit }) => fit.status === 'no' || fit.status === 'tight')
-  if (!warnings.length) return null
-  return (
-    <ul className="mt-1 space-y-1">
-      {warnings.map(({ l, fit }) => (
-        <li key={l.id} className={`text-xs ${fit.status === 'no' ? 'text-red-700' : 'text-amber-800'}`}>
-          {l.name}: {fit.status === 'no'
-            ? `may not fit through your ${fit.checks.find((c) => c.status === 'no')?.label.toLowerCase() || 'door'}. Ask Betoch Support whether it comes apart.`
-            : 'fits through your door, but only just.'}
-        </li>
-      ))}
-    </ul>
-  )
-}
 
 export default function Checkout() {
   const navigate = useNavigate()
@@ -174,7 +154,6 @@ export default function Checkout() {
                   ))}
                 </fieldset>
               )}
-              {g.fulfillment === 'delivery' && <FitWarnings lines={g.lines} space={address} />}
               <div className="mt-2 flex justify-between border-t border-stone-100 pt-2 text-sm">
                 <span>
                   {g.fulfillment === 'pickup' ? 'Pickup' : 'Delivery'}
