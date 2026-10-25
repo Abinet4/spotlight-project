@@ -5,24 +5,29 @@ import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { api, parseError } from '../lib/api'
+import { formatETB } from '../lib/format'
 
 /**
  * Quantity stepper and "Add to cart" for a listing. Only customer accounts can buy. A listing with
- * options needs one picked (`variant`); until then the button points to the picker.
+ * options needs one picked (`variant`); until then the button points to the picker. A page with two of these
+ * (the listing page and its phone buy bar) passes `quantity` and `onQuantityChange` so both add the same number.
  */
-export default function AddToCart({ product, variant = null, full = false, compact = false }) {
+export default function AddToCart({ product, variant = null, full = false, compact = false, quantity: shared, onQuantityChange }) {
   const { user } = useAuth()
   const { refreshCart } = useCart()
   const location = useLocation()
   const navigate = useNavigate()
   const id = useId()
-  const [quantity, setQuantity] = useState(1)
+  const [own, setOwn] = useState(1)
+  const quantity = shared ?? own
+  const setQuantity = onQuantityChange ?? setOwn
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
 
   const needsOption = (product.variants || []).length > 0 || product.options_count > 0
   const stock = variant ? variant.stock_quantity : product.stock_quantity
   const max = Math.max(1, Math.min(stock, 99))
+  const unitPrice = variant ? variant.price_santim : product.price_santim
   if (product.stock_quantity < 1) return null
 
   if (!user) {
@@ -87,6 +92,12 @@ export default function AddToCart({ product, variant = null, full = false, compa
         <ShoppingBag className="size-4" aria-hidden="true" />
         {busy ? 'Adding...' : 'Add to cart'}
       </button>
+      {/* The price above is for one; with more than one, say what they come to. */}
+      {quantity > 1 && (
+        <p className="w-full text-sm text-stone-600" aria-live="polite">
+          {quantity} × {formatETB(unitPrice)} = <span className="font-semibold text-stone-900">{formatETB(unitPrice * quantity)}</span>
+        </p>
+      )}
       {error && <p role="alert" className="w-full text-sm text-red-700">{error}</p>}
     </div>
   )
