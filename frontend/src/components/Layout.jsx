@@ -1,5 +1,5 @@
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle, Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react'
-import { Bell, ChevronDown, GitCompareArrows, Heart, Inbox, LayoutDashboard, LifeBuoy, LogOut, Menu as MenuIcon, Search, ShoppingBag, Store, User, X } from 'lucide-react'
+import { ArrowRight, BadgeCheck, Banknote, Bell, ChevronDown, GitCompareArrows, Heart, Inbox, LayoutDashboard, LifeBuoy, LogOut, Menu as MenuIcon, Search, ShoppingBag, Store, Truck, User, X } from 'lucide-react'
 import { Suspense, useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
@@ -259,43 +259,103 @@ function CompareTray() {
   )
 }
 
+// Read once per page load; a footer does not need to tick over at midnight on 31 December.
+const YEAR = new Date().getFullYear()
+
+/** A link in a footer column, tall enough to tap on a phone. */
+function FooterLink({ to, children }) {
+  return <li><Link to={to} className="inline-block py-1 hover:text-white hover:underline hover:underline-offset-4">{children}</Link></li>
+}
+
 function Footer({ name }) {
   const { data: categories } = useCategories()
+  const { user } = useAuth()
+  const config = useConfig()
   const pay = usePaymentWording()
+  const online = config.online_payments?.available === true
+  const cash = config.cod_enabled !== false
+  const customer = !user || user.role === 'customer'
+  const promises = [
+    { icon: Truck, title: 'Delivery in Addis', text: 'To your door, or pick up from the store' },
+    { icon: Banknote, title: pay.title, text: online && cash ? 'telebirr, CBE Birr, card or cash' : online ? 'telebirr, CBE Birr or card' : 'Cash when your furniture arrives' },
+    { icon: BadgeCheck, title: 'Approved stores', text: 'Betoch checks every store before it sells' },
+    { icon: LifeBuoy, title: 'Betoch Support', text: 'One place to ask about any item or order' },
+  ]
   return (
-    <footer className="mt-20 bg-brand-900 text-brand-100">
-      <div className="container-page grid gap-10 py-14 text-sm sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
+    <footer className="mt-20 bg-brand-900 text-sm text-brand-100">
+      <ul className="container-page grid gap-x-6 gap-y-4 border-b border-white/10 py-8 sm:grid-cols-2 sm:gap-y-6 lg:grid-cols-4">
+        {promises.map(({ icon: Icon, title, text }) => (
+          <li key={title} className="flex items-start gap-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white/10 text-sand-100"><Icon className="size-5" aria-hidden="true" /></span>
+            <span className="min-w-0">
+              <span className="block font-semibold text-white">{title}</span>
+              <span className="mt-0.5 block text-xs leading-snug text-brand-200">{text}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      <div className="container-page grid gap-10 py-12 md:grid-cols-2 lg:grid-cols-[1.2fr_1fr_1fr_1.2fr] lg:gap-8">
         <div>
-          <p className="flex items-center gap-2 font-display text-xl font-semibold text-white">
+          <Link to="/" className="inline-flex items-center gap-2 font-display text-xl font-semibold text-white">
             <img src="/logo-white.svg" alt="" className="size-8" />{name}
-          </p>
-          <p className="mt-3 max-w-xs text-brand-200">Furniture from trusted shops, workshops and makers in Addis Ababa. {pay.short}</p>
+          </Link>
+          <p className="mt-3 max-w-xs text-brand-200">Furniture from trusted shops, workshops and makers in Addis Ababa, delivered to your home.</p>
+          {customer && (
+            <Link to="/support/new" className="mt-5 inline-flex items-center gap-2 rounded-xl border border-white/20 px-4 py-2.5 font-semibold text-white transition hover:bg-white/10">
+              <LifeBuoy className="size-4" aria-hidden="true" />Ask Betoch Support
+            </Link>
+          )}
         </div>
-        <div>
-          <p className="font-semibold text-white">Shop</p>
-          <ul className="mt-3 space-y-2">
-            {(categories || []).slice(0, 5).map((c) => <li key={c.id}><Link to={`/category/${c.slug}`} className="hover:text-white">{c.name}</Link></li>)}
-            <li><Link to="/compare" className="hover:text-white">Compare furniture</Link></li>
-          </ul>
+
+        <div className="grid grid-cols-2 gap-x-6 gap-y-8 md:order-3 md:col-span-2 lg:contents">
+          <nav aria-label="Shop">
+            <p className="font-semibold tracking-wide text-white">Shop</p>
+            <ul className="mt-3 space-y-1">
+              {(categories || []).slice(0, 5).map((c) => <FooterLink key={c.id} to={`/category/${c.slug}`}>{c.name}</FooterLink>)}
+              <FooterLink to="/">All furniture</FooterLink>
+            </ul>
+          </nav>
+          <nav aria-label="Help">
+            <p className="font-semibold tracking-wide text-white">Help</p>
+            <ul className="mt-3 space-y-1">
+              {user?.role === 'customer' && <FooterLink to="/orders">My orders</FooterLink>}
+              <FooterLink to="/help/delivery">Delivery information</FooterLink>
+              <FooterLink to="/help/returns">Returns and refunds</FooterLink>
+              <FooterLink to="/help/policies">Marketplace policies</FooterLink>
+              <FooterLink to="/compare">Compare furniture</FooterLink>
+            </ul>
+          </nav>
         </div>
-        <div>
-          <p className="font-semibold text-white">Help</p>
-          <ul className="mt-3 space-y-2">
-            <li><Link to="/help/delivery" className="hover:text-white">Delivery information</Link></li>
-            <li><Link to="/help/returns" className="hover:text-white">Returns and refunds</Link></li>
-            <li><Link to="/help/policies" className="hover:text-white">Marketplace policies</Link></li>
-          </ul>
-        </div>
-        <div>
-          <p className="font-semibold text-white">Sellers</p>
-          <ul className="mt-3 space-y-2">
-            <li><Link to="/sell" className="inline-flex items-center gap-1.5 hover:text-white"><Store className="size-4" aria-hidden="true" />Apply to sell</Link></li>
-            <li><Link to="/help/selling" className="hover:text-white">How selling works</Link></li>
-          </ul>
+
+        <div className="self-start rounded-2xl bg-white/5 p-5 ring-1 ring-white/10 md:order-2 lg:order-none">
+          <p className="flex items-center gap-2 font-semibold text-white"><Store className="size-4 text-sand-100" aria-hidden="true" />Sell on {name}</p>
+          {user?.role === 'seller' ? (
+            <>
+              <p className="mt-2 text-brand-200">Orders, stock and payouts for your store are in one place.</p>
+              <Link to="/seller" className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-sand-100 px-4 py-2.5 font-semibold text-brand-900 transition hover:bg-white">
+                Open your store<ArrowRight className="size-4" aria-hidden="true" />
+              </Link>
+            </>
+          ) : (
+            <>
+              <p className="mt-2 text-brand-200">Have a furniture shop or workshop? Reach buyers across Addis Ababa.</p>
+              <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+                <Link to="/sell" className="inline-flex items-center gap-1.5 rounded-xl bg-sand-100 px-4 py-2.5 font-semibold text-brand-900 transition hover:bg-white">
+                  Apply to sell<ArrowRight className="size-4" aria-hidden="true" />
+                </Link>
+                <Link to="/help/selling" className="py-1 text-brand-100 underline-offset-4 hover:text-white hover:underline">How selling works</Link>
+              </div>
+            </>
+          )}
         </div>
       </div>
-      <div className="border-t border-white/10 py-5 text-center text-xs text-brand-200">
-        Prices in Ethiopian birr (ETB). Currently serving Addis Ababa.
+
+      <div className="border-t border-white/10">
+        <div className="container-page flex flex-col gap-1 py-5 text-xs text-brand-200 sm:flex-row sm:items-center sm:justify-between">
+          <p>&copy; {YEAR} {name}</p>
+          <p>Prices in Ethiopian birr (ETB). Serving Addis Ababa.</p>
+        </div>
       </div>
     </footer>
   )
