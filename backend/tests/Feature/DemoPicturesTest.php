@@ -46,7 +46,7 @@ class DemoPicturesTest extends TestCase
         $this->seed(DemoSeeder::class);
 
         $products = Product::with('images', 'variants')->get();
-        $this->assertCount(25, $products);
+        $this->assertCount(42, $products);
         $used = [];
         foreach ($products as $product) {
             $this->assertSame(ProductStatus::Published, $product->status, $product->name);
@@ -76,8 +76,15 @@ class DemoPicturesTest extends TestCase
         $this->assertSame(5, $bed->fresh()->stock_quantity);
         $this->getJson("/api/products/{$bed->slug}")->assertOk()->assertJsonCount(2, 'data.images')->assertJsonCount(2, 'data.variants');
 
+        // Every category has demo listings except Other Furniture, and office pieces are sold by the office store.
+        $this->assertSame(['beds-mattresses' => 8, 'cabinets-shelves' => 4, 'dining' => 3, 'office' => 6, 'sofas-living-room' => 13, 'wardrobes-storage' => 8],
+            Product::join('categories', 'categories.id', '=', 'products.category_id')->groupBy('categories.slug')->orderBy('categories.slug')
+                ->selectRaw('categories.slug, count(*) as n')->pluck('n', 'slug')->map(fn ($n) => (int) $n)->all());
+        $office = $this->store(4);
+        $this->assertSame(0, Product::whereHas('category', fn ($q) => $q->where('slug', 'office'))->where('seller_profile_id', '!=', $office->id)->count());
+
         $this->artisan('marketplace:demo-pictures')->expectsOutput('Demo listings and photos are up to date.')->assertSuccessful();
-        $this->assertSame(26, ProductImage::count(), 'running again adds nothing');
+        $this->assertSame(43, ProductImage::count(), 'running again adds nothing');
     }
 
     public function test_older_demo_data_is_brought_up_to_date_without_touching_store_photos(): void
@@ -161,7 +168,7 @@ class DemoPicturesTest extends TestCase
         });
         $this->seed(DemoSeeder::class);
         $ids = ProductImage::orderBy('id')->pluck('id')->all();
-        $this->assertCount(26, $ids);
+        $this->assertCount(43, $ids);
 
         $this->artisan('marketplace:demo-pictures')->expectsOutput('Demo listings and photos are up to date.')->assertSuccessful();
         $this->assertSame($ids, ProductImage::orderBy('id')->pluck('id')->all());

@@ -34,7 +34,8 @@ final class DemoCatalog
     private const PHOTO_PREFIX = 'demo-photo-';
 
     /**
-     * Row i belongs to demo store i % 4. photos: file name in PHOTO_DIR => words for the alt text.
+     * Row i belongs to demo store i % 4, or to 'store' when given (3 is the office store). photos: file name
+     * in PHOTO_DIR => words for the alt text.
      * options: [color, units] each; the listing's stock is then the sum.
      */
     private const LISTINGS = [
@@ -113,6 +114,57 @@ final class DemoCatalog
         ['cat' => 'wardrobes-storage', 'name' => 'Three-Door Wardrobe with Drawers', 'price' => 34000, 'material' => 'MDF', 'color' => 'Anthracite', 'stock' => 4, 'size' => [150, 55, 200],
             'photos' => ['three-door-wardrobe' => null],
             'about' => 'Three doors with three drawers on the right-hand side.'],
+        ['cat' => 'cabinets-shelves', 'name' => 'Wall Bookcase with Cabinets', 'price' => 38000, 'material' => 'MDF', 'color' => 'Charcoal grey', 'stock' => 2, 'size' => [180, 40, 220],
+            'photos' => ['wall-bookcase-cabinets' => null],
+            'about' => 'Tall open shelving over a row of closed cabinets, for a living room or study wall.'],
+        ['cat' => 'office', 'store' => 3, 'name' => 'Manager Desk with Three Chairs', 'price' => 52000, 'material' => 'MDF, steel frame', 'color' => 'Grey and navy', 'stock' => 2, 'size' => [160, 80, 75],
+            'photos' => ['manager-desk-set' => null],
+            'about' => 'Grey-top manager desk with a navy side panel, an office chair and two visitor chairs.'],
+        ['cat' => 'sofas-living-room', 'name' => 'Curved Leather Sectional Sofa', 'price' => 125000, 'material' => 'Leather, hardwood frame', 'color' => 'Sage green', 'stock' => 1, 'size' => [320, 220, 85],
+            'photos' => ['curved-leather-sectional' => null],
+            'about' => 'Curved corner sofa in sage green leather with tufted sides. Seats six. The coffee table is not included.'],
+        ['cat' => 'office', 'store' => 3, 'name' => 'Walnut Executive Desk', 'price' => 48000, 'material' => 'Walnut veneer, MDF', 'color' => 'Walnut and grey', 'stock' => 2, 'size' => [180, 85, 76],
+            'photos' => ['walnut-executive-desk' => null],
+            'about' => 'Executive desk with a grey front panel and a drawer pedestal.'],
+        ['cat' => 'cabinets-shelves', 'name' => 'Glass-Door Display Cabinet', 'price' => 46000, 'material' => 'Solid wood, glass', 'color' => 'Natural oak', 'stock' => 2, 'size' => [120, 45, 200],
+            'photos' => ['glass-door-display-cabinet' => null],
+            'about' => 'Wooden cabinet with glass doors above, and drawers and cupboards below.'],
+        ['cat' => 'office', 'store' => 3, 'name' => 'Dark Walnut Executive Desk', 'price' => 98000, 'material' => 'Walnut veneer', 'color' => 'Dark walnut', 'stock' => 1, 'size' => [200, 90, 76],
+            'photos' => ['dark-walnut-executive-desk' => null],
+            'about' => 'Large executive desk in dark walnut with a full front panel. The wall unit is not included.'],
+        ['cat' => 'sofas-living-room', 'name' => 'TV Stand with Wall Shelves', 'price' => 17500, 'material' => 'Walnut veneer, MDF', 'color' => 'Walnut', 'stock' => 4, 'size' => [180, 40, 50],
+            'photos' => ['tv-stand-with-shelves' => null],
+            'about' => 'Low TV stand with three drawers, a light strip underneath and four wall shelves.'],
+        ['cat' => 'sofas-living-room', 'name' => 'Two-Tone Curved Sectional Sofa', 'price' => 110000, 'material' => 'Fabric, velvet', 'color' => 'Cream and navy', 'stock' => 1, 'size' => [300, 200, 80],
+            'photos' => ['two-tone-curved-sectional' => null],
+            'about' => 'Curved cream sectional on a navy base, with navy bolster cushions.'],
+        ['cat' => 'sofas-living-room', 'name' => 'Navy Sectional Sofa with Chaise', 'price' => 78000, 'material' => 'Linen-look fabric', 'color' => 'Navy blue', 'stock' => 2, 'size' => [300, 170, 85],
+            'photos' => ['navy-sectional-chaise' => null],
+            'about' => 'Four-seat sofa with a chaise end and adjustable headrests.'],
+        ['cat' => 'sofas-living-room', 'name' => 'Brown L-Shaped Sofa with Coffee Table', 'price' => 72000, 'material' => 'Fabric, tempered glass', 'color' => 'Dark brown', 'stock' => 2, 'size' => [260, 200, 80],
+            'photos' => ['brown-l-sofa-coffee-table' => null],
+            'about' => 'Channel-stitched L-shaped sofa in dark brown with a matching glass-top coffee table.'],
+        ['cat' => 'office', 'store' => 3, 'name' => 'Computer Desk with Office Chair', 'price' => 21500, 'material' => 'MDF, steel frame', 'color' => 'Grey and white', 'stock' => 5, 'size' => [120, 60, 75],
+            'photos' => ['computer-desk-with-chair' => null],
+            'about' => 'Work desk with a keyboard tray, three drawers and a monitor shelf, with a mesh office chair.'],
+        ['cat' => 'sofas-living-room', 'name' => 'Velvet L-Shaped Sofa with Ottoman', 'price' => 95000, 'material' => 'Velvet, gold-colored legs', 'color' => 'Taupe', 'stock' => 2, 'size' => [320, 240, 85],
+            'photos' => ['velvet-l-sofa-ottoman' => null],
+            'about' => 'Large velvet corner sofa with a matching square ottoman.'],
+        ['cat' => 'sofas-living-room', 'name' => 'Charcoal Sectional Sofa with Charging Port', 'price' => 82000, 'material' => 'Linen-look fabric', 'color' => 'Charcoal grey', 'stock' => 2, 'size' => [320, 170, 85],
+            'photos' => ['charcoal-sectional-usb' => null],
+            'about' => 'Four-seat sofa with a chaise end, adjustable headrests and a USB charging port in the arm.'],
+        ['cat' => 'office', 'store' => 3, 'name' => 'Executive Office Set', 'price' => 145000, 'material' => 'Walnut veneer', 'color' => 'Walnut', 'stock' => 1, 'size' => [220, 100, 76],
+            'photos' => ['executive-office-set' => null],
+            'about' => 'Executive desk with a side return, two bookcases and a low cabinet. Size is for the desk.'],
+        ['cat' => 'sofas-living-room', 'name' => 'Tufted Sectional Sofa with Ottoman', 'price' => 105000, 'material' => 'Velvet', 'color' => 'Charcoal', 'stock' => 1, 'size' => [280, 220, 75],
+            'photos' => ['tufted-sectional-ottoman' => null],
+            'about' => 'Deep-buttoned charcoal corner sofa with a matching glass-top ottoman.'],
+        ['cat' => 'cabinets-shelves', 'name' => 'Oak Bookcase with Cupboard', 'price' => 22000, 'material' => 'Oak veneer, MDF', 'color' => 'Natural oak', 'stock' => 3, 'size' => [100, 35, 200],
+            'photos' => ['oak-bookcase-cupboard' => null],
+            'about' => 'Nine open shelves over a three-door cupboard.'],
+        ['cat' => 'cabinets-shelves', 'name' => 'White Bookcase with Drawers', 'price' => 19500, 'material' => 'MDF', 'color' => 'White', 'stock' => 4, 'size' => [90, 35, 200],
+            'photos' => ['white-bookcase-drawers' => null],
+            'about' => 'Open shelves in different sizes over two drawers and a two-door cupboard.'],
     ];
 
     public function __construct(
@@ -142,7 +194,7 @@ final class DemoCatalog
         $names = [];
 
         foreach (self::LISTINGS as $i => $row) {
-            $store = $stores[$i % 4] ?? null;
+            $store = $stores[$row['store'] ?? $i % 4] ?? null;
             if (! $store) {
                 continue;
             }
