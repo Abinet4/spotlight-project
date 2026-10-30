@@ -2,9 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Enums\ProductStatus;
 use App\Models\Product;
 use App\Models\ProductImage;
-use Database\Seeders\DemoFurnitureArt;
+use App\Models\SellerProfile;
+use App\Services\ImageVariants;
+use Database\Seeders\DemoCatalog;
+use Database\Seeders\DemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -13,86 +17,166 @@ class DemoPicturesTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_redraws_only_old_demo_pictures_and_is_safe_to_rerun(): void
+    private function store(int $n): SellerProfile
     {
-        Storage::fake('public');
-        Storage::fake('local');
-        $this->seedReferenceData();
-        $seller = $this->approvedSeller();
-        $sofa = Product::factory()->published()->create(['seller_profile_id' => $seller->id, 'category_id' => $this->category()->id, 'name' => 'Grey Sofa', 'color' => 'Grey']);
-
-        $old = $sofa->images()->create(['path' => "products/{$sofa->id}/demo-abcd1234.jpg", 'sort_order' => 0]);
-        $photo = $sofa->images()->create(['path' => "products/{$sofa->id}/real-photo.jpg", 'sort_order' => 1]);
-        $tricky = $sofa->images()->create(['path' => "products/{$sofa->id}/demo-../../secret.jpg", 'sort_order' => 2]);
-        foreach ([$old, $photo] as $img) {
-            Storage::disk('local')->put($img->path, 'x');
-        }
-
-        $before = ProductImage::count();
-        $this->artisan('marketplace:demo-pictures')->expectsOutput('Redrew 1 demo picture.')->assertSuccessful();
-
-        $redrawn = $old->fresh()->path;
-        $this->assertMatchesRegularExpression("#^products/{$sofa->id}/demo-art-[A-Za-z0-9]{8}\.jpg$#", $redrawn);
-        Storage::disk('local')->assertExists($redrawn);
-        Storage::disk('public')->assertMissing($redrawn);
-        Storage::disk('local')->assertMissing("products/{$sofa->id}/demo-abcd1234.jpg");
-        $this->assertSame("products/{$sofa->id}/real-photo.jpg", $photo->fresh()->path, 'seller photos are never touched');
-        Storage::disk('local')->assertExists($photo->path);
-        $this->assertSame("products/{$sofa->id}/demo-../../secret.jpg", $tricky->fresh()->path, 'odd paths are skipped');
-        $this->assertSame('image/jpeg', getimagesizefromstring(Storage::disk('local')->get($redrawn))['mime']);
-        $copies = [$old->fresh()->thumb_path, $old->fresh()->large_path];
-        $this->assertNotContains(null, $copies, 'the redrawn picture gets its smaller copies');
-        Storage::disk('public')->assertExists($copies);
-
-        $this->artisan('marketplace:demo-pictures')->expectsOutput('Demo pictures are up to date.')->assertSuccessful();
-        $this->assertSame($redrawn, $old->fresh()->path);
-        $this->assertSame($before, ProductImage::count(), 'pictures are replaced, never added');
+        return SellerProfile::whereHas('user', fn ($q) => $q->where('email', "seller{$n}@demo.local"))->sole();
     }
 
-    public function test_redraws_drawn_demo_pictures_whose_files_are_gone(): void
+    private function listing(string $name): Product
+    {
+        return Product::withTrashed()->where('name', $name)->sole();
+    }
+
+    /** A published listing with exactly these pictures (the factory adds one of its own). */
+    private function listingWith(SellerProfile $store, string $name, array $files): Product
+    {
+        $product = Product::factory()->published()->create(['seller_profile_id' => $store->id, 'category_id' => $this->category()->id, 'name' => $name]);
+        $product->images()->delete();
+        foreach ($files as $n => $file) {
+            $product->images()->create(['path' => "products/{$product->id}/{$file}", 'sort_order' => $n]);
+        }
+
+        return $product;
+    }
+
+    public function test_every_demo_listing_gets_its_own_photos_and_every_photo_is_used_once(): void
     {
         Storage::fake('public');
         Storage::fake('local');
-        $this->seedReferenceData();
-        $seller = $this->approvedSeller();
-        $bed = Product::factory()->published()->create(['seller_profile_id' => $seller->id, 'category_id' => $this->category()->id, 'name' => 'Oak Bed', 'color' => 'Oak']);
-        $art = fn (string $name) => "products/{$bed->id}/demo-art-{$name}.jpg";
+        $this->seed(DemoSeeder::class);
 
-        // Kept: every file there. Lost: nothing on disk (added before the volume). Half: a copy is gone.
-        $kept = $bed->images()->create(['path' => $art('keep1234'), 'thumb_path' => 'products/k-thumb.webp', 'large_path' => 'products/k-large.webp', 'sort_order' => 0]);
-        $lost = $bed->images()->create(['path' => $art('lost1234'), 'thumb_path' => 'products/l-thumb.webp', 'large_path' => 'products/l-large.webp', 'sort_order' => 1]);
-        $half = $bed->images()->create(['path' => $art('half1234'), 'thumb_path' => 'products/h-thumb.webp', 'large_path' => 'products/h-large.webp', 'sort_order' => 2]);
-        $photo = $bed->images()->create(['path' => "products/{$bed->id}/seller-photo.jpg", 'thumb_path' => 'products/p-thumb.webp', 'large_path' => 'products/p-large.webp', 'sort_order' => 3]);
-        Storage::disk('local')->put($kept->path, 'x');
-        Storage::disk('public')->put($kept->copies()[0], 'x');
-        Storage::disk('public')->put($kept->copies()[1], 'x');
-        Storage::disk('local')->put($half->path, 'x');
-        Storage::disk('public')->put($half->thumb_path, 'x');
-
-        $this->artisan('marketplace:demo-pictures')->expectsOutput('Redrew 2 demo pictures.')->assertSuccessful();
-
-        $this->assertSame($art('keep1234'), $kept->fresh()->path, 'complete pictures are left alone');
-        $this->assertSame("products/{$bed->id}/seller-photo.jpg", $photo->fresh()->path, 'a lost seller photo cannot be redrawn, so it is not touched');
-        foreach ([$lost, $half] as $image) {
-            $image = $image->fresh();
-            $this->assertNotSame($art('lost1234'), $image->path);
-            Storage::disk('local')->assertExists($image->path);
-            $this->assertCount(2, $image->copies());
-            Storage::disk('public')->assertExists($image->copies());
+        $products = Product::with('images', 'variants')->get();
+        $this->assertCount(25, $products);
+        $used = [];
+        foreach ($products as $product) {
+            $this->assertSame(ProductStatus::Published, $product->status, $product->name);
+            $this->assertNotNull($product->category_id, $product->name);
+            $this->assertNotEmpty($product->images, $product->name);
+            foreach ($product->images as $image) {
+                $this->assertMatchesRegularExpression("#^products/{$product->id}/demo-photo-[a-z0-9-]+-[0-9a-f]{8}\.jpg$#", $image->path);
+                $this->assertTrue(DemoCatalog::generated($image->path));
+                Storage::disk('local')->assertExists($image->path);
+                $this->assertCount(2, $image->copies(), 'each photo gets its smaller copies');
+                Storage::disk('public')->assertExists($image->copies());
+                $this->assertSame('image/jpeg', getimagesizefromstring(Storage::disk('local')->get($image->path))['mime']);
+                $used[] = preg_replace('#^.*/demo-photo-(.+)-[0-9a-f]{8}\.jpg$#', '$1', $image->path);
+            }
         }
-        Storage::disk('local')->assertMissing($art('half1234'));
-        Storage::disk('public')->assertMissing('products/h-thumb.webp');
 
-        $this->artisan('marketplace:demo-pictures')->expectsOutput('Demo pictures are up to date.')->assertSuccessful();
+        // Every photo in the folder is on exactly one listing; nothing is missing or shown twice.
+        $files = array_map(fn ($f) => basename($f, '.jpg'), glob(DemoCatalog::PHOTO_DIR.'/*.jpg'));
+        sort($files);
+        sort($used);
+        $this->assertSame($files, $used);
+
+        // The same bed photographed in two colors is one listing with both photos and an option per color.
+        $bed = $this->listing('Fluted Upholstered Bed');
+        $this->assertSame(['Fluted Upholstered Bed in grey', 'Fluted Upholstered Bed in beige'], $bed->images()->orderBy('sort_order')->pluck('alt')->all());
+        $this->assertSame(['Grey' => 2, 'Beige' => 3], $bed->variants()->orderBy('sort_order')->pluck('stock_quantity', 'color')->all());
+        $this->assertSame(5, $bed->fresh()->stock_quantity);
+        $this->getJson("/api/products/{$bed->slug}")->assertOk()->assertJsonCount(2, 'data.images')->assertJsonCount(2, 'data.variants');
+
+        $this->artisan('marketplace:demo-pictures')->expectsOutput('Demo listings and photos are up to date.')->assertSuccessful();
+        $this->assertSame(26, ProductImage::count(), 'running again adds nothing');
+    }
+
+    public function test_older_demo_data_is_brought_up_to_date_without_touching_store_photos(): void
+    {
+        Storage::fake('public');
+        Storage::fake('local');
+        $this->seed(DemoSeeder::class);
+        $one = $this->store(1);
+
+        // An older demo listing with a drawn picture, one a store gave its own photo, and an odd path.
+        $drawn = $this->listingWith($one, 'Mahogany Coffee Table', ['demo-art-abcd1234.jpg', 'demo-abcd5678.jpg']);
+        $drawnImage = $drawn->images()->first();
+        Storage::disk('local')->put($drawnImage->path, 'x');
+        $kept = $this->listingWith($one, 'Used Leather Armchair', ['demo-art-efgh5678.jpg', 'store-photo.jpg']);
+        $keptDrawn = $kept->images()->where('sort_order', 0)->sole();
+        Storage::disk('local')->put($keptDrawn->path, 'x');
+        $odd = $this->listingWith($one, 'Odd Path Table', ['demo-../../secret.jpg']);
+        $bare = $this->listingWith($this->store(2), 'Listing Without Pictures', []);
+        // Another store's listing, never touched even with a demo-looking file name.
+        $other = $this->listingWith($this->approvedSeller(), 'Not Demo', ['demo-art-ijkl9012.jpg']);
+
+        // A catalog listing still showing a drawn picture, one whose photo files were lost, and one the admin deleted.
+        $bed = $this->listing('Winged Channel Bed');
+        $bed->images()->sole()->deleteFiles();
+        $bed->images()->delete();
+        $bed->images()->create(['path' => "products/{$bed->id}/demo-art-mnop3456.jpg", 'sort_order' => 0]);
+        $table = $this->listing('Marble-Look Coffee Table');
+        $lost = $table->images()->sole();
+        Storage::disk('local')->delete($lost->path);
+        $desk = $this->listing('Desk with Five Drawers');
+        $desk->delete();
+        $shoes = $this->listing('Shoe Bench with Seat');
+        $shoesImage = $shoes->images()->sole();
+        Storage::disk('public')->delete($shoesImage->copies());
+        // A store photo on a catalog listing wins over the demo photo.
+        $wardrobe = $this->listing('Sage Green Wardrobe');
+        $wardrobe->images()->create(['path' => "products/{$wardrobe->id}/my-own-photo.jpg", 'sort_order' => 5]);
+        $wardrobeBefore = $wardrobe->images()->pluck('path')->all();
+
+        $this->artisan('marketplace:demo-pictures')
+            ->expectsOutput('Demo listings: 0 added, 4 with pictures updated, 1 old ones taken down.')
+            ->assertSuccessful();
+
+        $this->assertSame(ProductStatus::Archived, $drawn->fresh()->status, 'the old drawn listing leaves the shop');
+        $this->assertSame(0, $drawn->images()->count());
+        Storage::disk('local')->assertMissing($drawnImage->path);
+        $this->assertSame(ProductStatus::Published, $kept->fresh()->status, 'a listing with a store photo stays');
+        $this->assertSame(["products/{$kept->id}/store-photo.jpg"], $kept->images()->pluck('path')->all(), 'only the drawn picture beside it goes');
+        Storage::disk('local')->assertMissing($keptDrawn->path);
+        $this->assertSame(ProductStatus::Published, $odd->fresh()->status, 'odd paths are not demo pictures');
+        $this->assertSame(ProductStatus::Published, $bare->fresh()->status, 'a listing without pictures is not the demo\'s to take down');
+        $this->assertSame(ProductStatus::Published, $other->fresh()->status, 'other stores are never touched');
+        $this->assertSame(1, $other->images()->count());
+
+        $this->assertMatchesRegularExpression('#/demo-photo-winged-channel-bed-[0-9a-f]{8}\.jpg$#', $bed->images()->sole()->path);
+        Storage::disk('local')->assertExists($table->images()->sole()->path);
+        $this->assertTrue($desk->fresh()->trashed(), 'a deleted demo listing stays deleted');
+        $this->assertSame($shoesImage->id, $shoes->images()->sole()->id, 'lost copies are made again on the same picture');
+        Storage::disk('public')->assertExists($shoes->images()->sole()->copies());
+        $this->assertSame($wardrobeBefore, $wardrobe->images()->pluck('path')->all());
+
+        // Archived and stripped of its pictures, the old listing is left alone even if an admin publishes it again.
+        $drawn->refresh();
+        $drawn->status = ProductStatus::Published;
+        $drawn->save();
+        $this->artisan('marketplace:demo-pictures')->expectsOutput('Demo listings and photos are up to date.')->assertSuccessful();
+        $this->assertSame(ProductStatus::Published, $drawn->fresh()->status);
         $this->getJson('/api/products/'.$bed->slug)->assertOk();
     }
 
-    public function test_draws_every_kind_of_demo_listing(): void
+    public function test_photos_are_not_redone_on_every_start_when_copies_cannot_be_made(): void
     {
-        $art = new DemoFurnitureArt;
-        foreach (['Sofa', 'Armchair', 'Bed', 'Bunk Bed', 'Mattress', 'Wardrobe', 'Dresser', 'Filing Cabinet', 'Bookshelf', 'Display Cabinet', 'Desk', 'Kids Desk', 'Office Chair', 'Dining Set', 'Chair', 'Bench', 'Patio Set', 'Lamp'] as $i => $name) {
-            $info = getimagesizefromstring($art->jpeg($name, $i % 2 ? 'Unknown colour' : 'walnut', $i));
-            $this->assertSame([800, 600, 'image/jpeg'], [$info[0], $info[1], $info['mime']], $name);
-        }
+        Storage::fake('public');
+        Storage::fake('local');
+        $this->app->instance(ImageVariants::class, new class extends ImageVariants
+        {
+            public function make(string $path): array
+            {
+                return [];
+            }
+        });
+        $this->seed(DemoSeeder::class);
+        $ids = ProductImage::orderBy('id')->pluck('id')->all();
+        $this->assertCount(26, $ids);
+
+        $this->artisan('marketplace:demo-pictures')->expectsOutput('Demo listings and photos are up to date.')->assertSuccessful();
+        $this->assertSame($ids, ProductImage::orderBy('id')->pluck('id')->all());
+    }
+
+    public function test_never_runs_outside_a_test_site_or_without_demo_stores(): void
+    {
+        Storage::fake('public');
+        Storage::fake('local');
+        $this->seedReferenceData();
+
+        $this->artisan('marketplace:demo-pictures')->expectsOutput('No demo stores here; nothing to do.')->assertSuccessful();
+
+        $this->app['env'] = 'production';
+        $this->artisan('marketplace:demo-pictures')->expectsOutput('Demo photos are for test sites only; nothing changed.')->assertSuccessful();
+        $this->assertSame(0, Product::count());
     }
 }

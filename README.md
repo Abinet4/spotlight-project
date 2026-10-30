@@ -33,7 +33,7 @@ winget install -e --id OpenJS.NodeJS.LTS
 powershell -ExecutionPolicy Bypass -File scripts\try-locally.ps1
 ```
 
-It uses SQLite (no MySQL needed), adds demo sellers, listings and an admin, builds the site, starts both servers and prints the logins. Open http://localhost:5173 and press Ctrl+C to stop. The site is served as built for production, which loads several times faster than development mode; set `TRY_DEV=1` first (`$env:TRY_DEV=1` in PowerShell) for the development server with instant reload while you edit code. Running it again keeps your data (and redraws old plain demo pictures as furniture). Paying online opens a test payment page where you choose whether the payment goes through; no real money moves. The demo passwords are public, so use it on your own computer only.
+It uses SQLite (no MySQL needed), adds demo sellers, listings and an admin, builds the site, starts both servers and prints the logins. Open http://localhost:5173 and press Ctrl+C to stop. The site is served as built for production, which loads several times faster than development mode; set `TRY_DEV=1` first (`$env:TRY_DEV=1` in PowerShell) for the development server with instant reload while you edit code. Running it again keeps your data (and swaps older demo listings for the current ones with real photos). Paying online opens a test payment page where you choose whether the payment goes through; no real money moves. The demo passwords are public, so use it on your own computer only.
 
 ## Local setup
 

@@ -287,7 +287,7 @@ Foreign keys use `restrict` where deleting the parent would destroy history (sel
 - Phones: the listing page has a fixed buy bar; the compare pill is hidden there so it does not cover the bar.
 - `GET /products?slugs=a,b,c` returns only those listings that are visible to the public (unknown or hidden ones are skipped), at most 24, for compare and recently viewed.
 - Account, seller and admin pages are loaded on demand, so shoppers download less on first visit.
-- Demo listings get drawn furniture pictures (`DemoFurnitureArt`). `php artisan marketplace:demo-pictures` redraws the old plain demo pictures on an existing demo database; it touches only demo images, never seller uploads.
+- Demo listings and their photos are in `DemoCatalog` (photos in `backend/database/seeders/photos`; photos of the same piece go on one listing, one option per color). `php artisan marketplace:demo-pictures` runs on every start of a demo site: it adds missing demo listings (one an admin deleted stays deleted), puts back photos or copies lost from the disk, and archives older demo listings that only have demo pictures. It touches only the four demo stores and pictures named `demo-*.jpg`, never a store's own uploads, and does nothing unless APP_ENV is local, testing or staging.
 
 **Online payment (Chapa).**
 - One Chapa page covers telebirr, CBE Birr, M-Pesa, bank apps and cards. The customer picks "Pay now online" or "Cash on delivery" at checkout. Paying online needs every delivery fee to be known; otherwise the customer chooses pickup or cash.
