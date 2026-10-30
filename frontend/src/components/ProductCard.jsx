@@ -71,7 +71,6 @@ export default function ProductCard({ product }) {
         <RatingSummary rating={product.rating} className="text-xs" />
         <div className="mt-auto flex flex-wrap items-baseline gap-x-2 pt-1">
           <span className="text-[15px] font-bold whitespace-nowrap text-stone-900 sm:text-base">{formatETB(product.price_santim)}</span>
-          {product.price_negotiable && <span className="text-xs font-medium text-clay-600">Negotiable</span>}
         </div>
       </div>
       {quickView && (

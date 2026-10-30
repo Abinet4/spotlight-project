@@ -15,7 +15,6 @@ use App\Models\OrderStatusHistory;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\ProductVariant;
-use App\Models\Quote;
 use App\Models\Refund;
 use App\Models\Setting;
 use App\Models\User;
@@ -56,25 +55,18 @@ class OrderService
                 throw ValidationException::withMessages(['cart' => 'Your cart is empty.']);
             }
 
-            // Lock listing and quote rows in id order (consistent order avoids deadlocks), then
-            // price from the locked, fresh values.
+            // Lock listing rows in id order (consistent order avoids deadlocks), then price from the
+            // locked, fresh values.
             $productIds = $lines->pluck('product_id')->filter()->sort()->values()->all();
             $locked = Product::withTrashed()->whereIn('id', $productIds)->orderBy('id')->lockForUpdate()->get()->keyBy('id');
-            $quoteIds = $lines->pluck('quote_id')->filter()->sort()->values()->all();
-            $lockedQuotes = Quote::whereIn('id', $quoteIds)->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             // Options are guarded by their listing's lock, so reading them now gives settled stock.
             $variants = ProductVariant::withTrashed()->whereIn('id', $lines->pluck('variant_id')->filter()->all())->get()->keyBy('id');
             $current = ProductVariant::whereIn('product_id', $productIds)->get()->groupBy('product_id');
             foreach ($lines as $line) {
-                if ($line->product_id) {
-                    $line->product->setRawAttributes($locked[$line->product_id]->getAttributes(), true);
-                    $line->product->setRelation('variants', $current[$line->product_id] ?? new EloquentCollection);
-                }
+                $line->product->setRawAttributes($locked[$line->product_id]->getAttributes(), true);
+                $line->product->setRelation('variants', $current[$line->product_id] ?? new EloquentCollection);
                 if ($line->variant_id) {
                     $line->setRelation('variant', $variants[$line->variant_id] ?? null);
-                }
-                if ($line->quote_id) {
-                    $line->quote->setRawAttributes($lockedQuotes[$line->quote_id]->getAttributes(), true);
                 }
             }
 
@@ -157,24 +149,18 @@ class OrderService
                     $item->quantity = $row['quantity'];
                     $item->line_total_santim = $row['line_total_santim'];
 
-                    if ($cartLine->quote_id) {
-                        $item->quote_id = $cartLine->quote_id;
-                        $item->product_id = $cartLine->quote->product_id;
-                        $item->production_days = $cartLine->quote->production_days;
-                    } else {
-                        $product = $locked[$cartLine->product_id];
-                        $variant = $cartLine->variant_id ? $variants[$cartLine->variant_id] : null;
-                        $item->product_id = $product->id;
-                        $item->variant_id = $variant?->id;
-                        $item->variant_label = $variant ? ($variant->label() ?: null) : null;
-                        $item->stock_type = $product->stock_type->value;
-                        $item->production_days = $product->production_days;
-                        $item->unit_cost_santim = InventoryService::unitCost($product, $variant);
-                        if ($product->stock_type === StockType::InStock) {
-                            // Reserve now; the calculator already checked there is enough under the lock.
-                            $this->inventory->reserve($product, $variant, $row['quantity'], $order, $customer);
-                            $item->reserved_quantity = $row['quantity'];
-                        }
+                    $product = $locked[$cartLine->product_id];
+                    $variant = $cartLine->variant_id ? $variants[$cartLine->variant_id] : null;
+                    $item->product_id = $product->id;
+                    $item->variant_id = $variant?->id;
+                    $item->variant_label = $variant ? ($variant->label() ?: null) : null;
+                    $item->stock_type = $product->stock_type->value;
+                    $item->production_days = $product->production_days;
+                    $item->unit_cost_santim = InventoryService::unitCost($product, $variant);
+                    if ($product->stock_type === StockType::InStock) {
+                        // Reserve now; the calculator already checked there is enough under the lock.
+                        $this->inventory->reserve($product, $variant, $row['quantity'], $order, $customer);
+                        $item->reserved_quantity = $row['quantity'];
                     }
                     $item->save();
                 }
@@ -347,25 +333,22 @@ class OrderService
             if (CartItem::where('user_id', $order->customer_id)->count() >= $max) {
                 return;
             }
-            $column = $item->quote_id ? 'quote_id' : 'product_id';
-            $id = $item->quote_id ?: $item->product_id;
-            if (! $id || ($column === 'product_id' && ! Product::whereKey($id)->exists())) {
+            // Price offers are gone, so an item ordered from one cannot go back in the cart.
+            if ($item->quote_id || ! $item->product_id || ! Product::whereKey($item->product_id)->exists()) {
                 continue;
             }
-            $variantId = $item->quote_id ? null : $item->variant_id;
-            if ($variantId && ! ProductVariant::whereKey($variantId)->exists()) {
+            if ($item->variant_id && ! ProductVariant::whereKey($item->variant_id)->exists()) {
                 continue;
             }
-            $existing = CartItem::where('user_id', $order->customer_id)->where($column, $id);
-            if ($column === 'product_id') {
-                $existing->when($variantId, fn ($q) => $q->where('variant_id', $variantId), fn ($q) => $q->whereNull('variant_id'));
-            }
-            if (! $existing->exists()) {
+            $exists = CartItem::where('user_id', $order->customer_id)->where('product_id', $item->product_id)
+                ->when($item->variant_id, fn ($q) => $q->where('variant_id', $item->variant_id), fn ($q) => $q->whereNull('variant_id'))
+                ->exists();
+            if (! $exists) {
                 $line = new CartItem;
                 $line->user_id = $order->customer_id;
-                $line->{$column} = $id;
-                $line->variant_id = $variantId;
-                $line->quantity = $item->quote_id ? 1 : $item->quantity;
+                $line->product_id = $item->product_id;
+                $line->variant_id = $item->variant_id;
+                $line->quantity = $item->quantity;
                 $line->save();
             }
         }

@@ -52,7 +52,7 @@ export function Notifications() {
     <div className="container-page max-w-3xl py-8">
       <PageHeader
         title="Alerts"
-        subtitle="Order updates, offers and store news. Answers from Betoch Support also show in Support."
+        subtitle="Order updates and store news. Answers from Betoch Support also show in Support."
         actions={(
           <>
             {unread > 0 && <button type="button" className="btn-secondary" onClick={markAll}>Mark all as read</button>}
@@ -74,7 +74,7 @@ export function Notifications() {
 
       {list.loading && !list.data ? <Spinner /> : list.error ? <ErrorState error={list.error} onRetry={list.reload} /> : list.data.data.length === 0 ? (
         <EmptyState icon={Bell} title={filter === 'unread' ? 'You are all caught up' : 'No alerts yet'}>
-          {filter === 'unread' ? 'There are no unread alerts.' : 'When something happens with your orders, quotes or store, it shows up here.'}
+          {filter === 'unread' ? 'There are no unread alerts.' : 'When something happens with your orders or store, it shows up here.'}
         </EmptyState>
       ) : (
         <>
@@ -182,7 +182,7 @@ function AlertSettingsForm({ settings }) {
           <div>
             <label htmlFor="alert-email" className="font-medium">Email</label>
             <p id="alert-email-help" className="text-stone-600">
-              Order updates, support answers and offers, sent to <strong className="break-all">{info.email}</strong>. At most one email per inquiry every 30 minutes.
+              Order updates and support answers, sent to <strong className="break-all">{info.email}</strong>. At most one email per inquiry every 30 minutes.
             </p>
           </div>
         </div>

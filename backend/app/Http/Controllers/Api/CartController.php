@@ -2,14 +2,12 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Enums\QuoteStatus;
 use App\Enums\StockType;
 use App\Http\Controllers\Controller;
 use App\Models\Area;
 use App\Models\CartItem;
 use App\Models\Product;
 use App\Models\ProductVariant;
-use App\Models\Quote;
 use App\Models\User;
 use App\Services\CheckoutCalculator;
 use Illuminate\Database\Eloquent\Collection;
@@ -101,49 +99,12 @@ class CartController extends Controller
         return $this->show($request)->setStatusCode(201);
     }
 
-    /**
-     * Put an accepted quote in the cart so it is ordered through the normal checkout.
-     */
-    public function addQuote(Request $request, int $id): JsonResponse
-    {
-        $user = $request->user();
-        $quote = Quote::forCustomer($user->id)->findOrFail($id);
-
-        if ($quote->status !== QuoteStatus::Accepted) {
-            throw ValidationException::withMessages(['quote' => 'Accept the quote before ordering it.']);
-        }
-        if ($quote->orderDeadline()->isPast()) {
-            throw ValidationException::withMessages(['quote' => 'This offer has expired. Ask Betoch Support for a new one.']);
-        }
-        if ($quote->isOrdered()) {
-            throw ValidationException::withMessages(['quote' => 'This quote has already been ordered.']);
-        }
-
-        DB::transaction(function () use ($user, $quote) {
-            User::whereKey($user->id)->lockForUpdate()->first();
-            if (CartItem::where('user_id', $user->id)->where('quote_id', $quote->id)->exists()) {
-                return;
-            }
-            $this->assertRoom($user);
-            $item = new CartItem;
-            $item->user_id = $user->id;
-            $item->quote_id = $quote->id;
-            $item->quantity = $quote->quantity;
-            $item->save();
-        });
-
-        return $this->show($request)->setStatusCode(201);
-    }
-
     public function update(Request $request, int $id): JsonResponse
     {
         $data = $request->validate([
             'quantity' => ['required', 'integer', 'min:1', 'max:'.config('marketplace.cart.max_quantity')],
         ]);
         $item = CartItem::where('user_id', $request->user()->id)->with(['product', 'variant'])->findOrFail($id);
-        if ($item->quote_id) {
-            throw ValidationException::withMessages(['quantity' => 'The quantity of a quote is set by the seller.']);
-        }
         if (! $item->product) {
             throw ValidationException::withMessages(['quantity' => 'This listing is no longer available.']);
         }
@@ -172,13 +133,12 @@ class CartController extends Controller
             ->with([
                 'product' => fn ($q) => $q->withTrashed()->with(['seller.area', 'primaryImage', 'variants']),
                 'variant' => fn ($q) => $q->withTrashed(),
-                'quote' => fn ($q) => $q->with(['seller.area', 'product']),
             ])
             ->orderBy('id')
             ->get();
 
         // Drop lines whose listing was hard-deleted out from under the cart.
-        return $items->filter(fn (CartItem $i) => $i->product || $i->quote)->values();
+        return $items->filter(fn (CartItem $i) => $i->product)->values();
     }
 
     private function assertRoom(User $user): void

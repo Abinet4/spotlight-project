@@ -30,7 +30,6 @@ class ProductResource extends JsonResource
             'price' => Money::toBirr($this->price_santim),
             'price_santim' => $this->price_santim,
             'currency' => config('marketplace.currency'),
-            'price_negotiable' => $this->price_negotiable,
             'condition' => $this->condition->value,
             'stock_type' => $this->stock_type->value,
             'stock_quantity' => $this->stock_quantity,

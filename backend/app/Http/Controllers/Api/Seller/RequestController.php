@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api\Seller;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\SellerRequestResource;
 use App\Models\SellerRequest;
-use App\Models\Setting;
 use App\Models\SupportTicket;
 use App\Services\SupportService;
 use Illuminate\Database\Eloquent\Builder;
@@ -21,8 +20,6 @@ use Illuminate\Validation\ValidationException;
  */
 class RequestController extends Controller
 {
-    public const MAX_VALID_DAYS = 60;
-
     public function __construct(private readonly SupportService $support) {}
 
     public function index(Request $request)
@@ -56,32 +53,26 @@ class RequestController extends Controller
     }
 
     /**
-     * Answer Betoch, optionally with a priced proposal Betoch may send to the customer.
+     * Answer Betoch. Prices are the listing's own: stores do not send price offers.
      */
     public function reply(Request $request, int $id): JsonResponse
     {
-        $money = 'regex:/^\d{1,10}(\.\d{1,2})?$/';
         $data = $request->validate([
             'body' => ['required', 'string', 'min:1', 'max:3000'],
-            'proposal' => ['nullable', 'array'],
-            'proposal.price' => ['required_with:proposal', 'string', $money],
-            'proposal.quantity' => ['sometimes', 'integer', 'min:1', 'max:1000'],
-            'proposal.delivery_fee' => ['nullable', 'string', $money],
-            'proposal.production_days' => ['nullable', 'integer', 'min:0', 'max:365'],
-            'proposal.valid_until' => ['required_with:proposal', 'date_format:Y-m-d', 'after_or_equal:today', 'before_or_equal:'.now()->addDays(self::MAX_VALID_DAYS)->toDateString()],
-        ]);
+            // From a page opened before price offers were removed: say so rather than drop the price quietly.
+            'proposal' => ['prohibited'],
+        ], ['proposal.prohibited' => 'Price offers are no longer sent: customers pay the listing price. Change the listing price, or answer in words.']);
         $body = trim($data['body']) ?: throw ValidationException::withMessages(['body' => 'Write a message first.']);
-        $proposal = ! empty($data['proposal']) ? SupportService::proposalFrom($data['proposal'], Setting::storesSetDeliveryFee()) : [];
         $user = $request->user();
 
-        $sellerRequest = DB::transaction(function () use ($request, $id, $user, $body, $proposal) {
+        $sellerRequest = DB::transaction(function () use ($request, $id, $user, $body) {
             // Inquiry before request, the same lock order the admin side uses.
             $ticketId = $this->scoped($request)->whereKey($id)->value('support_ticket_id');
             if ($ticketId) {
                 SupportTicket::lockForUpdate()->find($ticketId);
             }
             $sellerRequest = $this->scoped($request)->lockForUpdate()->findOrFail($id);
-            $this->support->requestMessage($sellerRequest, $user, 'seller', $body, $proposal);
+            $this->support->requestMessage($sellerRequest, $user, 'seller', $body);
 
             return $sellerRequest;
         });

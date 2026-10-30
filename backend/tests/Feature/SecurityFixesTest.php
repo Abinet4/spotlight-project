@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Enums\SellerStatus;
 use App\Models\Order;
-use App\Models\Setting;
 use App\Payments\ChapaGateway;
 use App\Payments\FakeGateway;
 use App\Payments\NullGateway;
@@ -12,7 +11,6 @@ use App\Payments\PaymentGateway;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
-use Illuminate\Testing\TestResponse;
 use Tests\Concerns\MakesSupportData;
 use Tests\Concerns\PlacesOrders;
 use Tests\TestCase;
@@ -93,47 +91,6 @@ class SecurityFixesTest extends TestCase
         $this->assertNull($this->storeView($order)['delivery_address']);
         $this->as($this->buyer)->getJson("/api/orders/{$order->id}")->assertOk()->assertJsonPath('data.delivery_address.address_line', 'House 12');
         $this->as($this->admin())->getJson("/api/admin/orders/{$order->id}")->assertOk()->assertJsonPath('data.delivery_address.address_line', 'House 12');
-    }
-
-    private function proposal(?string $fee): TestResponse
-    {
-        $ticket = $this->actAs($this->buyer)->postJson('/api/support/tickets', [
-            'topic' => 'price', 'seller_slug' => $this->seller->slug, 'body' => 'A wardrobe please',
-        ])->assertCreated()->json('data.id');
-        $request = $this->actAs($this->admin())->postJson('/api/admin/support/requests', [
-            'support_ticket_id' => $ticket, 'seller_profile_id' => $this->seller->id, 'topic' => 'price',
-            'subject' => 'Wardrobe price', 'body' => 'How much for a walnut wardrobe?',
-        ])->assertCreated()->json('data.id');
-
-        return $this->actAs($this->seller->user)->postJson("/api/seller/requests/$request/messages", [
-            'body' => 'Here is our price.',
-            'proposal' => ['price' => '20000', 'quantity' => 1, 'delivery_fee' => $fee, 'valid_until' => now()->addDays(5)->toDateString()],
-        ]);
-    }
-
-    public function test_a_proposal_cannot_carry_a_delivery_fee_while_the_marketplace_sets_them(): void
-    {
-        Setting::updateOrCreate(['key' => 'stores_set_delivery_fee'], ['value' => '0']);
-
-        $this->proposal('5000')->assertUnprocessable()->assertJsonValidationErrors('delivery_fee');
-        $this->proposal('0')->assertCreated()->assertJsonPath('data.messages.1.proposal.delivery_fee_santim', 0);
-        $this->proposal(null)->assertCreated()->assertJsonPath('data.messages.1.proposal.delivery_fee_santim', null);
-    }
-
-    public function test_an_earlier_quote_fee_is_ignored_once_the_switch_is_off(): void
-    {
-        Setting::updateOrCreate(['key' => 'stores_set_delivery_fee'], ['value' => '1']);
-        $chat = $this->oldConversation($this->buyer, $this->seller);
-        $quoteId = $this->oldQuote($chat, ['delivery_fee_santim' => 500_000])->id;
-        $this->actAs($this->buyer)->postJson("/api/quotes/{$quoteId}/accept")->assertOk();
-        $this->postJson("/api/quotes/{$quoteId}/add-to-cart")->assertCreated();
-
-        $fee = fn () => $this->getJson('/api/cart?address_id='.$this->address->id)->json('data.groups.0.delivery_fee_santim');
-        $this->assertSame(500_000, $fee());
-
-        // The quote's 5,000 birr no longer applies: the marketplace's own price does (here: the store confirms it).
-        Setting::updateOrCreate(['key' => 'stores_set_delivery_fee'], ['value' => '0']);
-        $this->assertNotSame(500_000, $fee());
     }
 
     private function gateway(string $env, string $name, ?string $key = null): PaymentGateway

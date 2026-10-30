@@ -251,7 +251,6 @@ final class DemoCatalog
             'name' => $row['name'],
             'description' => $row['about'],
             'price_santim' => $row['price'] * 100,
-            'price_negotiable' => $i % 3 === 0,
             'condition' => 'new',
             'stock_type' => 'in_stock',
             'stock_quantity' => 0,

@@ -8,20 +8,20 @@ import { useFetch } from '../../lib/useFetch'
 import VariantEditor from './VariantEditor'
 
 const EMPTY = {
-  name: '', category_id: '', description: '', price: '', price_negotiable: false,
+  name: '', category_id: '', description: '', price: '',
   condition: 'new', stock_quantity: '1',
   width_cm: '', depth_cm: '', height_cm: '', material: '', color: '',
   area_id: '', offers_delivery: true, pickup_available: false, delivery_fee: '', delivery_notes: '',
 }
 
-const BOOL_FIELDS = ['price_negotiable', 'offers_delivery', 'pickup_available']
+const BOOL_FIELDS = ['offers_delivery', 'pickup_available']
 
 function fromProduct(p) {
   return {
     ...EMPTY,
     name: p.name, category_id: String(p.category?.id ?? ''), description: p.description,
     price: p.price.endsWith('.00') ? p.price.slice(0, -3) : p.price,
-    price_negotiable: p.price_negotiable, condition: p.condition,
+    condition: p.condition,
     stock_quantity: String(p.stock_quantity ?? ''),
     width_cm: String(p.dimensions.width_cm ?? ''), depth_cm: String(p.dimensions.depth_cm ?? ''), height_cm: String(p.dimensions.height_cm ?? ''),
     material: p.material ?? '', color: p.color ?? '', area_id: String(p.area_id ?? ''),
@@ -194,7 +194,6 @@ export default function SellerProductForm() {
               <input className="input" inputMode="decimal" {...bind('price')} />
             </Field>
           </div>
-          <label className="flex items-center gap-2 text-sm"><input className="size-4 accent-brand-700" {...bind('price_negotiable', 'checkbox')} /> Price is negotiable</label>
         </section>
 
         <section className="card space-y-4 p-5">

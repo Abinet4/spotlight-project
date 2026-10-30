@@ -124,7 +124,6 @@ export default function ProductDetail() {
           <div className="mt-5 flex items-baseline gap-3">
             <span className="text-3xl font-bold tracking-tight text-stone-900 sm:text-4xl">{formatETB(variant ? variant.price_santim : p.price_santim)}</span>
             {!variant && new Set(variants.map((v) => v.price_santim)).size > 1 && <span className="text-sm text-stone-500">Price depends on the option</span>}
-            {p.price_negotiable && <span className="rounded-full bg-clay-500/10 px-2.5 py-1 text-xs font-semibold text-clay-600">Price negotiable</span>}
           </div>
           {config.vat_rate_percent > 0 && <p className="mt-1 text-xs text-stone-500">Plus {config.vat_rate_percent}% VAT at checkout</p>}
           <p className={`mt-2 inline-flex items-center gap-1.5 text-sm font-medium ${p.is_available ? 'text-emerald-700' : 'text-red-700'}`}>

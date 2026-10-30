@@ -2,21 +2,17 @@
 
 namespace App\Services;
 
-use App\Enums\QuoteStatus;
 use App\Enums\SellerRequestTopic;
 use App\Enums\SupportStatus;
 use App\Enums\SupportTopic;
 use App\Models\Order;
 use App\Models\Product;
-use App\Models\Quote;
 use App\Models\SellerProfile;
 use App\Models\SellerRequest;
 use App\Models\SellerRequestMessage;
 use App\Models\SupportMessage;
 use App\Models\SupportTicket;
 use App\Models\User;
-use App\Support\Money;
-use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -26,7 +22,7 @@ use Illuminate\Validation\ValidationException;
  * Who sees what is decided here and in the resources, never in the browser:
  * - customers see their own inquiries and only rows with internal = false;
  * - stores see only requests addressed to them, never the customer's inquiry or contact details;
- * - a store's answer reaches the customer only when an admin writes it (or sends its proposal as an offer).
+ * - a store's answer reaches the customer only when an admin writes it.
  *
  * Callers lock the inquiry or request row (lockForUpdate) before calling the write methods.
  */
@@ -157,13 +153,6 @@ class SupportService
             $ticket->closed_at = $to === SupportStatus::Closed ? now() : null;
             $ticket->save();
 
-            if ($to === SupportStatus::Closed) {
-                // A closed inquiry cannot hold a live offer: whoever closes it ends any pending one.
-                $ended = $actor?->id === $ticket->customer_id ? QuoteStatus::Declined : QuoteStatus::Withdrawn;
-                $ticket->quotes()->where('status', QuoteStatus::Pending->value)
-                    ->update(['status' => $ended->value, 'responded_at' => now()]);
-            }
-
             $this->append($ticket, $actor, $actor ? ($actor->id === $ticket->customer_id ? 'customer' : 'admin') : 'system', 'event', true,
                 'Status: '.$from->label().' to '.$to->label().($note ? '. '.$note : ''), meta: ['from' => $from->value, 'to' => $to->value]);
             $this->audit->log('support.status_changed', $ticket, ['from' => $from->value, 'to' => $to->value]);
@@ -266,30 +255,19 @@ class SupportService
         });
     }
 
-    /**
-     * A message in a store request. $proposal (store only) holds santim amounts and terms already validated.
-     *
-     * @param  array{price_santim?: int, quantity?: int, delivery_fee_santim?: int|null, production_days?: int|null, valid_until?: string}  $proposal
-     */
-    public function requestMessage(SellerRequest $request, ?User $author, string $role, string $body, array $proposal = []): SellerRequestMessage
+    /** A message in a store request. */
+    public function requestMessage(SellerRequest $request, ?User $author, string $role, string $body): SellerRequestMessage
     {
         if ($request->isClosed() && $role !== 'system') {
             throw ValidationException::withMessages(['body' => 'This request is closed.']);
         }
 
-        return DB::transaction(function () use ($request, $author, $role, $body, $proposal) {
+        return DB::transaction(function () use ($request, $author, $role, $body) {
             $message = new SellerRequestMessage;
             $message->seller_request_id = $request->id;
             $message->author_id = $author?->id;
             $message->author_role = $role;
             $message->body = $body;
-            if ($proposal) {
-                $message->price_santim = $proposal['price_santim'];
-                $message->quantity = $proposal['quantity'] ?? 1;
-                $message->delivery_fee_santim = $proposal['delivery_fee_santim'] ?? null;
-                $message->production_days = $proposal['production_days'] ?? null;
-                $message->valid_until = $proposal['valid_until'];
-            }
             $message->save();
 
             $request->last_message_id = $message->id;
@@ -311,10 +289,10 @@ class SupportService
                     $ticket = SupportTicket::lockForUpdate()->find($request->support_ticket_id);
                     $request->loadMissing('seller');
                     $this->append($ticket, null, 'system', 'event', true,
-                        $request->seller->store_name.' answered'.($proposal ? ' with a proposal of '.Alerts::etb($message->proposalTotalSantim()) : ''),
+                        $request->seller->store_name.' answered',
                         meta: ['seller_request_id' => $request->id, 'seller_message_id' => $message->id]);
                 }
-                $this->audit->log('support.store_replied', $request, ['message_id' => $message->id, 'proposal' => (bool) $proposal]);
+                $this->audit->log('support.store_replied', $request, ['message_id' => $message->id]);
                 $this->alerts->storeAnswered($request);
             } elseif ($role === 'admin') {
                 $this->alerts->storeAsked($request, $message);
@@ -336,106 +314,11 @@ class SupportService
     }
 
     /**
-     * Send a store's proposal to the customer as a Betoch offer. Price, quantity, delivery and production
-     * time are the store's and cannot be changed here; the admin words the title and description.
-     * A newer offer from the same store on the same inquiry replaces a pending one.
-     */
-    public function relay(SellerRequest $request, SellerRequestMessage $proposal, User $admin, string $title, string $description, CarbonInterface $validUntil): Quote
-    {
-        $ticket = $request->support_ticket_id ? SupportTicket::lockForUpdate()->find($request->support_ticket_id) : null;
-        $store = SellerProfile::publiclyVisible()->find($request->seller_profile_id);
-
-        $error = match (true) {
-            $proposal->seller_request_id !== $request->id => 'This proposal belongs to another request.',
-            ! $proposal->hasProposal() || $proposal->author_role !== 'seller' => 'Only a store\'s proposal can be sent as an offer.',
-            $proposal->quote_id !== null => 'This proposal has already been sent to the customer.',
-            $ticket === null => 'This request is not linked to a customer inquiry.',
-            $ticket->status === SupportStatus::Closed => 'The inquiry is closed. Reopen it first.',
-            $store === null => 'The store is not active, so its offer cannot be sent.',
-            $proposal->valid_until->endOfDay()->isPast() => 'The store\'s proposal has expired. Ask the store for a new one.',
-            $validUntil->gt($proposal->valid_until) => 'The offer cannot stay open longer than the store agreed ('.$proposal->valid_until->toDateString().').',
-            default => null,
-        };
-        if ($error) {
-            throw ValidationException::withMessages(['proposal' => $error]);
-        }
-
-        return DB::transaction(function () use ($proposal, $request, $ticket, $admin, $title, $description, $validUntil) {
-            $ticket->quotes()->where('seller_profile_id', $request->seller_profile_id)->where('status', QuoteStatus::Pending->value)
-                ->update(['status' => QuoteStatus::Withdrawn->value, 'responded_at' => now()]);
-
-            $quote = new Quote([
-                'product_id' => $request->product_id ?? $ticket->product_id,
-                'title' => $title,
-                'description' => $description,
-                'price_santim' => $proposal->price_santim,
-                'quantity' => $proposal->quantity,
-                'delivery_fee_santim' => $proposal->delivery_fee_santim,
-                'production_days' => $proposal->production_days,
-                'valid_until' => $validUntil->toDateString(),
-            ]);
-            $quote->support_ticket_id = $ticket->id;
-            $quote->seller_request_id = $request->id;
-            $quote->seller_profile_id = $request->seller_profile_id;
-            $quote->save();
-
-            $proposal->quote_id = $quote->id;
-            $proposal->save();
-
-            if ($ticket->assigned_to === null) {
-                $this->assign($ticket, $admin, $admin);
-            }
-            $message = $this->append($ticket, $admin, 'admin', 'offer', false, 'Sent an offer: '.$quote->title.' for '.Alerts::etb($quote->totalSantim()).' in total.', $quote);
-            $ticket->first_response_at ??= $message->created_at;
-            $ticket->save();
-            if ($ticket->status === SupportStatus::New) {
-                $this->changeStatus($ticket, $admin, SupportStatus::Open);
-            }
-            $this->requestMessage($request, null, 'system', 'Betoch sent your proposal to the customer as an offer ('.Alerts::etb($quote->totalSantim()).').');
-            $this->audit->log('quote.relayed', $quote, ['support_ticket_id' => $ticket->id, 'seller_request_id' => $request->id, 'total_santim' => $quote->totalSantim()]);
-            $this->alerts->offerSent($quote);
-
-            return $quote;
-        });
-    }
-
-    /**
-     * The customer accepted or declined an offer, or an admin withdrew it. Recorded on the inquiry
-     * (the customer sees it) and on the store's request.
-     */
-    public function offerAnswered(Quote $quote, User $by, QuoteStatus $to): void
-    {
-        $ticket = SupportTicket::lockForUpdate()->find($quote->support_ticket_id);
-        if (! $ticket) {
-            return;
-        }
-        $isCustomer = $by->id === $ticket->customer_id;
-        $verb = match ($to) {
-            QuoteStatus::Accepted => 'Accepted the offer',
-            QuoteStatus::Declined => 'Declined the offer',
-            default => 'Withdrew the offer',
-        };
-        $this->append($ticket, $by, $isCustomer ? 'customer' : 'admin', 'offer', false, $verb.': '.$quote->title.'.', $quote);
-
-        $request = $quote->seller_request_id ? SellerRequest::lockForUpdate()->find($quote->seller_request_id) : null;
-        if ($request) {
-            $text = match ($to) {
-                QuoteStatus::Accepted => 'The customer accepted your offer "'.$quote->title.'". The order appears under Orders once they check out.',
-                QuoteStatus::Declined => 'The customer declined your offer "'.$quote->title.'".',
-                default => 'Betoch withdrew the offer "'.$quote->title.'".',
-            };
-            $this->requestMessage($request, null, 'system', $text);
-        }
-        $this->audit->log('quote.'.$to->value, $quote, ['support_ticket_id' => $ticket->id]);
-        $this->alerts->offerAnswered($quote, $to);
-    }
-
-    /**
      * Write one row on an inquiry and move its pointers. Notes and history never touch what the customer sees.
      *
      * @param  array<string, mixed>  $meta
      */
-    private function append(SupportTicket $ticket, ?User $author, string $role, string $kind, bool $internal, string $body, ?Quote $quote = null, array $meta = []): SupportMessage
+    private function append(SupportTicket $ticket, ?User $author, string $role, string $kind, bool $internal, string $body, array $meta = []): SupportMessage
     {
         $message = new SupportMessage;
         $message->support_ticket_id = $ticket->id;
@@ -444,7 +327,6 @@ class SupportService
         $message->kind = $kind;
         $message->internal = $internal;
         $message->body = $body;
-        $message->quote_id = $quote?->id;
         $message->meta = $meta ?: null;
         $message->save();
 
@@ -460,33 +342,5 @@ class SupportService
         $ticket->save();
 
         return $message;
-    }
-
-    /**
-     * Turn a proposal's birr strings into santim, with the same rules as the store's own quotes had.
-     *
-     * @param  array<string, mixed>  $data  validated input
-     * @return array{price_santim: int, quantity: int, delivery_fee_santim: int|null, production_days: int|null, valid_until: string}
-     */
-    public static function proposalFrom(array $data, bool $storesSetFee): array
-    {
-        $price = Money::toSantim($data['price']);
-        if ($price < 100) {
-            throw ValidationException::withMessages(['price' => 'The price must be at least 1 birr.']);
-        }
-        $fee = isset($data['delivery_fee']) && $data['delivery_fee'] !== '' ? Money::toSantim($data['delivery_fee']) : null;
-        // Commission is charged on the price, so while admins price delivery a store cannot move part
-        // of the price into its own delivery charge. Free delivery is always fine.
-        if ($fee !== null && $fee > 0 && ! $storesSetFee) {
-            throw ValidationException::withMessages(['delivery_fee' => 'The marketplace sets delivery prices. Leave this empty, or offer free delivery.']);
-        }
-
-        return [
-            'price_santim' => $price,
-            'quantity' => (int) ($data['quantity'] ?? 1),
-            'delivery_fee_santim' => $fee,
-            'production_days' => isset($data['production_days']) ? (int) $data['production_days'] : null,
-            'valid_until' => $data['valid_until'],
-        ];
     }
 }

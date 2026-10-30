@@ -11,7 +11,6 @@ use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Str;
 use Tests\Concerns\MakesSupportData;
 use Tests\Concerns\PlacesOrders;
 use Tests\TestCase;
@@ -48,15 +47,15 @@ class SupportMigrationTest extends TestCase
         $inCart = $this->oldQuote($chat, ['title' => 'Matching chair', 'price_santim' => 300_000]);
         $this->oldQuote($chat, ['title' => 'Still pending']);
         Message::where('conversation_id', $chat->id)->latest('id')->first()->forceFill(['quote_id' => $ordered->id])->save();
+        Quote::whereKey([$ordered->id, $inCart->id])->update(['status' => 'accepted', 'responded_at' => now()]);
 
-        $this->actAs($this->buyer);
-        $this->postJson("/api/quotes/{$ordered->id}/accept")->assertOk();
-        $this->postJson("/api/quotes/{$ordered->id}/add-to-cart")->assertCreated();
-        $expected = $this->getJson('/api/cart?address_id='.$this->address->id)->json('data.grand_total_santim');
-        $this->postJson('/api/checkout', ['address_id' => $this->address->id, 'payment_method' => 'cod', 'expected_total_santim' => $expected],
-            ['Idempotency-Key' => (string) Str::uuid()])->assertCreated();
-        $this->postJson("/api/quotes/{$inCart->id}/accept")->assertOk();
-        $this->postJson("/api/quotes/{$inCart->id}/add-to-cart")->assertCreated();
+        // An order and a cart line from an accepted quote, as checkout wrote them while quotes could be ordered.
+        $this->placeOrder(1)->items()->first()->forceFill(['quote_id' => $ordered->id])->save();
+        $line = new CartItem;
+        $line->user_id = $this->buyer->id;
+        $line->quote_id = $inCart->id;
+        $line->quantity = 1;
+        $line->save();
 
         $this->assertSame(1, OrderItem::whereNotNull('quote_id')->count());
         $this->assertSame(1, CartItem::whereNotNull('quote_id')->count());
@@ -98,17 +97,17 @@ class SupportMigrationTest extends TestCase
         $this->assertSame([], $this->foreignKeyProblems());
         $this->assertSame(3, Quote::whereNotNull('conversation_id')->whereNull('support_ticket_id')->count());
 
-        // The chat still reads, and the quote in the cart still orders after the update.
+        // The chat and the order still read. A quote line left in a cart is not a listing, so the cart skips it.
         $this->actAs($this->buyer)->getJson('/api/conversations/'.DB::table('conversations')->value('id'))->assertOk()
             ->assertJsonCount(3, 'data.quotes');
-        $this->getJson('/api/cart?address_id='.$this->address->id)->assertOk()->assertJsonPath('data.groups.0.lines.0.kind', 'quote')
-            ->assertJsonPath('data.groups.0.lines.0.problem', null);
+        $this->getJson('/api/orders/'.OrderItem::whereNotNull('quote_id')->value('order_id'))->assertOk();
+        $this->getJson('/api/cart?address_id='.$this->address->id)->assertOk()->assertJsonPath('data.line_count', 0);
     }
 
     public function test_rollback_is_refused_once_an_offer_was_sent_through_support(): void
     {
         $ticket = $this->askSupport($this->buyer, ['topic' => 'price', 'seller_slug' => $this->seller->slug])->json('data.id');
-        ['quote' => $id] = $this->relayOffer($ticket, $this->admin(), $this->seller);
+        $id = $this->sentOffer($ticket, $this->seller)->id;
 
         try {
             Artisan::call('migrate:rollback', ['--path' => self::paths([self::SUPPORT_MIGRATIONS[1]])]);

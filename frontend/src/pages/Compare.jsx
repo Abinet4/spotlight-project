@@ -20,7 +20,7 @@ function availability(p) {
 }
 
 const ROWS = [
-  ['Price', (p) => <span className="font-bold text-stone-900">{formatETB(p.price_santim)}{p.price_negotiable ? <span className="block text-xs font-medium text-clay-600">Negotiable</span> : null}</span>, (p) => p.price_santim],
+  ['Price', (p) => <span className="font-bold text-stone-900">{formatETB(p.price_santim)}</span>, (p) => p.price_santim],
   ['Rating', (p) => (p.rating?.count ? <RatingSummary rating={p.rating} /> : <span className="text-stone-400">No reviews yet</span>)],
   ['Availability', availability],
   ['Dimensions', (p) => formatDimensions(p.dimensions) || '-'],

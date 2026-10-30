@@ -38,7 +38,6 @@ class ProductRequest extends FormRequest
             'name' => [$required, 'string', 'min:3', 'max:160'],
             'description' => [$required, 'string', 'min:10', 'max:5000'],
             'price' => [$required, 'string', $money],
-            'price_negotiable' => ['sometimes', 'boolean'],
             'condition' => [$required, Rule::enum(ProductCondition::class)],
             // Betoch sells finished furniture only: every listing is in stock with a count.
             'stock_type' => ['sometimes', Rule::in([StockType::InStock->value])],

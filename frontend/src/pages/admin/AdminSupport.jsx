@@ -1,4 +1,4 @@
-import { AlertTriangle, Lock, Send } from 'lucide-react'
+import { AlertTriangle, Lock } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom'
 import { ProductImage } from '../../components/ProductCard'
@@ -16,12 +16,6 @@ const REFRESH_MS = 30000
 const firstError = (err) => {
   const e = parseError(err)
   return Object.values(e.fields)[0] || e.message
-}
-
-function today(offsetDays = 0) {
-  const d = new Date()
-  d.setDate(d.getDate() + offsetDays)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 function Tabs({ tab, counts, onTab }) {
@@ -359,61 +353,11 @@ function AskStoreForm({ ticket, onSent, onCancel }) {
   )
 }
 
-/** Turn a store's proposal into an offer the customer can accept. Price and terms are the store's. */
-function SendOfferForm({ request, message, ticket, onDone, onCancel }) {
-  const p = message.proposal
-  const [form, setForm] = useState({
-    title: ticket?.product?.name || request.subject,
-    description: '',
-    valid_until: p.valid_until < today(3) ? p.valid_until : today(3),
-  })
-  const [errors, setErrors] = useState({})
-  const [busy, setBusy] = useState(false)
-  const set = (key) => (e) => setForm({ ...form, [key]: e.target.value })
-
-  async function submit(e) {
-    e.preventDefault()
-    setBusy(true)
-    setErrors({})
-    try {
-      await api.post(`/admin/support/requests/${request.id}/proposals/${message.id}/send`, form)
-      onDone()
-    } catch (err) {
-      const parsed = parseError(err)
-      setErrors(Object.keys(parsed.fields).length ? parsed.fields : { proposal: parsed.message })
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <form onSubmit={submit} className="mt-2 space-y-3 rounded-xl border border-brand-200 bg-brand-50/40 p-3" noValidate>
-      <p className="text-sm font-semibold text-stone-900">Send as an offer for {formatETB(p.total_santim)}</p>
-      <p className="text-xs text-stone-600">The customer sees your title and description with the store's price and terms, and can accept and order it. Any earlier offer from this store that is still waiting is withdrawn.</p>
-      {errors.proposal && <Alert tone="error">{errors.proposal}</Alert>}
-      <Field label="Title" name={`offer-title-${message.id}`} error={errors.title}>
-        <input id={`offer-title-${message.id}`} className="input" maxLength={160} value={form.title} onChange={set('title')} />
-      </Field>
-      <Field label="What is included (the customer reads this)" name={`offer-desc-${message.id}`} error={errors.description}>
-        <textarea id={`offer-desc-${message.id}`} className="input min-h-20" maxLength={3000} value={form.description} onChange={set('description')} />
-      </Field>
-      <Field label="Customer can accept until" name={`offer-valid-${message.id}`} error={errors.valid_until} hint={`No later than the store's ${p.valid_until}.`}>
-        <input id={`offer-valid-${message.id}`} type="date" className="input sm:w-56" min={today()} max={p.valid_until} value={form.valid_until} onChange={set('valid_until')} />
-      </Field>
-      <div className="flex gap-2">
-        <button type="submit" className="btn-primary" disabled={busy}>{busy ? 'Sending...' : 'Send offer to customer'}</button>
-        <button type="button" className="btn-ghost" onClick={onCancel}>Cancel</button>
-      </div>
-    </form>
-  )
-}
-
-/** One request to a store, with its messages, proposals and the admin's reply box. */
-function RequestThread({ request, ticket, onChanged, onUseInReply }) {
+/** One request to a store, with its messages, earlier proposals and the admin's reply box. */
+function RequestThread({ request, onChanged, onUseInReply }) {
   const [body, setBody] = useState('')
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
-  const [sending, setSending] = useState(null)
   const closed = request.status === 'closed'
 
   async function reply(e) {
@@ -469,15 +413,9 @@ function RequestThread({ request, ticket, onChanged, onUseInReply }) {
                       Delivery {m.proposal.delivery_fee_santim === null ? 'priced at checkout' : m.proposal.delivery_fee_santim === 0 ? 'free' : formatETB(m.proposal.delivery_fee_santim)}
                       {m.proposal.production_days !== null && ` · ready in ${m.proposal.production_days} days`} · store's price valid until {m.proposal.valid_until}
                     </p>
-                    {m.proposal.sent
-                      ? <p className="mt-1 text-xs font-medium text-emerald-800">Sent to the customer{m.proposal.offer_status ? ` · ${QUOTE_STATUS_LABELS[m.proposal.offer_status]?.replace('Waiting for your answer', 'waiting for the customer')}` : ''}</p>
-                      : ticket && ticket.status !== 'closed' && sending !== m.id && (
-                        <button type="button" className="btn-primary mt-2" onClick={() => setSending(m.id)}><Send className="size-4" aria-hidden="true" />Send as offer</button>
-                      )}
-                    {!m.proposal.sent && !ticket && <p className="mt-1 text-xs text-stone-500">Not linked to a customer inquiry, so it cannot be sent as an offer.</p>}
-                    {sending === m.id && (
-                      <SendOfferForm request={request} message={m} ticket={ticket} onCancel={() => setSending(null)} onDone={() => { setSending(null); onChanged() }} />
-                    )}
+                    <p className="mt-1 text-xs font-medium text-stone-600">
+                      {m.proposal.sent ? `Sent to the customer${m.proposal.offer_status ? ` · ${QUOTE_STATUS_LABELS[m.proposal.offer_status]?.replace('Waiting for your answer', 'waiting for the customer')}` : ''}` : 'Not sent: Betoch now sells at listing prices only'}
+                    </p>
                   </div>
                 )}
                 {m.from_role === 'seller' && onUseInReply && (
@@ -626,7 +564,6 @@ function ManagePanel({ ticket, onChanged }) {
         {status !== ticket.status && (
           <div className="mt-2 space-y-2">
             <input className="input" maxLength={500} placeholder="Note for the history (optional)" value={note} onChange={(e) => setNote(e.target.value)} aria-label="Status note" />
-            {status === 'closed' && ticket.offers.some((o) => o.status === 'pending') && <p className="text-xs text-amber-800">Closing withdraws the offer still waiting for the customer.</p>}
             <button type="button" className="btn-primary" disabled={busy} onClick={() => save({ status, note: note.trim() || null })}>Save status</button>
           </div>
         )}
@@ -665,28 +602,17 @@ function ManagePanel({ ticket, onChanged }) {
   )
 }
 
-function OfferList({ offers, onChanged }) {
-  const [error, setError] = useState(null)
+/** Price offers sent before Betoch moved to listing prices only, kept for the record. */
+function OfferList({ offers }) {
   if (!offers.length) return null
-  async function withdraw(o) {
-    if (!window.confirm(`Withdraw the offer "${o.title}"? The customer can no longer accept it.`)) return
-    try {
-      await api.post(`/admin/support/offers/${o.id}/withdraw`)
-      onChanged()
-    } catch (err) {
-      setError(firstError(err))
-    }
-  }
   return (
-    <section className="card p-4 text-sm" aria-label="Offers sent">
-      <h2 className="mb-2 font-semibold text-stone-900">Offers sent</h2>
-      {error && <Alert tone="error">{error}</Alert>}
+    <section className="card p-4 text-sm" aria-label="Earlier price offers">
+      <h2 className="mb-2 font-semibold text-stone-900">Earlier price offers</h2>
       <ul className="space-y-2">
         {offers.map((o) => (
           <li key={o.id} className="rounded-lg bg-stone-50 p-2">
             <p className="font-medium">{o.title} · {formatETB(o.total_santim)}</p>
             <p className="text-xs text-stone-600">{o.store?.store_name} · {QUOTE_STATUS_LABELS[o.status]?.replace('Waiting for your answer', 'Waiting for the customer')}{o.ordered ? ' · ordered' : ''} · until {o.valid_until}</p>
-            {o.status === 'pending' && <button type="button" className="mt-1 text-xs font-medium text-red-700 hover:underline" onClick={() => withdraw(o)}>Withdraw</button>}
           </li>
         ))}
       </ul>
@@ -899,7 +825,7 @@ export function AdminSupportTicket() {
             {asking && <AskStoreForm ticket={t} onCancel={() => setAsking(false)} onSent={() => { setAsking(false); reload() }} />}
             {t.store_requests.length === 0 && !asking && <p className="text-sm text-stone-500">No store has been asked yet.</p>}
             {t.store_requests.map((r) => (
-              <RequestThread key={r.id} request={r} ticket={t} onChanged={reload} onUseInReply={addToReply} />
+              <RequestThread key={r.id} request={r} onChanged={reload} onUseInReply={addToReply} />
             ))}
           </section>
         </div>
@@ -917,7 +843,7 @@ export function AdminSupportTicket() {
               </>
             )}
           </section>
-          <OfferList offers={t.offers} onChanged={reload} />
+          <OfferList offers={t.offers} />
         </aside>
       </div>
     </>
@@ -943,7 +869,7 @@ export function AdminSellerRequest() {
         <p className="mt-3 text-sm text-stone-600">For inquiry <Link to={`/admin/support/${r.ticket.id}`} className="font-medium text-brand-700 hover:underline">{r.ticket.reference} {r.ticket.subject}</Link> <SupportStatusBadge status={r.ticket.status} /></p>
       )}
       <div className="mt-3">
-        <RequestThread request={r} ticket={ticket.data?.data ?? null} onChanged={() => { reload(); ticket.reload() }} />
+        <RequestThread request={r} onChanged={() => { reload(); ticket.reload() }} />
       </div>
     </div>
   )

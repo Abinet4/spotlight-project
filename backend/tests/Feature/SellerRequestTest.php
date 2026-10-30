@@ -4,12 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\Order;
 use App\Models\Product;
-use App\Models\Quote;
 use App\Models\SellerRequest;
 use App\Models\SupportTicket;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Str;
 use Tests\Concerns\MakesSupportData;
 use Tests\Concerns\PlacesOrders;
 use Tests\TestCase;
@@ -155,146 +153,5 @@ class SellerRequestTest extends TestCase
             ->assertJsonPath('errors.body.0', 'This request is closed.');
         $this->getJson('/api/seller/requests?status=closed')->assertJsonCount(1, 'data');
         $this->getJson('/api/seller/requests?status=active')->assertJsonCount(0, 'data');
-    }
-
-    public function test_a_store_proposal_becomes_an_offer_only_when_an_admin_sends_it(): void
-    {
-        $id = $this->ask(['topic' => 'price'])->json('data.id');
-        $messages = $this->actAs($this->seller->user)->postJson("/api/seller/requests/$id/messages", [
-            'body' => 'We can do it.',
-            'proposal' => ['price' => '44000', 'quantity' => 2, 'production_days' => 25, 'valid_until' => now()->addDays(5)->toDateString()],
-        ])->assertCreated()->json('data.messages');
-        $proposal = end($messages);
-        $this->assertSame(8_800_000, $proposal['proposal']['total_santim']);
-        $this->assertFalse($proposal['proposal']['sent']);
-
-        // Not yet visible to the customer.
-        $this->assertSame(0, Quote::count());
-        $this->actAs($this->buyer)->getJson("/api/support/tickets/{$this->ticketId}")->assertJsonCount(0, 'data.offers');
-
-        // The store cannot send it itself.
-        $this->actAs($this->seller->user)->postJson("/api/admin/support/requests/$id/proposals/{$proposal['id']}/send", [])->assertForbidden();
-
-        $send = fn (array $data = []) => $this->actAs($this->admin)->postJson("/api/admin/support/requests/$id/proposals/{$proposal['id']}/send", array_merge([
-            'title' => 'Walnut sofa', 'description' => 'Walnut finish, two pieces.', 'valid_until' => now()->addDays(5)->toDateString(),
-        ], $data));
-        // Not longer than the store agreed, and only once.
-        $send(['valid_until' => now()->addDays(6)->toDateString()])->assertUnprocessable()->assertJsonValidationErrors('proposal');
-        $quoteId = $send()->assertCreated()
-            ->assertJsonPath('data.price_santim', 4_400_000)
-            ->assertJsonPath('data.quantity', 2)
-            ->assertJsonPath('data.support_ticket_id', $this->ticketId)
-            ->assertJsonPath('data.conversation_id', null)
-            ->json('data.id');
-        $send()->assertUnprocessable()->assertJsonPath('errors.proposal.0', 'This proposal has already been sent to the customer.');
-
-        // The admin's own message cannot be sent as an offer.
-        $adminMessage = SellerRequest::find($id)->messages()->where('author_role', 'admin')->value('id');
-        $this->postJson("/api/admin/support/requests/$id/proposals/$adminMessage/send", [
-            'title' => 'x x x', 'description' => 'Nothing to send here.', 'valid_until' => now()->toDateString(),
-        ])->assertUnprocessable()->assertJsonValidationErrors('proposal');
-
-        $this->actAs($this->buyer)->getJson('/api/support/unread-count')->assertJsonPath('data.unread', 1);
-        $this->getJson("/api/support/tickets/{$this->ticketId}")->assertOk()
-            ->assertJsonPath('data.offers.0.id', $quoteId)
-            ->assertJsonPath('data.offers.0.status', 'pending')
-            ->assertJsonPath('data.offers.0.store.store_name', $this->seller->store_name)
-            ->assertJsonPath('data.messages.1.kind', 'offer')
-            ->assertJsonPath('data.messages.1.from', 'Betoch Support');
-
-        $this->postJson("/api/quotes/$quoteId/accept")->assertOk()->assertJsonPath('data.status', 'accepted');
-        // The store hears that it was accepted, without the customer's name.
-        $this->actAs($this->seller->user)->getJson("/api/seller/requests/$id")->assertOk()
-            ->assertJsonPath('data.messages.2.from', 'Betoch')
-            ->assertJsonPath('data.messages.3.body', 'The customer accepted your offer "Walnut sofa". The order appears under Orders once they check out.')
-            ->assertJsonPath('data.messages.1.proposal.offer_status', 'accepted')
-            ->assertDontSee($this->buyer->name);
-        $this->assertDatabaseHas('notifications', ['notifiable_id' => $this->seller->user_id, 'type' => 'quote.answered']);
-    }
-
-    public function test_proposal_rules(): void
-    {
-        $id = $this->ask(['topic' => 'price'])->json('data.id');
-        $this->actAs($this->seller->user);
-        $post = fn (array $proposal) => $this->postJson("/api/seller/requests/$id/messages", ['body' => 'Offer', 'proposal' => $proposal]);
-        $valid = ['price' => '1000', 'valid_until' => now()->addDays(3)->toDateString()];
-
-        $post(['price' => '0.50'] + $valid)->assertUnprocessable()->assertJsonValidationErrors('price');
-        $post(['price' => 'abc'] + $valid)->assertUnprocessable()->assertJsonValidationErrors('proposal.price');
-        $post(['valid_until' => now()->subDay()->toDateString()] + $valid)->assertUnprocessable()->assertJsonValidationErrors('proposal.valid_until');
-        $post(['valid_until' => now()->addDays(61)->toDateString()] + $valid)->assertUnprocessable()->assertJsonValidationErrors('proposal.valid_until');
-        $post(['quantity' => 0] + $valid)->assertUnprocessable()->assertJsonValidationErrors('proposal.quantity');
-        // While the marketplace prices delivery, a store can offer free delivery but not charge for it.
-        config(['marketplace.distance.stores_set_fee' => false]);
-        $post(['delivery_fee' => '500'] + $valid)->assertUnprocessable()->assertJsonValidationErrors('delivery_fee');
-        $post(['delivery_fee' => '0'] + $valid)->assertCreated();
-        $this->postJson("/api/seller/requests/$id/messages", ['body' => '   '])->assertUnprocessable();
-    }
-
-    public function test_offers_from_an_inactive_store_or_on_a_closed_inquiry_cannot_be_sent_or_accepted(): void
-    {
-        ['quote' => $quoteId] = $this->relayOffer($this->ticketId, $this->admin, $this->seller);
-
-        $this->seller->forceFill(['status' => 'suspended'])->save();
-        $this->actAs($this->buyer)->postJson("/api/quotes/$quoteId/accept")->assertUnprocessable();
-        $this->postJson("/api/quotes/$quoteId/decline")->assertOk();
-
-        $this->seller->forceFill(['status' => 'approved'])->save();
-        ['quote' => $second] = $this->relayOffer($this->ticketId, $this->admin, $this->seller);
-        $this->actAs($this->buyer)->postJson("/api/support/tickets/{$this->ticketId}/close")->assertOk();
-        // Closing declined the pending offer.
-        $this->assertSame('declined', Quote::find($second)->status->value);
-        $this->postJson("/api/quotes/$second/accept")->assertUnprocessable();
-    }
-
-    public function test_a_newer_offer_replaces_the_pending_one_and_admins_can_withdraw(): void
-    {
-        ['quote' => $first] = $this->relayOffer($this->ticketId, $this->admin, $this->seller);
-        ['quote' => $second] = $this->relayOffer($this->ticketId, $this->admin, $this->seller, ['price' => '43000']);
-        $this->assertSame('withdrawn', Quote::find($first)->status->value);
-
-        $this->actAs($this->admin)->postJson("/api/admin/support/offers/$second/withdraw")->assertOk()->assertJsonPath('data.status', 'withdrawn');
-        $this->postJson("/api/admin/support/offers/$second/withdraw")->assertUnprocessable();
-        $this->actAs($this->buyer)->getJson("/api/support/tickets/{$this->ticketId}")
-            ->assertJsonPath('data.offers.1.status', 'withdrawn');
-        $this->postJson("/api/quotes/$second/accept")->assertUnprocessable();
-
-        // Stores withdraw only quotes from their old chats; support offers are Betoch's.
-        ['quote' => $third] = $this->relayOffer($this->ticketId, $this->admin, $this->seller);
-        $this->actAs($this->seller->user)->postJson("/api/seller/quotes/$third/withdraw")->assertNotFound();
-        $this->assertSame('pending', Quote::find($third)->status->value);
-    }
-
-    public function test_offers_belong_to_the_inquirys_customer_only(): void
-    {
-        ['quote' => $quoteId] = $this->relayOffer($this->ticketId, $this->admin, $this->seller);
-        $stranger = $this->customer();
-
-        $this->actAs($stranger);
-        $this->postJson("/api/quotes/$quoteId/accept")->assertNotFound();
-        $this->postJson("/api/quotes/$quoteId/decline")->assertNotFound();
-        $this->postJson("/api/quotes/$quoteId/add-to-cart")->assertNotFound();
-        $this->assertSame('pending', Quote::find($quoteId)->status->value);
-    }
-
-    public function test_an_accepted_offer_is_ordered_through_normal_checkout(): void
-    {
-        ['quote' => $quoteId] = $this->relayOffer($this->ticketId, $this->admin, $this->seller);
-        $this->actAs($this->buyer)->postJson("/api/quotes/$quoteId/add-to-cart")->assertUnprocessable()->assertJsonValidationErrors('quote');
-        $this->postJson("/api/quotes/$quoteId/accept")->assertOk();
-
-        $this->postJson("/api/quotes/$quoteId/add-to-cart")->assertCreated()
-            ->assertJsonPath('data.groups.0.lines.0.kind', 'quote')
-            ->assertJsonPath('data.groups.0.lines.0.quote.support_ticket_id', $this->ticketId)
-            ->assertJsonPath('data.groups.0.lines.0.line_total_santim', 8_800_000);
-        $expected = $this->getJson('/api/cart?address_id='.$this->address->id)->json('data.grand_total_santim');
-        $this->postJson('/api/checkout', ['address_id' => $this->address->id, 'payment_method' => 'cod', 'expected_total_santim' => $expected],
-            ['Idempotency-Key' => (string) Str::uuid()])->assertCreated();
-
-        $order = Order::latest('id')->first();
-        $this->assertSame($this->seller->id, $order->seller_profile_id);
-        $this->assertSame($quoteId, $order->items()->value('quote_id'));
-        $this->postJson("/api/quotes/$quoteId/add-to-cart")->assertUnprocessable()->assertJsonPath('errors.quote.0', 'This quote has already been ordered.');
-        $this->assertSame('open', SupportTicket::find($this->ticketId)->status->value);
     }
 }

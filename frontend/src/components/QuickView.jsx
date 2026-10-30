@@ -44,7 +44,6 @@ export default function QuickView({ slug, onClose }) {
                   </div>
                   <div className="flex items-baseline gap-2">
                     <span className="text-2xl font-bold text-stone-900">{formatETB(p.price_santim)}</span>
-                    {p.price_negotiable && <span className="text-sm font-medium text-clay-600">Negotiable</span>}
                   </div>
                   <ul className="space-y-2 text-sm text-stone-700">
                     {formatDimensions(p.dimensions) && <li className="flex gap-2"><Ruler className="mt-0.5 size-4 shrink-0 text-stone-400" aria-hidden="true" />{formatDimensions(p.dimensions)}</li>}

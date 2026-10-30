@@ -270,26 +270,6 @@ class AlertTest extends TestCase
         $this->assertSame([], $this->kinds($this->buyer));
     }
 
-    public function test_offers_alert_the_customer_and_answers_reach_the_store_without_the_customer_name(): void
-    {
-        $admin = $this->admin();
-        $ticket = $this->askSupport($this->buyer, ['topic' => 'price', 'seller_slug' => $this->seller->slug, 'body' => 'Can you make it 9,000?'])->json('data.id');
-        $this->sent = [];
-
-        ['quote' => $quoteId] = $this->relayOffer($ticket, $admin, $this->seller);
-        $this->assertSame(['database', 'mail'], $this->channels($this->buyer, 'quote.new'));
-        $this->actAs($this->buyer)->getJson('/api/notifications')->assertJsonPath('data.0.title', 'Betoch sent you an offer')
-            ->assertJsonPath('data.0.url', "/support/$ticket");
-        // The offer line in the inquiry does not also send a "new reply" email.
-        $this->assertSame([], $this->channels($this->buyer, 'support.reply'));
-
-        $this->postJson("/api/quotes/{$quoteId}/accept")->assertOk();
-        $this->assertSame(['database', 'mail'], $this->channels($this->seller->user, 'quote.answered'));
-        $this->assertSame(['database'], $this->channels($admin, 'support.offer_answered'));
-        $this->actAs($this->seller->user)->getJson('/api/notifications')->assertJsonPath('data.0.title', 'The customer accepted your offer');
-        $this->assertStringNotContainsString($this->buyer->name, json_encode($this->seller->user->notifications()->pluck('data')));
-    }
-
     public function test_store_applications_and_reviews_alert_admins_and_sellers(): void
     {
         $admin = $this->admin();

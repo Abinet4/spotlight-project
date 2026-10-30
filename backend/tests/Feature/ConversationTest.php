@@ -34,7 +34,6 @@ class ConversationTest extends TestCase
         $this->seller = $this->approvedSeller();
         $this->product = Product::factory()->published()->create([
             'seller_profile_id' => $this->seller->id, 'category_id' => $this->category()->id,
-            'price_negotiable' => true,
         ]);
         $this->buyer = $this->customer();
         $this->chat = $this->oldConversation($this->buyer, $this->seller, $this->product);

@@ -2,21 +2,16 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
-use App\Enums\QuoteStatus;
 use App\Enums\SellerRequestTopic;
 use App\Enums\SellerStatus;
 use App\Http\Controllers\Controller;
-use App\Http\Resources\QuoteResource;
 use App\Http\Resources\SellerRequestResource;
 use App\Models\Order;
 use App\Models\Product;
-use App\Models\Quote;
 use App\Models\SellerProfile;
 use App\Models\SellerRequest;
-use App\Models\SellerRequestMessage;
 use App\Models\SupportTicket;
 use App\Services\SupportService;
-use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,12 +21,10 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Admins asking stores: stock checks, product details, prices, delivery and fulfilment.
- * A store's answer stays here until an admin writes to the customer or sends its proposal as an offer.
+ * A store's answer stays here until an admin writes to the customer.
  */
 class SellerRequestController extends Controller
 {
-    public const MAX_OFFER_DAYS = 60;
-
     public function __construct(private readonly SupportService $support) {}
 
     public function index(Request $request)
@@ -131,58 +124,6 @@ class SellerRequestController extends Controller
         });
 
         return $this->detail($sellerRequest);
-    }
-
-    /**
-     * Send a store's proposal to the customer as a Betoch offer.
-     */
-    public function relay(Request $request, int $id, int $messageId): JsonResponse
-    {
-        $data = $request->validate([
-            'title' => ['required', 'string', 'min:3', 'max:160'],
-            'description' => ['required', 'string', 'min:10', 'max:3000'],
-            'valid_until' => ['required', 'date_format:Y-m-d', 'after_or_equal:today', 'before_or_equal:'.now()->addDays(self::MAX_OFFER_DAYS)->toDateString()],
-        ]);
-        $admin = $request->user();
-
-        $quote = DB::transaction(function () use ($id, $messageId, $data, $admin) {
-            // Inquiry before request before quote: the same order as accepting an offer, so no deadlocks.
-            $ticketId = SellerRequest::whereKey($id)->value('support_ticket_id');
-            if ($ticketId) {
-                SupportTicket::lockForUpdate()->find($ticketId);
-            }
-            $sellerRequest = SellerRequest::lockForUpdate()->findOrFail($id);
-            $proposal = SellerRequestMessage::where('seller_request_id', $sellerRequest->id)->lockForUpdate()->findOrFail($messageId);
-
-            return $this->support->relay($sellerRequest, $proposal, $admin, trim($data['title']), trim($data['description']),
-                CarbonImmutable::createFromFormat('Y-m-d', $data['valid_until'])->startOfDay());
-        });
-
-        return (new QuoteResource($quote->load('seller')))->response()->setStatusCode(201);
-    }
-
-    /**
-     * Take back an offer the customer has not answered yet.
-     */
-    public function withdrawOffer(Request $request, int $quoteId): QuoteResource
-    {
-        $admin = $request->user();
-        $quote = DB::transaction(function () use ($quoteId, $admin) {
-            $ticketId = Quote::whereNotNull('support_ticket_id')->whereKey($quoteId)->value('support_ticket_id') ?? abort(404);
-            SupportTicket::lockForUpdate()->findOrFail($ticketId);
-            $quote = Quote::lockForUpdate()->findOrFail($quoteId);
-            if ($quote->effectiveStatus() !== QuoteStatus::Pending) {
-                throw ValidationException::withMessages(['quote' => 'This offer is already '.$quote->effectiveStatus()->value.'.']);
-            }
-            $quote->status = QuoteStatus::Withdrawn;
-            $quote->responded_at = now();
-            $quote->save();
-            $this->support->offerAnswered($quote, $admin, QuoteStatus::Withdrawn);
-
-            return $quote;
-        });
-
-        return new QuoteResource($quote->load('seller'));
     }
 
     private function detail(SellerRequest $sellerRequest): SellerRequestResource

@@ -22,7 +22,7 @@ enum SupportTopic: string
         return match ($this) {
             self::Product => 'Product question',
             self::Availability => 'Availability',
-            self::Price => 'Price or offer',
+            self::Price => 'Price question',
             self::Custom => 'Custom order',
             self::Delivery => 'Delivery',
             self::Order => 'My order',

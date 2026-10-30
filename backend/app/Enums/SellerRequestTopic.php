@@ -20,7 +20,7 @@ enum SellerRequestTopic: string
         return match ($this) {
             self::Stock => 'Stock check',
             self::Specs => 'Product details',
-            self::Price => 'Price offer',
+            self::Price => 'Price check',
             self::Delivery => 'Delivery arrangements',
             self::Fulfilment => 'Order fulfilment',
             self::Other => 'Other',
