@@ -138,9 +138,9 @@ final class DemoCatalog
         ['cat' => 'sofas-living-room', 'name' => 'Two-Tone Curved Sectional Sofa', 'price' => 110000, 'material' => 'Fabric, velvet', 'color' => 'Cream and navy', 'stock' => 1, 'size' => [300, 200, 80],
             'photos' => ['two-tone-curved-sectional' => null],
             'about' => 'Curved cream sectional on a navy base, with navy bolster cushions.'],
-        ['cat' => 'sofas-living-room', 'name' => 'Navy Sectional Sofa with Chaise', 'price' => 78000, 'material' => 'Linen-look fabric', 'color' => 'Navy blue', 'stock' => 2, 'size' => [300, 170, 85],
-            'photos' => ['navy-sectional-chaise' => null],
-            'about' => 'Four-seat sofa with a chaise end and adjustable headrests.'],
+        ['cat' => 'sofas-living-room', 'name' => 'Sectional Sofa with Chaise and USB Port', 'price' => 80000, 'material' => 'Linen-look fabric', 'color' => 'Navy or charcoal', 'size' => [310, 170, 85],
+            'options' => [['Navy', 2], ['Charcoal', 2]], 'photos' => ['navy-sectional-chaise' => 'in navy', 'charcoal-sectional-usb' => 'in charcoal'],
+            'about' => 'Four-seat sofa with a chaise end, adjustable headrests and a USB charging port in the arm. Choose navy or charcoal.'],
         ['cat' => 'sofas-living-room', 'name' => 'Brown L-Shaped Sofa with Coffee Table', 'price' => 72000, 'material' => 'Fabric, tempered glass', 'color' => 'Dark brown', 'stock' => 2, 'size' => [260, 200, 80],
             'photos' => ['brown-l-sofa-coffee-table' => null],
             'about' => 'Channel-stitched L-shaped sofa in dark brown with a matching glass-top coffee table.'],
@@ -150,9 +150,6 @@ final class DemoCatalog
         ['cat' => 'sofas-living-room', 'name' => 'Velvet L-Shaped Sofa with Ottoman', 'price' => 95000, 'material' => 'Velvet, gold-colored legs', 'color' => 'Taupe', 'stock' => 2, 'size' => [320, 240, 85],
             'photos' => ['velvet-l-sofa-ottoman' => null],
             'about' => 'Large velvet corner sofa with a matching square ottoman.'],
-        ['cat' => 'sofas-living-room', 'name' => 'Charcoal Sectional Sofa with Charging Port', 'price' => 82000, 'material' => 'Linen-look fabric', 'color' => 'Charcoal grey', 'stock' => 2, 'size' => [320, 170, 85],
-            'photos' => ['charcoal-sectional-usb' => null],
-            'about' => 'Four-seat sofa with a chaise end, adjustable headrests and a USB charging port in the arm.'],
         ['cat' => 'office', 'store' => 3, 'name' => 'Executive Office Set', 'price' => 145000, 'material' => 'Walnut veneer', 'color' => 'Walnut', 'stock' => 1, 'size' => [220, 100, 76],
             'photos' => ['executive-office-set' => null],
             'about' => 'Executive desk with a side return, two bookcases and a low cabinet. Size is for the desk.'],
@@ -191,25 +188,29 @@ final class DemoCatalog
     public function sync(Collection $stores): array
     {
         $done = ['added' => 0, 'photographed' => 0, 'retired' => 0];
-        $names = [];
+        $demoStores = $stores->filter()->pluck('id');
+        $kept = [];
 
         foreach (self::LISTINGS as $i => $row) {
             $store = $stores[$row['store'] ?? $i % 4] ?? null;
             if (! $store) {
                 continue;
             }
-            $names[$store->id][] = $row['name'];
-            $product = Product::withTrashed()->where('seller_profile_id', $store->id)->where('name', $row['name'])->first();
+            // Found in any demo store, so removing a row (which moves the rows after it to another
+            // store) does not take those listings down and add them again.
+            $found = Product::withTrashed()->whereIn('seller_profile_id', $demoStores)->where('name', $row['name'])->orderBy('id')->get();
+            $product = $found->firstWhere('seller_profile_id', $store->id) ?? $found->first();
             if (! $product) {
                 $product = $this->create($row, $store, $i);
                 $done['added']++;
             }
+            $kept[] = $product->id;
             if (! $product->trashed() && $this->photograph($product, $row)) {
                 $done['photographed']++;
             }
         }
 
-        $demo = Product::whereIn('seller_profile_id', $stores->filter()->pluck('id'))->with('images')->get();
+        $demo = Product::whereIn('seller_profile_id', $demoStores)->with('images')->get();
 
         // A listing a store gave its own photos keeps them, but older generated pictures beside them go.
         foreach ($demo as $product) {
@@ -227,7 +228,7 @@ final class DemoCatalog
         // shop. They are archived (orders keep pointing at them) and lose their pictures, so a listing
         // an admin publishes again later is not taken down on the next start.
         $old = $demo
-            ->reject(fn (Product $p) => in_array($p->name, $names[$p->seller_profile_id] ?? [], true))
+            ->reject(fn (Product $p) => in_array($p->id, $kept, true))
             ->filter(fn (Product $p) => $p->images->isNotEmpty() && $p->images->every(fn (ProductImage $img) => self::generated($img->path)));
         foreach ($old as $product) {
             $product->status = ProductStatus::Archived;
