@@ -4,17 +4,17 @@ use App\Enums\Role;
 use App\Models\AuditLog;
 use App\Models\City;
 use App\Models\ProductImage;
+use App\Models\SellerProfile;
 use App\Models\SignInCode;
 use App\Models\User;
 use App\Providers\AppServiceProvider;
 use App\Services\ImageVariants;
 use App\Services\PaymentService;
 use App\Services\SignInCodes;
-use Database\Seeders\DemoFurnitureArt;
+use Database\Seeders\DemoCatalog;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
@@ -107,40 +107,30 @@ Artisan::command('marketplace:prepare {--demo : Also add the demo sellers and li
     return $code;
 })->purpose('Add the reference data on a new database, and optionally demo data (used when a server starts)');
 
-Artisan::command('marketplace:demo-pictures', function (ImageVariants $variants) {
-    // Only pictures the demo seeder generated (products/{id}/demo-*.jpg); seller photos are never touched.
-    // Redrawn: old plain demo pictures, and drawn ones whose files are gone (for example demo data added
-    // before the photo disk was attached, then lost on the next deploy).
-    $images = ProductImage::query()
-        ->where('path', 'like', 'products/%/demo-%')
-        ->with('product:id,name,color')
-        ->orderBy('id')
-        ->get();
+Artisan::command('marketplace:demo-pictures', function (DemoCatalog $catalog) {
+    // Run on every start of a demo site (and by the try-locally scripts). Only demo stores' listings and
+    // pictures the demo made are touched; see DemoCatalog::sync().
+    if (! AppServiceProvider::isTestSite()) {
+        $this->info('Demo photos are for test sites only; nothing changed.');
 
-    $art = new DemoFurnitureArt;
-    $redrawn = 0;
-    foreach ($images as $image) {
-        if (! $image->product || ! preg_match('#^products/\d+/demo-[A-Za-z0-9-]+\.jpg$#', $image->path)) {
-            continue;
-        }
-        $drawn = str_starts_with(basename($image->path), DemoSeeder::ART_PREFIX);
-        $filesThere = Storage::disk(ProductImage::ORIGINALS_DISK)->exists($image->path)
-            && collect($image->copies())->every(fn (string $copy) => Storage::disk('public')->exists($copy));
-        if ($drawn && $filesThere) {
-            continue;
-        }
-        $new = "products/{$image->product_id}/".DemoSeeder::ART_PREFIX.Str::random(8).'.jpg';
-        Storage::disk(ProductImage::ORIGINALS_DISK)->put($new, $art->jpeg($image->product->name, $image->product->color, $image->product_id));
-        $old = clone $image;
-        $image->forceFill(['path' => $new, 'thumb_path' => null, 'large_path' => null, ...$variants->make($new)])->save();
-        $old->deleteFiles();
-        $redrawn++;
+        return 0;
+    }
+    $stores = collect(range(1, 4))->map(fn (int $n) => SellerProfile::whereHas('user', fn ($q) => $q->where('email', "seller{$n}@demo.local"))->first());
+    if ($stores->filter()->isEmpty()) {
+        $this->info('No demo stores here; nothing to do.');
+
+        return 0;
     }
 
-    $this->info($redrawn ? "Redrew {$redrawn} demo ".Str::plural('picture', $redrawn).'.' : 'Demo pictures are up to date.');
+    $done = $catalog->sync($stores);
+    if (array_sum($done) === 0) {
+        $this->info('Demo listings and photos are up to date.');
+    } else {
+        $this->info("Demo listings: {$done['added']} added, {$done['photographed']} with pictures updated, {$done['retired']} old ones taken down.");
+    }
 
     return 0;
-})->purpose('Redraw demo pictures that are old plain ones or whose files are missing (demo data only)');
+})->purpose('Bring the demo listings and their photos up to date (test sites only; demo stores only)');
 
 Artisan::command('marketplace:image-variants {--all : Remake the copies of every photo, not only photos without them}', function (ImageVariants $variants) {
     // Safe to run again: by default only photos that have no smaller copies yet are processed.

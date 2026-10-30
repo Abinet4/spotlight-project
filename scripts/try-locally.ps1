@@ -140,7 +140,7 @@ if ((& php $Helper user-exists customer@demo.local) -ne 'yes') {
     Invoke-Checked 'php' @('artisan', 'db:seed', '--class=DemoSeeder', '--no-interaction')
 } else {
     Write-Host 'Demo sellers and listings already there'
-    # Older demo data has plain colored pictures; swap them for drawn furniture (demo pictures only).
+    # Older demo data gets the current demo listings and photos (demo stores and demo pictures only).
     Invoke-Checked 'php' @('artisan', 'marketplace:demo-pictures', '--no-interaction')
 }
 # Smaller copies of product photos for faster pages; only photos without them are processed.
