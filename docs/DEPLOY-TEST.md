@@ -70,7 +70,7 @@ The site is on the public internet, so do not reuse the local demo passwords (`D
    ADMIN_PASSWORD=<your admin password>
    SEED_DEMO=true
    DEMO_USER_PASSWORD=<demo password>
-   MARKETPLACE_NAME=Betoch Furniture
+   MARKETPLACE_NAME=Betoch Marketplace
    MARKETPLACE_PAYMENT_GATEWAY=fake
    MAIL_MAILER=log
    ```

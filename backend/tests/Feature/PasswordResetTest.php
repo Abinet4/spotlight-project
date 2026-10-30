@@ -47,7 +47,7 @@ class PasswordResetTest extends TestCase
     {
         $old = $this->user->createToken('web')->plainTextToken;
         $res = $this->ask('', ['login' => ' Meron@Example.com '])->assertOk()->assertJsonPath('reset.phone', '+251******555');
-        $this->assertMatchesRegularExpression('/^Your Betoch Furniture password reset code is \d{6}\./', $this->sms->lastBody);
+        $this->assertMatchesRegularExpression('/^Your Betoch Marketplace password reset code is \d{6}\./', $this->sms->lastBody);
         $this->assertSame('reset_code', SmsMessage::sole()->kind);
 
         $this->reset($res->json('reset.challenge'), $this->sms->code())->assertOk()->assertJsonStructure(['token', 'user']);

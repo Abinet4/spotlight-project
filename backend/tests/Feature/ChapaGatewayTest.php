@@ -77,6 +77,8 @@ class ChapaGatewayTest extends TestCase
     public function test_starting_a_payment_sends_chapa_the_order_and_returns_its_page(): void
     {
         $this->initializeOk();
+        // Chapa takes a title of 16 characters at most; the name is cut at a word break.
+        config(['marketplace.name' => 'Betoch Marketplace']);
         $this->buyer->forceFill(['name' => 'Abebe Kebede Tesfaye', 'email' => 'abebe@gmail.com'])->save();
 
         $res = $this->checkout()->assertCreated()->assertJsonPath('data.payment.payment.checkout_url', self::PAGE);
@@ -93,10 +95,21 @@ class ChapaGatewayTest extends TestCase
                 && $r['email'] === 'abebe@gmail.com' && $r['phone_number'] === '0911000111'
                 && $r['callback_url'] === 'https://shop.example.et/api/payments/chapa/callback'
                 && $r['return_url'] === 'https://shop.example.et/payments/return?checkout='.$res->json('data.id')
-                && mb_strlen($r['customization']['title']) <= 16
+                && $r['customization']['title'] === 'Betoch'
                 && preg_match('/^[A-Za-z0-9 ._-]+$/', $r['customization']['description']);
         });
         $this->getJson('/api/config')->assertJsonPath('online_payments.test_mode', true);
+    }
+
+    public function test_the_payment_page_title_fits_chapa_without_half_words(): void
+    {
+        $clean = fn (string $text) => (fn () => self::clean($text, 16))->call(new ChapaGateway([]));
+
+        $this->assertSame('Betoch Furniture', $clean('Betoch Furniture'), 'exactly 16 is kept whole');
+        $this->assertSame('Betoch', $clean('Betoch Marketplace'));
+        $this->assertSame('Betoch Furniture', $clean('Betoch Furniture Store'), 'a word ending at 16 is kept');
+        $this->assertSame('Betochmarketplac', $clean('Betochmarketplace'), 'one long word is cut at 16');
+        $this->assertSame('Betoch', $clean('  ቤቶች Betoch!! Marketplace '), 'letters Chapa refuses are dropped first');
     }
 
     public function test_with_the_api_on_its_own_address_chapa_calls_the_api_and_the_customer_returns_to_the_shop(): void

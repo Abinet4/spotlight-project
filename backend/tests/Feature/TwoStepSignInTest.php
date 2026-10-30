@@ -97,7 +97,7 @@ class TwoStepSignInTest extends TestCase
         $this->assertSame(300, $res->json('two_step.expires_in'));
         $this->assertSame(60, $res->json('two_step.resend_in'));
         $this->assertSame('+251911223344', $this->sms->lastTo);
-        $this->assertMatchesRegularExpression('/^Your Betoch Furniture code is \d{6}\. It expires in 5 minutes\./', $this->sms->lastBody);
+        $this->assertMatchesRegularExpression('/^Your Betoch Marketplace code is \d{6}\. It expires in 5 minutes\./', $this->sms->lastBody);
 
         $this->step($res->json('two_step.challenge'), $this->sms->code())->assertOk()
             ->assertJsonStructure(['token', 'user'])->assertJsonPath('user.email', 'abebe@example.com');

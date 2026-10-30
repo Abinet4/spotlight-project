@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { api } from '../lib/api'
 
 const fallback = {
-  name: import.meta.env.VITE_BRAND_NAME || 'Furniture Marketplace',
+  name: import.meta.env.VITE_BRAND_NAME || 'Betoch Marketplace',
   currency: 'ETB',
   max_product_images: 8,
   max_image_kb: 5120,
