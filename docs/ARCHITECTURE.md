@@ -325,7 +325,7 @@ Foreign keys use `restrict` where deleting the parent would destroy history (sel
 | Token storage | `localStorage` | Simple and works across domains. Trade-off: an XSS bug could read the token. Moving to Sanctum cookie auth on a shared domain is the hardening step before launch |
 | One role per account | seller accounts are separate from customer accounts | Simplest correct permission model; sellers can still browse and save favorites |
 | Moderation on edit | content fields only | Avoids blocking sellers from updating price and stock while still catching bait-and-switch content |
-| Brand name | "Betoch Furniture" via `MARKETPLACE_NAME` | Placeholder; one env change |
+| Brand name | "Betoch Marketplace" via `MARKETPLACE_NAME` | One env change; `APP_NAME` and the email sender name follow it unless set |
 | Commission | 10% starting value, editable in Admin > Settings | Frozen on each order at placement |
 | Payment | cash on delivery and online through Chapa, each switchable in Admin > Settings | Chapa covers telebirr, CBE Birr, M-Pesa, bank apps and cards with one integration |
 | Online payment window | 30 minutes, then the order is cancelled and stock released | Long enough to pay from a phone; short enough not to hide stock |

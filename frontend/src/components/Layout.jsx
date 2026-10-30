@@ -361,8 +361,16 @@ function Footer({ name }) {
   )
 }
 
+// Below these header widths the name's words after the first are hidden (kept for screen readers): the
+// logo and full name need about 206px with text-lg (225px with sm:text-xl), plus the Admin or Seller badge.
+const NAME_REST = '@max-[13rem]:sr-only sm:@max-[14.5rem]:sr-only'
+const NAME_REST_BESIDE_BADGE = '@max-[17rem]:sr-only sm:@max-[19rem]:sr-only'
+
 export default function Layout() {
   const { name } = useConfig()
+  const space = name.indexOf(' ')
+  const nameFirst = space > 0 ? name.slice(0, space) : name
+  const nameRest = space > 0 ? name.slice(space) : ''
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -387,12 +395,19 @@ export default function Layout() {
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-white focus:p-2">Skip to content</a>
       <header className="sticky top-0 z-30 border-b border-stone-200/80 bg-white/90 backdrop-blur-md print:hidden">
         <div className="container-page flex h-16 items-center gap-2 sm:gap-3 lg:gap-5">
-          {/* On narrow phones the name gives way (truncates) so the bell and menu always fit. */}
-          <Link to="/" className="flex min-w-0 items-center gap-2 font-bold text-brand-800 md:shrink-0">
-            <img src="/favicon.svg" alt="" className="size-8 shrink-0" />
-            <span className="truncate font-display text-lg font-semibold tracking-tight sm:text-xl">{name}</span>
-          </Link>
-          {workArea && <span className="shrink-0 rounded-full bg-stone-100 px-2.5 py-1 text-xs font-semibold text-stone-600">{workArea}</span>}
+          {/* The name gets the free space. On phones with too little for all of it, only its first word shows
+              (the rest stays for screen readers), so the bell and menu always fit and no word is cut. */}
+          <div className="@container min-w-0 flex-1">
+            <div className="flex items-center gap-2 sm:gap-3 lg:gap-5">
+              <Link to="/" className="flex min-w-0 items-center gap-2 font-bold text-brand-800">
+                <img src="/favicon.svg" alt="" className="size-8 shrink-0" />
+                <span className="truncate font-display text-lg font-semibold tracking-tight sm:text-xl">
+                  {nameFirst}{nameRest && <span className={workArea ? NAME_REST_BESIDE_BADGE : NAME_REST}>{nameRest}</span>}
+                </span>
+              </Link>
+              {workArea && <span className="shrink-0 rounded-full bg-stone-100 px-2.5 py-1 text-xs font-semibold text-stone-600">{workArea}</span>}
+            </div>
+          </div>
           {/* From tablet width the search box opens in the header, right beside its icon. */}
           {!workArea && searchOpen && <SearchBox id="site-search" className="ml-auto hidden w-64 md:block lg:w-80" onClose={() => setSearchOpen(false)} />}
           {/* With the search box open it takes the free space's place, so the icons stay right beside it. */}

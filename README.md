@@ -1,4 +1,4 @@
-# Furniture Marketplace (working name: Betoch Furniture)
+# Betoch Marketplace
 
 A multi-vendor furniture marketplace for Addis Ababa. Customers browse and compare furniture from verified local sellers; sellers apply, get approved, and manage listings; administrators approve sellers, moderate listings and manage categories.
 
@@ -6,7 +6,7 @@ A multi-vendor furniture marketplace for Addis Ababa. Customers browse and compa
 - `frontend/` React 19 + Vite 8 + Tailwind CSS 4 single-page app
 - `docs/ARCHITECTURE.md` schema, relationship diagram, business rules, security notes, roadmap
 
-The brand name is configurable (`MARKETPLACE_NAME` in `backend/.env`). Nothing else in the code depends on it.
+The brand name is configurable (`MARKETPLACE_NAME` in `backend/.env`, "Betoch Marketplace" by default). Nothing else in the code depends on it.
 
 ## Status
 

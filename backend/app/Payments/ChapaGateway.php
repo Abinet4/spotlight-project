@@ -203,6 +203,13 @@ class ChapaGateway implements PaymentGateway
     /** Chapa's customization fields accept letters, numbers, spaces, dots, hyphens and underscores. */
     private static function clean(string $text, int $max): string
     {
-        return trim(mb_substr(preg_replace('/[^A-Za-z0-9 ._-]/', '', $text) ?? '', 0, $max));
+        $text = trim(preg_replace('/[^A-Za-z0-9 ._-]/', '', $text) ?? '');
+        if (mb_strlen($text) > $max) {
+            // Cut at a word break, so the payment page never shows half a word ("Betoch", not "Betoch Marketpla").
+            $cut = mb_substr($text, 0, $max + 1);
+            $text = str_contains($cut, ' ') ? mb_substr($cut, 0, mb_strrpos($cut, ' ')) : mb_substr($text, 0, $max);
+        }
+
+        return trim($text);
     }
 }

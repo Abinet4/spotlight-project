@@ -14,8 +14,8 @@
 
 return [
 
-    // Temporary brand name. Change MARKETPLACE_NAME once the name is final.
-    'name' => env('MARKETPLACE_NAME', 'Betoch Furniture'),
+    // Brand name shown on the site, in emails and texts, and on the Chapa payment page.
+    'name' => env('MARKETPLACE_NAME', 'Betoch Marketplace'),
 
     'currency' => 'ETB',
 
