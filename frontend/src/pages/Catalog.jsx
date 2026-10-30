@@ -17,9 +17,9 @@ const SORTS = [
   ['price_desc', 'Price: high to low'],
 ]
 
-const FILTER_KEYS = ['q', 'min_price', 'max_price', 'condition', 'area', 'delivery', 'in_stock', 'sort', 'page']
+const FILTER_KEYS = ['q', 'min_price', 'max_price', 'condition', 'area', 'delivery', 'in_stock', 'on_sale', 'sort', 'page']
 
-const OPTION_LABELS = { in_stock: 'Available now', delivery: 'Delivery offered' }
+const OPTION_LABELS = { on_sale: 'On sale', in_stock: 'Available now', delivery: 'Delivery offered' }
 
 /** One removable chip per active filter, so shoppers see and undo what narrows the list. */
 function activeChips(params, areas) {
@@ -29,7 +29,7 @@ function activeChips(params, areas) {
   if (min || max) chips.push([['min_price', 'max_price'], min && max ? `ETB ${min} to ${max}` : min ? `From ETB ${min}` : `Up to ETB ${max}`])
   if (params.get('condition')) chips.push([['condition'], CONDITION_LABELS[params.get('condition')] || params.get('condition')])
   if (params.get('area')) chips.push([['area'], areas?.find((a) => String(a.id) === params.get('area'))?.name || 'Location'])
-  for (const key of ['in_stock', 'delivery']) if (params.get(key) === '1') chips.push([[key], OPTION_LABELS[key]])
+  for (const key of ['on_sale', 'in_stock', 'delivery']) if (params.get(key) === '1') chips.push([[key], OPTION_LABELS[key]])
   return chips
 }
 
@@ -79,6 +79,7 @@ function Filters({ params, update, areas, onClose }) {
       <fieldset className="space-y-2">
         <legend className="mb-2 font-semibold text-stone-900">Options</legend>
         {[
+          ['on_sale', 'On sale'],
           ['in_stock', 'Available now'],
           ['delivery', 'Delivery offered'],
         ].map(([key, label]) => (

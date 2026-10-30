@@ -1,9 +1,10 @@
 import { Eye, ImageOff } from 'lucide-react'
 import { lazy, Suspense, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { CONDITION_LABELS, formatETB } from '../lib/format'
+import { CONDITION_LABELS } from '../lib/format'
 import CompareButton from './CompareButton'
 import FavoriteButton from './FavoriteButton'
+import Price from './Price'
 import { RatingSummary } from './Reviews'
 
 // Loaded on first use, so the catalog does not pay for the dialog up front.
@@ -30,6 +31,7 @@ function Badge({ tone, children }) {
     dark: 'bg-stone-900/80 text-white',
     brand: 'bg-white/95 text-brand-800',
     red: 'bg-red-600 text-white',
+    sale: 'bg-red-700 text-white',
   }
   return <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold backdrop-blur ${tones[tone]}`}>{children}</span>
 }
@@ -44,6 +46,7 @@ export default function ProductCard({ product }) {
         <ProductImage src={product.image} alt="" className="aspect-[4/3] w-full transition duration-500 ease-out group-hover:scale-[1.04]" />
         <div className="pointer-events-none absolute top-2.5 left-2.5 flex flex-wrap gap-1.5">
           {!product.is_available && <Badge tone="red">Out of stock</Badge>}
+          {product.discount && <Badge tone="sale">{product.discount.percent}% off</Badge>}
           {product.condition !== 'new' && <Badge tone="dark">{CONDITION_LABELS[product.condition]}</Badge>}
         </div>
         <div className="absolute top-2.5 right-2.5 z-10 flex flex-col gap-2">
@@ -69,8 +72,8 @@ export default function ProductCard({ product }) {
           </Link>
         </h3>
         <RatingSummary rating={product.rating} className="text-xs" />
-        <div className="mt-auto flex flex-wrap items-baseline gap-x-2 pt-1">
-          <span className="text-[15px] font-bold whitespace-nowrap text-stone-900 sm:text-base">{formatETB(product.price_santim)}</span>
+        <div className="mt-auto pt-1">
+          <Price product={product} />
         </div>
       </div>
       {quickView && (

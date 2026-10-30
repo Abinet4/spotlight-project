@@ -6,6 +6,7 @@ import CompareButton from '../components/CompareButton'
 import AskSupport from '../components/AskSupport'
 import FavoriteButton from '../components/FavoriteButton'
 import Gallery from '../components/Gallery'
+import Price from '../components/Price'
 import ProductRail from '../components/ProductRail'
 import { RatingSummary, ReviewList } from '../components/Reviews'
 import ShareMenu from '../components/ShareMenu'
@@ -15,6 +16,7 @@ import { useAuth } from '../context/AuthContext'
 import { useConfig, usePaymentWording } from '../context/ConfigContext'
 import { BUSINESS_TYPES, CONDITION_LABELS, formatDimensions, formatETB } from '../lib/format'
 import { rememberViewed } from '../lib/localList'
+import { priceOf, saleNote } from '../lib/price'
 import { useFetch } from '../lib/useFetch'
 import { useRecentlyViewed } from '../lib/useRecent'
 
@@ -121,10 +123,11 @@ export default function ProductDetail() {
             {p.rating?.count > 0 && <a href="#reviews"><RatingSummary rating={p.rating} /></a>}
           </p>
 
-          <div className="mt-5 flex items-baseline gap-3">
-            <span className="text-3xl font-bold tracking-tight text-stone-900 sm:text-4xl">{formatETB(variant ? variant.price_santim : p.price_santim)}</span>
+          <div className="mt-5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <Price product={p} variant={variant} size="page" />
             {!variant && new Set(variants.map((v) => v.price_santim)).size > 1 && <span className="text-sm text-stone-500">Price depends on the option</span>}
           </div>
+          {saleNote(p) && <p className="mt-1 text-sm font-semibold text-red-700">{saleNote(p)}</p>}
           {config.vat_rate_percent > 0 && <p className="mt-1 text-xs text-stone-500">Plus {config.vat_rate_percent}% VAT at checkout</p>}
           <p className={`mt-2 inline-flex items-center gap-1.5 text-sm font-medium ${p.is_available ? 'text-emerald-700' : 'text-red-700'}`}>
             {!p.is_available ? 'Out of stock. Ask Betoch about restocking.'
@@ -143,7 +146,7 @@ export default function ProductDetail() {
               )}
               <FavoriteButton productId={p.id} initial={p.is_favorite} />
               <CompareButton slug={p.slug} />
-              <ShareMenu title={p.name} text={formatETB(p.price_santim)} />
+              <ShareMenu title={p.name} text={formatETB(priceOf(p).now)} />
             </div>
             {contactOpen && <AskSupport product={p} title="Ask about this product" onCancel={() => setContactOpen(false)} />}
           </div>
@@ -215,7 +218,7 @@ export default function ProductDetail() {
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs text-stone-500">{p.name}</p>
               <p className="flex flex-wrap items-baseline gap-x-1 text-lg font-bold text-stone-900">
-                <span className="whitespace-nowrap">{formatETB((variant ? variant.price_santim : p.price_santim) * quantity)}</span>
+                <span className="whitespace-nowrap">{formatETB(priceOf(p, variant).now * quantity)}</span>
                 {quantity > 1 && <span className="text-xs font-normal whitespace-nowrap text-stone-500">for {quantity}</span>}
               </p>
             </div>

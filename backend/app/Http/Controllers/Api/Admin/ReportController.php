@@ -65,6 +65,8 @@ class ReportController extends Controller
                 'items_santim' => (int) (clone $delivered)->sum('items_total_santim'),
                 'delivery_fees_santim' => (int) (clone $delivered)->sum('delivery_fee_santim'),
                 'commission_santim' => (int) (clone $delivered)->sum('commission_santim'),
+                // Taken off what customers paid; Betoch pays it to the stores.
+                'coupons_santim' => (int) (clone $delivered)->sum('coupon_discount_santim'),
             ],
             'cancelled' => [
                 'orders' => (int) $cancelled->sum(),
@@ -102,7 +104,8 @@ class ReportController extends Controller
             'vat_rate_percent', 'vat_etb', 'store_vat_number', 'commission_rate_percent', 'commission_etb', 'payment_method', 'payment_status',
             'delivered_at', 'cancelled_at', 'cancelled_by',
             'customer_email', 'recipient', 'phone', 'address', 'landmark', 'floor', 'items', 'item_count', 'carry_fee_etb', 'distance_km',
-            'paid_etb', 'paid_at', 'confirmed_at', 'customer_note', 'store_note', 'cancel_reason', 'refund_status', 'refund_etb', 'refund_reference'];
+            'paid_etb', 'paid_at', 'confirmed_at', 'customer_note', 'store_note', 'cancel_reason', 'refund_status', 'refund_etb', 'refund_reference',
+            'coupon_code', 'coupon_etb'];
 
         return Spreadsheet::download($format, 'orders-'.$from->toDateString().'-to-'.$to->toDateString(), function (callable $row) use ($header, $start, $end, $time) {
             $row($header);
@@ -152,6 +155,8 @@ class ReportController extends Controller
                             $o->refund?->status,
                             $o->refund ? self::birr((int) $o->refund->amount_santim) : '',
                             self::cell($o->refund?->reference),
+                            self::cell($c?->coupon_code),
+                            $o->coupon_discount_santim ? self::birr((int) $o->coupon_discount_santim) : '',
                         ]);
                     }
                 });

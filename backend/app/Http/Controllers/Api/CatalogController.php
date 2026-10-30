@@ -66,6 +66,7 @@ class CatalogController extends Controller
             'area' => ['nullable', 'integer'],
             'delivery' => ['nullable', 'boolean'],
             'in_stock' => ['nullable', 'boolean'],
+            'on_sale' => ['nullable', 'boolean'],
             // Comma-separated listing slugs, for recently viewed and compare. Unknown or hidden ones are skipped.
             'slugs' => ['nullable', 'string', 'max:3000'],
             'sort' => ['nullable', Rule::in(self::SORTS)],
@@ -100,21 +101,24 @@ class CatalogController extends Controller
             $query->whereHas('seller', fn ($q) => $q->where('slug', $filters['seller']));
         }
 
+        // Prices filter and sort by what customers pay now, sales included.
+        [$priceNow, $priceBindings] = Product::priceNowSql();
         $query
-            ->when($min !== null, fn ($q) => $q->where('price_santim', '>=', $min))
-            ->when($max !== null, fn ($q) => $q->where('price_santim', '<=', $max))
+            ->when($min !== null, fn ($q) => $q->whereRaw("{$priceNow} >= ?", [...$priceBindings, $min]))
+            ->when($max !== null, fn ($q) => $q->whereRaw("{$priceNow} <= ?", [...$priceBindings, $max]))
             ->when($filters['condition'] ?? null, fn ($q, $v) => $q->where('condition', $v))
             ->when($filters['stock_type'] ?? null, fn ($q, $v) => $q->where('stock_type', $v))
             ->when($filters['material'] ?? null, fn ($q, $v) => $q->whereRaw('LOWER(material) = ?', [mb_strtolower($v)]))
             ->when($filters['color'] ?? null, fn ($q, $v) => $q->whereRaw('LOWER(color) = ?', [mb_strtolower($v)]))
             ->when($filters['area'] ?? null, fn ($q, $v) => $q->where('products.area_id', $v))
             ->when($request->boolean('delivery'), fn ($q) => $q->where('offers_delivery', true))
-            ->when($request->boolean('in_stock'), fn ($q) => $q->where('stock_quantity', '>', 0));
+            ->when($request->boolean('in_stock'), fn ($q) => $q->where('stock_quantity', '>', 0))
+            ->when($request->boolean('on_sale'), fn ($q) => $q->onSale());
 
         match ($filters['sort'] ?? 'recommended') {
             'newest' => $query->orderByDesc('published_at'),
-            'price_asc' => $query->orderBy('price_santim'),
-            'price_desc' => $query->orderByDesc('price_santim'),
+            'price_asc' => $query->orderByRaw("{$priceNow} asc", $priceBindings),
+            'price_desc' => $query->orderByRaw("{$priceNow} desc", $priceBindings),
             default => $query->orderByDesc('is_featured')->orderByDesc('published_at'),
         };
         // Stable tiebreaker so pagination never repeats or skips rows.
@@ -144,8 +148,10 @@ class CatalogController extends Controller
      */
     public function similar(Request $request, string $slug): AnonymousResourceCollection
     {
-        $product = Product::visible()->where('slug', $slug)->firstOrFail(['products.id', 'products.category_id', 'products.price_santim']);
-        $price = (int) $product->price_santim;
+        $product = Product::visible()->where('slug', $slug)
+            ->firstOrFail(['products.id', 'products.category_id', 'products.price_santim', 'products.discount_percent', 'products.discount_ends_at']);
+        $price = $product->priceNowSantim();
+        [$priceNow, $priceBindings] = Product::priceNowSql();
 
         $query = Product::visible()
             ->whereKeyNot($product->id)
@@ -154,7 +160,7 @@ class CatalogController extends Controller
             ->orderByRaw('CASE WHEN products.category_id = ? THEN 0 ELSE 1 END', [$product->category_id])
             ->orderByRaw('CASE WHEN products.stock_quantity > 0 THEN 0 ELSE 1 END')
             // Price distance without subtracting past zero: MySQL rejects negative results on unsigned columns.
-            ->orderByRaw('CASE WHEN products.price_santim >= ? THEN products.price_santim - ? ELSE ? - products.price_santim END', [$price, $price, $price])
+            ->orderByRaw("CASE WHEN {$priceNow} >= ? THEN {$priceNow} - ? ELSE ? - {$priceNow} END", [...$priceBindings, $price, ...$priceBindings, $price, $price, ...$priceBindings])
             ->orderByDesc('products.id')
             ->limit(8);
 
@@ -183,12 +189,13 @@ class CatalogController extends Controller
             ->orderByRaw('CASE WHEN products.stock_quantity > 0 THEN 0 ELSE 1 END')
             ->orderByDesc('products.id')
             ->limit(6)
-            ->get(['products.id', 'products.slug', 'products.name', 'products.price_santim']);
+            ->get(['products.id', 'products.slug', 'products.name', 'products.price_santim', 'products.discount_percent', 'products.discount_ends_at']);
 
         return response()->json(['data' => $products->map(fn (Product $p) => [
             'slug' => $p->slug,
             'name' => $p->name,
             'price_santim' => (int) $p->price_santim,
+            'price_now_santim' => $p->priceNowSantim(),
             'image' => $p->primaryImage?->thumbUrl(),
         ])->values()]);
     }

@@ -14,6 +14,7 @@ use App\Support\Erp\SaleFigures;
 use App\Support\Erp\StockFigures;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Counts for the seller menu and overview: what is waiting for the store and how it is doing.
@@ -31,7 +32,7 @@ class SummaryController extends Controller
             'store' => $seller->only(['store_name', 'slug', 'status', 'status_reason', 'offers_delivery']) + ['has_pin' => $seller->pin() !== null],
             'orders' => (clone $orders)->selectRaw('status, count(*) as c')->groupBy('status')->pluck('c', 'status'),
             'products' => $seller->products()->selectRaw('status, count(*) as c')->groupBy('status')->pluck('c', 'status'),
-            'delivered_sales_santim' => (int) (clone $orders)->where('status', OrderStatus::Delivered->value)->sum('total_santim'),
+            'delivered_sales_santim' => (int) (clone $orders)->where('status', OrderStatus::Delivered->value)->sum(DB::raw('total_santim + coupon_discount_santim')),
             'reviews' => [
                 'count' => $seller->rating_count,
                 'average' => $seller->rating_count ? round($seller->rating_sum / $seller->rating_count, 1) : null,

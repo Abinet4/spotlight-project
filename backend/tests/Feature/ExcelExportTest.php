@@ -37,7 +37,7 @@ class ExcelExportTest extends TestCase
         $this->as($this->admin());
         $rows = $this->assertSameAsCsv('/api/admin/reports/orders');
         $header = $rows[0];
-        $this->assertCount(39, $header);
+        $this->assertCount(41, $header);
         $this->assertSame(['order', 'placed_at', 'status'], array_slice($header, 0, 3), 'the first columns keep their place');
         $byNumber = collect(array_slice($rows, 1))->keyBy(0)->map(fn ($r) => array_combine($header, array_pad($r, count($header), '')));
         $row = $byNumber[$order->number];

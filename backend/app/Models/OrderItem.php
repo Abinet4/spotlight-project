@@ -12,6 +12,7 @@ class OrderItem extends Model
     {
         return [
             'unit_price_santim' => 'integer',
+            'list_unit_price_santim' => 'integer',
             'unit_cost_santim' => 'integer',
             'quantity' => 'integer',
             'line_total_santim' => 'integer',

@@ -199,5 +199,5 @@ export function newIdempotencyKey() {
   return `k-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
 }
 
-export const ENTRY_LABELS = { commission: 'Commission', payment: 'Payment received', adjustment: 'Adjustment', sale: 'Online sale', payout: 'Paid out to store' }
+export const ENTRY_LABELS = { commission: 'Commission', payment: 'Payment received', adjustment: 'Adjustment', sale: 'Online sale', coupon: 'Coupon paid by Betoch', payout: 'Paid out to store' }
 export const METHOD_LABELS = { cash: 'Cash', bank_transfer: 'Bank transfer', telebirr: 'telebirr', chapa: 'Chapa', other: 'Other' }

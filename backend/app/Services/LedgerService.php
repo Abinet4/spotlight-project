@@ -67,6 +67,26 @@ class LedgerService
     }
 
     /**
+     * The customer used a Betoch coupon: Betoch pays the store its share of it once the order is delivered
+     * (a negative entry, like an online sale). Cash or online, the store ends up with the full price.
+     */
+    public function creditCoupon(Order $order): void
+    {
+        $amount = (int) $order->coupon_discount_santim;
+        if ($amount <= 0 || SellerLedgerEntry::where('order_id', $order->id)->where('type', 'coupon')->exists()) {
+            return;
+        }
+        $code = $order->checkout()->value('coupon_code');
+        $entry = new SellerLedgerEntry;
+        $entry->seller_profile_id = $order->seller_profile_id;
+        $entry->type = 'coupon';
+        $entry->amount_santim = -$amount;
+        $entry->order_id = $order->id;
+        $entry->note = "Coupon {$code} on {$order->number}, paid by Betoch";
+        $entry->save();
+    }
+
+    /**
      * Money the platform sent to a seller for online sales. It cannot exceed what the platform owes
      * (a typo would otherwise turn into a debt), and a reference is recorded once per store.
      */

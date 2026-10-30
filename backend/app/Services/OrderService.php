@@ -31,6 +31,7 @@ class OrderService
         private readonly LedgerService $ledger,
         private readonly Alerts $alerts,
         private readonly InventoryService $inventory,
+        private readonly CouponService $coupons,
     ) {}
 
     /**
@@ -40,11 +41,13 @@ class OrderService
      *
      * @return array{0: Checkout, 1: bool} the checkout and whether it was created now
      */
-    public function place(User $customer, Address $address, string $idempotencyKey, string $paymentMethod, array $fulfillment, int $expectedTotal, ?string $note): array
+    public function place(User $customer, Address $address, string $idempotencyKey, string $paymentMethod, array $fulfillment, int $expectedTotal, ?string $note, ?string $couponCode = null): array
     {
-        return DB::transaction(function () use ($customer, $address, $idempotencyKey, $paymentMethod, $fulfillment, $expectedTotal, $note) {
+        return DB::transaction(function () use ($customer, $address, $idempotencyKey, $paymentMethod, $fulfillment, $expectedTotal, $note, $couponCode) {
             // One checkout at a time per customer; a retried request returns the first result.
             User::whereKey($customer->id)->lockForUpdate()->first();
+            // Before any other read, so its uses are counted from the latest orders (see CouponService::lock).
+            $coupon = $this->coupons->lock($couponCode);
             $existing = Checkout::where('customer_id', $customer->id)->where('idempotency_key', $idempotencyKey)->first();
             if ($existing) {
                 return [$existing, false];
@@ -72,12 +75,16 @@ class OrderService
 
             $area = Area::with('deliveryZone')->findOrFail($address->area_id);
             $priced = $this->calculator->calculate($lines, $area, $fulfillment, $address);
+            [$priced, $coupon] = $this->coupons->apply($priced, $couponCode, $customer, $coupon);
 
             if ($priced['has_problems']) {
                 throw new HttpResponseException(response()->json([
                     'message' => 'Some items in your cart need attention before you can order.',
                     'data' => $priced,
                 ], 409));
+            }
+            if ($priced['coupon']['error'] ?? null) {
+                throw ValidationException::withMessages(['coupon_code' => $priced['coupon']['error']]);
             }
             // Online payments charge a fixed amount up front, so every delivery fee must already be known.
             if ($paymentMethod === 'online' && $priced['delivery_to_confirm']) {
@@ -107,6 +114,11 @@ class OrderService
             $checkout->items_total_santim = $priced['items_total_santim'];
             $checkout->delivery_total_santim = $priced['delivery_total_santim'];
             $checkout->grand_total_santim = $priced['grand_total_santim'];
+            if ($coupon) {
+                $checkout->coupon_id = $coupon->id;
+                $checkout->coupon_code = $coupon->code;
+                $checkout->coupon_discount_santim = $priced['coupon']['discount_santim'];
+            }
             $online = $paymentMethod === 'online';
             if ($online) {
                 $checkout->payment_due_at = now()->addMinutes(max(5, (int) config('marketplace.payments.window_minutes')));
@@ -132,6 +144,7 @@ class OrderService
                 $order->commission_santim = Order::commissionFor($group['items_total_santim'], $rateBp);
                 $order->vat_rate_bp = $group['vat_rate_bp'];
                 $order->vat_santim = $group['vat_santim'];
+                $order->coupon_discount_santim = $group['coupon_discount_santim'];
                 $order->vat_number = $group['seller']['vat_number'];
                 $order->payment_method = $paymentMethod;
                 $order->status = $online ? OrderStatus::AwaitingPayment : OrderStatus::PendingConfirmation;
@@ -146,6 +159,7 @@ class OrderService
                     $item->order_id = $order->id;
                     $item->name = $row['name'];
                     $item->unit_price_santim = $row['unit_price_santim'];
+                    $item->list_unit_price_santim = $row['list_unit_price_santim'];
                     $item->quantity = $row['quantity'];
                     $item->line_total_santim = $row['line_total_santim'];
 
@@ -177,7 +191,7 @@ class OrderService
                 'orders' => $checkout->orders()->pluck('number'),
                 'grand_total_santim' => $checkout->grand_total_santim,
                 'payment_method' => $paymentMethod,
-            ]);
+            ] + ($coupon ? ['coupon' => $coupon->code, 'coupon_discount_santim' => $checkout->coupon_discount_santim] : []));
 
             return [$checkout, true];
         });
@@ -222,9 +236,9 @@ class OrderService
                         $order->total_santim = $order->items_total_santim + $order->delivery_fee_santim;
                         $order->vat_santim = Order::vatInside($order->total_santim, (int) $order->vat_rate_bp);
                     } else {
-                        // VAT now covers the delivery fee too.
+                        // VAT now covers the delivery fee too. The coupon share stays as it was at checkout.
                         $order->vat_santim = Order::vatOn($order->items_total_santim + $order->delivery_fee_santim, (int) $order->vat_rate_bp);
-                        $order->total_santim = $order->items_total_santim + $order->delivery_fee_santim + $order->vat_santim;
+                        $order->total_santim = $order->items_total_santim + $order->delivery_fee_santim + $order->vat_santim - (int) $order->coupon_discount_santim;
                     }
                 }
                 $order->confirmed_at = now();
@@ -265,6 +279,7 @@ class OrderService
                 if ($order->payment_method === 'online') {
                     $this->ledger->creditSale($order);
                 }
+                $this->ledger->creditCoupon($order);
             }
             $this->record($order, $from, $to, $actor, $role, $note);
             $this->audit->log('order.'.$to->value, $order, ['from' => $from->value, 'by' => $role]);

@@ -58,6 +58,11 @@ class OrderResource extends JsonResource
                 'refunded_at' => $this->refund->refunded_at?->toIso8601String(),
             ]),
             'vat' => $this->vatSummary(),
+            // A Betoch coupon: taken off this order's total and paid to the store by Betoch on delivery.
+            'coupon' => (int) $this->coupon_discount_santim > 0 ? [
+                'code' => $checkout instanceof Checkout ? $checkout->coupon_code : null,
+                'discount_santim' => (int) $this->coupon_discount_santim,
+            ] : null,
             'commission_rate_percent' => $this->when($showCommission, fn () => $this->commission_rate_bp / 100),
             'commission_santim' => $this->when($showCommission, fn () => $this->commission_santim),
             'customer_note' => $this->customer_note,
@@ -87,6 +92,8 @@ class OrderResource extends JsonResource
                 'image' => $i->relationLoaded('product') && $i->product?->relationLoaded('primaryImage') ? $i->product->primaryImage?->thumbUrl() : null,
                 'quote_id' => $i->quote_id,
                 'unit_price_santim' => $i->unit_price_santim,
+                // Bought on the store's sale: the price before it.
+                'list_unit_price_santim' => $i->list_unit_price_santim,
                 'quantity' => $i->quantity,
                 'line_total_santim' => $i->line_total_santim,
                 'stock_type' => $i->stock_type,

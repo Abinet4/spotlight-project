@@ -3,7 +3,9 @@
 namespace Database\Seeders;
 
 use App\Enums\ProductStatus;
+use App\Models\AuditLog;
 use App\Models\Category;
+use App\Models\Coupon;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\ProductVariant;
@@ -164,6 +166,22 @@ final class DemoCatalog
             'about' => 'Open shelves in different sizes over two drawers and a two-door cupboard.'],
     ];
 
+    /** Listings put on sale once, as [percent off, days until the sale ends (null: no end)]. */
+    public const SALES = [
+        'Fluted Upholstered Bed' => [15, null],
+        'Marble-Look Coffee Table' => [20, 30],
+        'Two-Drawer Bedside Table' => [10, null],
+        'Curved Leather Sectional Sofa' => [12, null],
+        'Computer Desk with Office Chair' => [25, 14],
+        'White Bookcase with Drawers' => [15, null],
+    ];
+
+    /** Betoch coupons for trying checkout, added once. */
+    public const COUPONS = [
+        ['code' => 'WELCOME10', 'description' => 'Demo: 10% off, once per customer', 'percent_off' => 10, 'max_discount_santim' => 200_000, 'max_uses_per_customer' => 1],
+        ['code' => 'BETOCH500', 'description' => 'Demo: ETB 500 off bigger orders', 'amount_off_santim' => 50_000, 'min_items_santim' => 1_000_000, 'max_uses_per_customer' => 5],
+    ];
+
     public function __construct(
         private readonly ImageVariants $variants,
         private readonly InventoryService $inventory,
@@ -183,11 +201,11 @@ final class DemoCatalog
 
     /**
      * @param  Collection<int, SellerProfile|null>  $stores  the demo stores in order (seller1 first); null when one is gone
-     * @return array{added: int, photographed: int, retired: int}
+     * @return array{added: int, photographed: int, retired: int, on_sale: int, coupons: int}
      */
     public function sync(Collection $stores): array
     {
-        $done = ['added' => 0, 'photographed' => 0, 'retired' => 0];
+        $done = ['added' => 0, 'photographed' => 0, 'retired' => 0, 'on_sale' => 0, 'coupons' => 0];
         $demoStores = $stores->filter()->pluck('id');
         $kept = [];
 
@@ -238,6 +256,27 @@ final class DemoCatalog
                 $image->delete();
             }
             $done['retired']++;
+        }
+
+        // Sales and coupons once, so a store that ends a sale or an admin who deletes a code is not undone.
+        if (! AuditLog::where('action', 'demo.offers_added')->exists()) {
+            $tz = config('marketplace.timezone');
+            foreach (self::SALES as $name => [$percent, $days]) {
+                $product = Product::whereIn('seller_profile_id', $demoStores)->where('name', $name)->first();
+                if ($product && ! $product->discount_percent) {
+                    $product->discount_percent = $percent;
+                    $product->discount_ends_at = $days ? now($tz)->addDays($days)->endOfDay()->utc() : null;
+                    $product->save();
+                    $done['on_sale']++;
+                }
+            }
+            foreach (self::COUPONS as $coupon) {
+                if (! Coupon::where('code', $coupon['code'])->exists()) {
+                    Coupon::create($coupon);
+                    $done['coupons']++;
+                }
+            }
+            AuditLog::create(['action' => 'demo.offers_added', 'meta' => ['on_sale' => $done['on_sale'], 'coupons' => $done['coupons']]]);
         }
 
         return $done;

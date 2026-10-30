@@ -44,6 +44,7 @@ class BalanceController extends Controller
             'commission_total_santim' => (int) ($totals['commission'] ?? 0),
             'paid_total_santim' => -(int) ($totals['payment'] ?? 0),
             'online_sales_total_santim' => -(int) ($totals['sale'] ?? 0),
+            'coupons_total_santim' => -(int) ($totals['coupon'] ?? 0),
             'payouts_total_santim' => (int) ($totals['payout'] ?? 0),
             'adjustments_total_santim' => (int) ($totals['adjustment'] ?? 0),
             'owed_to_seller_santim' => max(0, -$balance),

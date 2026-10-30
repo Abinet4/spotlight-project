@@ -127,6 +127,9 @@ Artisan::command('marketplace:demo-pictures', function (DemoCatalog $catalog) {
         $this->info('Demo listings and photos are up to date.');
     } else {
         $this->info("Demo listings: {$done['added']} added, {$done['photographed']} with pictures updated, {$done['retired']} old ones taken down.");
+        if ($done['on_sale'] + $done['coupons'] > 0) {
+            $this->info("Demo offers: {$done['on_sale']} listings put on sale, {$done['coupons']} coupons added.");
+        }
     }
 
     return 0;

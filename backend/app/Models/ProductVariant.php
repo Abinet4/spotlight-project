@@ -42,4 +42,10 @@ class ProductVariant extends Model
     {
         return $this->price_santim ?? (int) $product->price_santim;
     }
+
+    /** What a customer pays now: the option's price less the listing's sale, if one is running. */
+    public function priceNowSantim(Product $product): int
+    {
+        return $product->priceNowSantim($this->priceSantim($product));
+    }
 }

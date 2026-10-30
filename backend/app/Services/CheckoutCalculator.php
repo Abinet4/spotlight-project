@@ -142,7 +142,9 @@ class CheckoutCalculator
         $problem = null;
         $stock = (int) ($v ? $v->stock_quantity : $p->stock_quantity);
         $max = $p->stock_type === StockType::InStock ? $stock : (int) config('marketplace.cart.max_quantity');
-        $unitPrice = $v ? $v->priceSantim($p) : (int) $p->price_santim;
+        $listPrice = $v ? $v->priceSantim($p) : (int) $p->price_santim;
+        // The store's sale, while it runs, lowers the price; the store pays for it.
+        $unitPrice = $p->priceNowSantim($listPrice);
         if (! $visibleProductIds->has($p->id)) {
             $problem = 'This listing is no longer available.';
         } elseif ($item->variant_id && (! $v || $v->trashed())) {
@@ -170,6 +172,8 @@ class CheckoutCalculator
             'variant' => $v ? ['id' => $v->id, 'label' => $v->label()] : null,
             'name' => $p->name,
             'unit_price_santim' => $unitPrice,
+            'list_unit_price_santim' => $unitPrice < $listPrice ? $listPrice : null,
+            'discount_percent' => $unitPrice < $listPrice ? $p->activeDiscountPercent() : null,
             'quantity' => $item->quantity,
             'max_quantity' => max(0, min($max, (int) config('marketplace.cart.max_quantity'))),
             'line_total_santim' => $unitPrice * $item->quantity,

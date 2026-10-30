@@ -1,3 +1,4 @@
+import { BadgePercent, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { CartLine } from './Cart'
@@ -8,6 +9,38 @@ import { api, parseError } from '../lib/api'
 import { formatETB, newIdempotencyKey, toQuery } from '../lib/format'
 import { useFetch } from '../lib/useFetch'
 
+/** A Betoch coupon code: typed, applied to the preview, and removed again. */
+function CouponBox({ applied, result, stale, onApply, onRemove }) {
+  const [code, setCode] = useState(applied)
+  const [open, setOpen] = useState(!!applied)
+  const working = applied && !result?.discount_santim && !result?.error && stale
+
+  if (applied && result && !result.error) {
+    return (
+      <div className="flex items-start justify-between gap-2 rounded-lg bg-emerald-50 p-2 text-sm text-emerald-900">
+        <p><BadgePercent className="mr-1 inline size-4 align-[-3px]" aria-hidden="true" /><span className="font-semibold">{result.code}</span> applied<br /><span className="text-xs">{result.label}</span></p>
+        <button type="button" className="shrink-0 rounded p-1 text-emerald-800 hover:bg-emerald-100" onClick={() => { setCode(''); onRemove() }} aria-label={`Remove coupon ${result.code}`}>
+          <X className="size-4" aria-hidden="true" />
+        </button>
+      </div>
+    )
+  }
+  if (!open) {
+    return <button type="button" className="text-sm font-medium text-brand-700 hover:underline" onClick={() => setOpen(true)}>Have a coupon code?</button>
+  }
+  return (
+    <form className="space-y-1" onSubmit={(e) => { e.preventDefault(); if (code.trim()) onApply(code.trim()) }}>
+      <label htmlFor="coupon-code" className="text-sm font-medium text-stone-800">Coupon code</label>
+      <div className="flex gap-2">
+        <input id="coupon-code" className="input min-w-0 flex-1 uppercase" value={code} maxLength={40} autoComplete="off" autoCapitalize="characters" spellCheck={false}
+          onChange={(e) => setCode(e.target.value)} aria-invalid={result?.error ? true : undefined} aria-describedby={result?.error ? 'coupon-error' : undefined} />
+        <button type="submit" className="btn-secondary shrink-0" disabled={!code.trim() || working}>{working ? 'Checking...' : 'Apply'}</button>
+      </div>
+      {applied && result?.error && <p id="coupon-error" className="text-xs font-medium text-red-700" role="alert">{result.error}</p>}
+    </form>
+  )
+}
+
 export default function Checkout() {
   const navigate = useNavigate()
   const config = useConfig()
@@ -17,6 +50,8 @@ export default function Checkout() {
   const [fulfillment, setFulfillment] = useState({})
   const [note, setNote] = useState('')
   const [method, setMethod] = useState(null)
+  const [coupon, setCoupon] = useState('')
+  const [reload, setReload] = useState(0)
   const [preview, setPreview] = useState({ data: null, error: null, query: null })
   const [placing, setPlacing] = useState(false)
   const [error, setError] = useState(null)
@@ -41,12 +76,16 @@ export default function Checkout() {
     setMethod(m)
     setIdempotencyKey(newIdempotencyKey())
   }
+  function changeCoupon(code) {
+    setCoupon(code)
+    setIdempotencyKey(newIdempotencyKey())
+  }
 
   const query = useMemo(() => {
-    const params = new URLSearchParams(toQuery({ address_id: selectedAddress }))
+    const params = new URLSearchParams(toQuery({ address_id: selectedAddress, coupon_code: coupon }))
     for (const [seller, mode] of Object.entries(fulfillment)) params.set(`fulfillment[${seller}]`, mode)
     return params.toString()
-  }, [selectedAddress, fulfillment])
+  }, [selectedAddress, fulfillment, coupon])
 
   useEffect(() => {
     if (addresses.loading) return undefined
@@ -57,7 +96,7 @@ export default function Checkout() {
     return () => {
       current = false
     }
-  }, [query, addresses.loading])
+  }, [query, addresses.loading, reload])
   // The totals on screen belong to an older address or delivery choice until the new preview arrives.
   const stale = preview.query !== query
 
@@ -71,6 +110,8 @@ export default function Checkout() {
         fulfillment,
         expected_total_santim: preview.data.grand_total_santim,
         note: note.trim() || null,
+        // Only a code that applied: one that did not is shown as an error and left out.
+        coupon_code: preview.data.coupon && !preview.data.coupon.error ? preview.data.coupon.code : null,
       }, { headers: { 'Idempotency-Key': idempotencyKey } })
       refreshCart()
       const placed = res.data.data
@@ -91,6 +132,8 @@ export default function Checkout() {
       } else {
         const e = parseError(err)
         setError(Object.values(e.fields)[0] || e.message)
+        // The code stopped working since the preview (used up or ended): show the totals without it.
+        if (e.fields.coupon_code) setReload((n) => n + 1)
       }
       setPlacing(false)
     }
@@ -203,11 +246,17 @@ export default function Checkout() {
               {codOff && onlineBlocked === 'fee' && <Alert tone="warning">Cash on delivery is paused, so every order needs a known delivery fee or pickup.</Alert>}
             </fieldset>
           )}
+          <div className="border-t border-stone-100 pt-3">
+            <CouponBox applied={coupon} result={stale ? null : p.coupon} stale={stale} onApply={changeCoupon} onRemove={() => changeCoupon('')} />
+          </div>
           <dl className="space-y-1 border-t border-stone-100 pt-3 text-sm">
             <div className="flex justify-between"><dt>Items</dt><dd>{formatETB(p.items_total_santim)}</dd></div>
             <div className="flex justify-between"><dt>Delivery</dt><dd>{formatETB(p.delivery_total_santim) || 'ETB 0'}{p.delivery_to_confirm && ' + to confirm'}</dd></div>
             {p.vat_rate_percent > 0 && (
               <div className="flex justify-between"><dt>VAT ({p.vat_rate_percent}%)</dt><dd>{formatETB(p.vat_total_santim)}{p.delivery_to_confirm && ' + on delivery'}</dd></div>
+            )}
+            {p.coupon?.discount_santim > 0 && (
+              <div className="flex justify-between font-medium text-emerald-800"><dt>Coupon {p.coupon.code}</dt><dd>-{formatETB(p.coupon.discount_santim)}</dd></div>
             )}
             <div className="flex justify-between border-t border-stone-100 pt-1 text-base font-bold text-stone-900"><dt>Total</dt><dd>{formatETB(p.grand_total_santim)}</dd></div>
           </dl>

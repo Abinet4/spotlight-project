@@ -16,6 +16,7 @@ import Wishlist from './pages/Wishlist'
 // Account, seller and admin screens load on first visit, so shoppers download only the store.
 const AdminAudit = lazy(() => import('./pages/admin/AdminAudit'))
 const AdminCategories = lazy(() => import('./pages/admin/AdminCategories'))
+const AdminCoupons = lazy(() => import('./pages/admin/AdminCoupons'))
 const AdminDelivery = lazy(() => import('./pages/admin/AdminDelivery'))
 const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'))
 const AdminOrderDetail = lazy(() => import('./pages/admin/AdminOrders').then((m) => ({ default: m.AdminOrderDetail })))
@@ -196,6 +197,7 @@ export default function App() {
           <Route path="sellers" element={<AdminSellers />} />
           <Route path="listings" element={<AdminListings />} />
           <Route path="categories" element={<AdminCategories />} />
+          <Route path="coupons" element={<AdminCoupons />} />
           <Route path="delivery" element={<AdminDelivery />} />
           <Route path="settings" element={<AdminSettings />} />
           <Route path="sms" element={<AdminSms />} />

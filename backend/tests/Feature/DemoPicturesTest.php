@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Enums\ProductStatus;
+use App\Models\AuditLog;
+use App\Models\Coupon;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\SellerProfile;
@@ -180,6 +182,36 @@ class DemoPicturesTest extends TestCase
         $this->artisan('marketplace:demo-pictures')->expectsOutput('Demo listings: 0 added, 0 with pictures updated, 1 old ones taken down.')->assertSuccessful();
         $this->assertSame(ProductStatus::Archived, $others->fresh()->status);
         $this->assertSame(ProductStatus::Published, $sofa->fresh()->status);
+    }
+
+    public function test_some_listings_are_put_on_sale_and_coupons_added_once(): void
+    {
+        Storage::fake('public');
+        Storage::fake('local');
+        $this->seed(DemoSeeder::class);
+        $onSale = Product::onSale()->pluck('discount_percent', 'name')->all();
+        ksort($onSale);
+        $expected = array_map(fn ($sale) => $sale[0], DemoCatalog::SALES);
+        ksort($expected);
+        $this->assertSame($expected, $onSale);
+        $this->assertNotNull($this->listing('Computer Desk with Office Chair')->discount_ends_at);
+        $this->assertSame(['BETOCH500', 'WELCOME10'], Coupon::orderBy('code')->pluck('code')->all());
+
+        // A store ends a sale and an admin deletes a code: the next start leaves both as they are.
+        $this->listing('Fluted Upholstered Bed')->forceFill(['discount_percent' => null])->save();
+        Coupon::where('code', 'BETOCH500')->delete();
+        $this->artisan('marketplace:demo-pictures')->expectsOutput('Demo listings and photos are up to date.')->assertSuccessful();
+        $this->assertNull($this->listing('Fluted Upholstered Bed')->discount_percent);
+        $this->assertSame(['WELCOME10'], Coupon::pluck('code')->all());
+
+        // A site set up before sales and coupons gets them on its next start, once.
+        AuditLog::where('action', 'demo.offers_added')->delete();
+        $this->artisan('marketplace:demo-pictures')
+            ->expectsOutput('Demo listings: 0 added, 0 with pictures updated, 0 old ones taken down.')
+            ->expectsOutput('Demo offers: 1 listings put on sale, 1 coupons added.')
+            ->assertSuccessful();
+        $this->assertSame(15, $this->listing('Fluted Upholstered Bed')->discount_percent);
+        $this->artisan('marketplace:demo-pictures')->expectsOutput('Demo listings and photos are up to date.')->assertSuccessful();
     }
 
     public function test_photos_are_not_redone_on_every_start_when_copies_cannot_be_made(): void

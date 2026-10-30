@@ -2,11 +2,13 @@ import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from '@headlessui/re
 import { ArrowRight, Ruler, Truck, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { CONDITION_LABELS, formatDimensions, formatETB } from '../lib/format'
+import { saleNote } from '../lib/price'
 import { useFetch } from '../lib/useFetch'
 import AddToCart from './AddToCart'
 import CompareButton from './CompareButton'
 import FavoriteButton from './FavoriteButton'
 import Gallery from './Gallery'
+import Price from './Price'
 import { RatingSummary } from './Reviews'
 import { ErrorState } from './ui'
 
@@ -42,8 +44,9 @@ export default function QuickView({ slug, onClose }) {
                     <DialogTitle className="mt-1 font-display text-2xl font-semibold tracking-tight text-stone-900">{p.name}</DialogTitle>
                     <RatingSummary rating={p.rating} className="mt-1" />
                   </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-bold text-stone-900">{formatETB(p.price_santim)}</span>
+                  <div>
+                    <Price product={p} size="quick" />
+                    {saleNote(p) && <p className="mt-1 text-sm font-semibold text-red-700">{saleNote(p)}</p>}
                   </div>
                   <ul className="space-y-2 text-sm text-stone-700">
                     {formatDimensions(p.dimensions) && <li className="flex gap-2"><Ruler className="mt-0.5 size-4 shrink-0 text-stone-400" aria-hidden="true" />{formatDimensions(p.dimensions)}</li>}

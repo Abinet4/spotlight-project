@@ -2,12 +2,14 @@ import { GitCompareArrows, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import AddToCart from '../components/AddToCart'
+import Price from '../components/Price'
 import { ProductImage } from '../components/ProductCard'
 import { RatingSummary } from '../components/Reviews'
 import { EmptyState, ErrorState } from '../components/ui'
 import { COMPARE_MAX, useCompare } from '../context/CompareContext'
 import { api, parseError } from '../lib/api'
 import { CONDITION_LABELS, formatDimensions, formatETB } from '../lib/format'
+import { priceOf } from '../lib/price'
 
 function deliveryText(p) {
   if (!p.delivery.offers_delivery) return p.delivery.pickup_available ? 'Pickup only' : 'Ask Betoch Support'
@@ -20,7 +22,7 @@ function availability(p) {
 }
 
 const ROWS = [
-  ['Price', (p) => <span className="font-bold text-stone-900">{formatETB(p.price_santim)}</span>, (p) => p.price_santim],
+  ['Price', (p) => <Price product={p} />, (p) => priceOf(p).now],
   ['Rating', (p) => (p.rating?.count ? <RatingSummary rating={p.rating} /> : <span className="text-stone-400">No reviews yet</span>)],
   ['Availability', availability],
   ['Dimensions', (p) => formatDimensions(p.dimensions) || '-'],
@@ -58,7 +60,7 @@ export default function Compare() {
   }, [key, remove])
 
   const products = key ? state.products?.filter((p) => slugs.includes(p.slug)) : []
-  const cheapest = products?.length > 1 ? Math.min(...products.map((p) => p.price_santim)) : null
+  const cheapest = products?.length > 1 ? Math.min(...products.map((p) => priceOf(p).now)) : null
 
   return (
     <div className="container-page py-8">

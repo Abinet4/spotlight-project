@@ -30,7 +30,10 @@ export function CartLine({ line, onChange, readOnly }) {
           {line.product?.slug ? <Link to={`/products/${line.product.slug}`} className="hover:underline">{line.name}</Link> : line.name}
         </p>
         {line.variant?.label && <p className="text-sm text-stone-700">{line.variant.label}</p>}
-        <p className="text-sm text-stone-600">{formatETB(line.unit_price_santim)} each</p>
+        <p className="text-sm text-stone-600">
+          {formatETB(line.unit_price_santim)} each
+          {line.list_unit_price_santim && <> <s className="whitespace-nowrap text-stone-400"><span className="sr-only">was </span>{formatETB(line.list_unit_price_santim)}</s> <span className="font-semibold whitespace-nowrap text-red-700">{line.discount_percent}% off</span></>}
+        </p>
         {line.problem && <p className="mt-1 text-sm font-medium text-red-700">{line.problem}</p>}
         {!readOnly && (
           <div className="mt-2 flex items-center gap-2">

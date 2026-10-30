@@ -140,7 +140,7 @@ export default function SearchBox({ className = '', id = 'site-search', onClose 
                   <span className="min-w-0 flex-1 text-stone-600">
                     {o.all && <>Search for <strong className="font-semibold text-stone-900">“{term}”</strong></>}
                     {o.category && <><span className="block truncate"><Highlight text={o.category.name} term={term} /></span><span className="block text-xs text-stone-500">Category</span></>}
-                    {o.product && <><span className="block truncate"><Highlight text={o.product.name} term={term} /></span><span className="block text-xs text-stone-500">{formatETB(o.product.price_santim)}</span></>}
+                    {o.product && <><span className="block truncate"><Highlight text={o.product.name} term={term} /></span><span className="block text-xs text-stone-500">{formatETB(o.product.price_now_santim ?? o.product.price_santim)}</span></>}
                   </span>
                 </li>
               )

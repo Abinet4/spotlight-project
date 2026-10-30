@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\User;
 use App\Services\CheckoutCalculator;
+use App\Services\CouponService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,11 +20,11 @@ use Illuminate\Validation\ValidationException;
 
 class CartController extends Controller
 {
-    public function __construct(private readonly CheckoutCalculator $calculator) {}
+    public function __construct(private readonly CheckoutCalculator $calculator, private readonly CouponService $coupons) {}
 
     /**
      * The cart, priced. Pass area_id (or address_id) and fulfillment[seller_id]=pickup|delivery
-     * to include delivery fees, exactly as checkout will charge them.
+     * to include delivery fees, and coupon_code to take a coupon off, exactly as checkout will charge.
      */
     public function show(Request $request): JsonResponse
     {
@@ -32,6 +33,7 @@ class CartController extends Controller
             'address_id' => ['nullable', 'integer'],
             'fulfillment' => ['nullable', 'array'],
             'fulfillment.*' => [Rule::in(['delivery', 'pickup'])],
+            'coupon_code' => ['nullable', 'string', 'max:40'],
         ]);
 
         $user = $request->user();
@@ -43,7 +45,10 @@ class CartController extends Controller
         }
         $area = $areaId ? Area::with('deliveryZone')->find($areaId) : null;
 
-        return response()->json(['data' => $this->calculator->calculate(self::lines($user), $area, $data['fulfillment'] ?? [], $address)]);
+        $priced = $this->calculator->calculate(self::lines($user), $area, $data['fulfillment'] ?? [], $address);
+        [$priced] = $this->coupons->apply($priced, $data['coupon_code'] ?? null, $user);
+
+        return response()->json(['data' => $priced]);
     }
 
     public function count(Request $request): JsonResponse

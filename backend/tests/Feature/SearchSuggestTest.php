@@ -58,7 +58,7 @@ class SearchSuggestTest extends TestCase
         }
         $res = $this->getJson('/api/search/suggest?q=chair')->assertOk()->assertJsonCount(6, 'data');
         $this->assertNotContains($sold->name, collect($res->json('data'))->pluck('name'));
-        $this->assertSame(['slug', 'name', 'price_santim', 'image'], array_keys($res->json('data.0')));
+        $this->assertSame(['slug', 'name', 'price_santim', 'price_now_santim', 'image'], array_keys($res->json('data.0')));
         $this->assertSame('Chair 7', $res->json('data.0.name'));
         $this->assertSame(700_000, $res->json('data.0.price_santim'));
     }
