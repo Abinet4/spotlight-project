@@ -126,7 +126,7 @@ jobs:
           [ "$(curl -s -o /dev/null -w '%{http_code}' "$image")" = 404 ]
           docker restart api
           for i in $(seq 1 60); do curl -fs http://localhost:8080/up > /dev/null && break; sleep 2; done
-          docker logs api 2>&1 | grep -q 'Demo listings: 0 added, 25 with pictures updated, 0 old ones taken down.'
+          docker logs api 2>&1 | grep -q 'Demo listings: 0 added, 41 with pictures updated, 0 old ones taken down.'
           image=$(curl -fs http://localhost:8080/api/products | jq -r '.data[0].image')
           curl -fs -o /dev/null -w '%{content_type}\n' "$image" | grep -q image/webp
           since=$(date -u +%Y-%m-%dT%H:%M:%SZ)

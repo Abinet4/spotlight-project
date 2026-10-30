@@ -46,7 +46,7 @@ class DemoPicturesTest extends TestCase
         $this->seed(DemoSeeder::class);
 
         $products = Product::with('images', 'variants')->get();
-        $this->assertCount(25, $products);
+        $this->assertCount(41, $products);
         $used = [];
         foreach ($products as $product) {
             $this->assertSame(ProductStatus::Published, $product->status, $product->name);
@@ -69,15 +69,25 @@ class DemoPicturesTest extends TestCase
         sort($used);
         $this->assertSame($files, $used);
 
-        // The same bed photographed in two colors is one listing with both photos and an option per color.
+        // The same bed or sofa photographed in two colors is one listing with both photos and an option per color.
         $bed = $this->listing('Fluted Upholstered Bed');
         $this->assertSame(['Fluted Upholstered Bed in grey', 'Fluted Upholstered Bed in beige'], $bed->images()->orderBy('sort_order')->pluck('alt')->all());
         $this->assertSame(['Grey' => 2, 'Beige' => 3], $bed->variants()->orderBy('sort_order')->pluck('stock_quantity', 'color')->all());
         $this->assertSame(5, $bed->fresh()->stock_quantity);
         $this->getJson("/api/products/{$bed->slug}")->assertOk()->assertJsonCount(2, 'data.images')->assertJsonCount(2, 'data.variants');
+        $sofa = $this->listing('Sectional Sofa with Chaise and USB Port');
+        $this->assertSame(['Sectional Sofa with Chaise and USB Port in navy', 'Sectional Sofa with Chaise and USB Port in charcoal'], $sofa->images()->orderBy('sort_order')->pluck('alt')->all());
+        $this->assertSame(['Navy' => 2, 'Charcoal' => 2], $sofa->variants()->orderBy('sort_order')->pluck('stock_quantity', 'color')->all());
+
+        // Every category has demo listings except Other Furniture, and office pieces are sold by the office store.
+        $this->assertSame(['beds-mattresses' => 8, 'cabinets-shelves' => 4, 'dining' => 3, 'office' => 6, 'sofas-living-room' => 12, 'wardrobes-storage' => 8],
+            Product::join('categories', 'categories.id', '=', 'products.category_id')->groupBy('categories.slug')->orderBy('categories.slug')
+                ->selectRaw('categories.slug, count(*) as n')->pluck('n', 'slug')->map(fn ($n) => (int) $n)->all());
+        $office = $this->store(4);
+        $this->assertSame(0, Product::whereHas('category', fn ($q) => $q->where('slug', 'office'))->where('seller_profile_id', '!=', $office->id)->count());
 
         $this->artisan('marketplace:demo-pictures')->expectsOutput('Demo listings and photos are up to date.')->assertSuccessful();
-        $this->assertSame(26, ProductImage::count(), 'running again adds nothing');
+        $this->assertSame(43, ProductImage::count(), 'running again adds nothing');
     }
 
     public function test_older_demo_data_is_brought_up_to_date_without_touching_store_photos(): void
@@ -148,6 +158,30 @@ class DemoPicturesTest extends TestCase
         $this->getJson('/api/products/'.$bed->slug)->assertOk();
     }
 
+    public function test_a_catalog_listing_in_another_demo_store_stays_where_it_is(): void
+    {
+        Storage::fake('public');
+        Storage::fake('local');
+        $this->seed(DemoSeeder::class);
+
+        // Removing a catalog row moves the rows after it to another demo store.
+        $sofa = $this->listing('Tufted Sectional Sofa with Ottoman');
+        [$moved, $third] = collect([1, 2, 3, 4])->map(fn ($n) => $this->store($n))->reject(fn ($store) => $store->id === $sofa->seller_profile_id)->values()->all();
+        $sofa->seller_profile_id = $moved->id;
+        $sofa->save();
+
+        $this->artisan('marketplace:demo-pictures')->expectsOutput('Demo listings and photos are up to date.')->assertSuccessful();
+        $this->assertSame(ProductStatus::Published, $sofa->fresh()->status);
+        $this->assertSame($moved->id, $sofa->fresh()->seller_profile_id);
+        $this->assertSame(41, Product::count());
+
+        // A second demo copy of the same listing in yet another store is not the catalog's, so it leaves the shop.
+        $others = $this->listingWith($third, $sofa->name, ['demo-photo-copy-abcdef12.jpg']);
+        $this->artisan('marketplace:demo-pictures')->expectsOutput('Demo listings: 0 added, 0 with pictures updated, 1 old ones taken down.')->assertSuccessful();
+        $this->assertSame(ProductStatus::Archived, $others->fresh()->status);
+        $this->assertSame(ProductStatus::Published, $sofa->fresh()->status);
+    }
+
     public function test_photos_are_not_redone_on_every_start_when_copies_cannot_be_made(): void
     {
         Storage::fake('public');
@@ -161,7 +195,7 @@ class DemoPicturesTest extends TestCase
         });
         $this->seed(DemoSeeder::class);
         $ids = ProductImage::orderBy('id')->pluck('id')->all();
-        $this->assertCount(26, $ids);
+        $this->assertCount(43, $ids);
 
         $this->artisan('marketplace:demo-pictures')->expectsOutput('Demo listings and photos are up to date.')->assertSuccessful();
         $this->assertSame($ids, ProductImage::orderBy('id')->pluck('id')->all());
