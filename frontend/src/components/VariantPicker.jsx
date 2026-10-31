@@ -1,4 +1,5 @@
 import { formatETB } from '../lib/format'
+import { priceOf } from '../lib/price'
 
 /**
  * The options of a listing (size, color, material) as a radio group. Each shows its own price
@@ -20,7 +21,7 @@ export default function VariantPicker({ product, value, onChange }) {
               <input type="radio" name="variant" className="sr-only" checked={selected} disabled={out} onChange={() => onChange(v)} />
               <span className="font-semibold text-stone-900">{v.label}</span>
               <span className="text-xs text-stone-600">
-                {v.price_santim !== product.price_santim ? formatETB(v.price_santim) : null}
+                {v.price_santim !== product.price_santim ? formatETB(priceOf(product, v).now) : null}
                 {v.price_santim !== product.price_santim && ' · '}
                 {out ? 'Out of stock' : `${v.stock_quantity} available`}
               </span>

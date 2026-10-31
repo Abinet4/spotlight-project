@@ -14,10 +14,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 
 // seller_profile_id, slug, status, moderation fields and is_featured are never mass assigned.
 #[Fillable([
-    'category_id', 'name', 'description', 'price_santim', 'price_negotiable',
+    'category_id', 'name', 'description', 'price_santim', 'discount_percent', 'discount_ends_at',
     'condition', 'stock_type', 'stock_quantity', 'production_days',
     'width_cm', 'depth_cm', 'height_cm', 'material', 'color',
     'area_id', 'offers_delivery', 'pickup_available', 'delivery_fee_santim', 'delivery_notes',
@@ -39,13 +40,14 @@ class Product extends Model
     {
         return [
             'price_santim' => 'integer',
+            'discount_percent' => 'integer',
+            'discount_ends_at' => 'datetime',
             'delivery_fee_santim' => 'integer',
             'stock_quantity' => 'integer',
             'cost_price_santim' => 'integer',
             'min_stock_level' => 'integer',
             'reorder_quantity' => 'integer',
             'production_days' => 'integer',
-            'price_negotiable' => 'boolean',
             'offers_delivery' => 'boolean',
             'pickup_available' => 'boolean',
             'is_featured' => 'boolean',
@@ -108,6 +110,47 @@ class Product extends Model
         $fee = $this->delivery_fee_santim;
 
         return $fee === 0 || ($fee !== null && $storesSetFee) ? $fee : null;
+    }
+
+    /** The store's sale percent while the sale runs, else null. */
+    public function activeDiscountPercent(): ?int
+    {
+        $percent = (int) $this->discount_percent;
+
+        return $percent > 0 && ($this->discount_ends_at === null || $this->discount_ends_at->isFuture()) ? $percent : null;
+    }
+
+    /** What a customer pays now for this listing, or for one of its options priced at $listPrice. */
+    public function priceNowSantim(?int $listPrice = null): int
+    {
+        return self::discounted($listPrice ?? (int) $this->price_santim, $this->activeDiscountPercent());
+    }
+
+    /** A price less a percent, the amount off rounded half up to the santim. */
+    public static function discounted(int $priceSantim, ?int $percent): int
+    {
+        return $percent ? $priceSantim - intdiv($priceSantim * $percent + 50, 100) : $priceSantim;
+    }
+
+    /**
+     * SQL for what a listing costs now, the same sum as discounted(), for filtering and sorting by price.
+     *
+     * @return array{0: string, 1: array<int, mixed>} the expression and its bindings
+     */
+    public static function priceNowSql(): array
+    {
+        // Whole-number division: DIV on MySQL; SQLite divides integers that way already.
+        $div = DB::connection()->getDriverName() === 'mysql' ? 'DIV' : '/';
+
+        return ["(CASE WHEN products.discount_percent > 0 AND (products.discount_ends_at IS NULL OR products.discount_ends_at > ?)
+            THEN products.price_santim - (products.price_santim * products.discount_percent + 50) {$div} 100 ELSE products.price_santim END)", [now()]];
+    }
+
+    /** Listings on sale right now. */
+    public function scopeOnSale(Builder $query): void
+    {
+        $query->where('products.discount_percent', '>', 0)
+            ->where(fn (Builder $q) => $q->whereNull('products.discount_ends_at')->orWhere('products.discount_ends_at', '>', now()));
     }
 
     public function isAvailable(): bool

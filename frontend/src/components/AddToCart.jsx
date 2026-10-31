@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { api, parseError } from '../lib/api'
 import { formatETB } from '../lib/format'
+import { priceOf } from '../lib/price'
 
 /**
  * Quantity stepper and "Add to cart" for a listing. Only customer accounts can buy. A listing with
@@ -27,7 +28,7 @@ export default function AddToCart({ product, variant = null, full = false, compa
   const needsOption = (product.variants || []).length > 0 || product.options_count > 0
   const stock = variant ? variant.stock_quantity : product.stock_quantity
   const max = Math.max(1, Math.min(stock, 99))
-  const unitPrice = variant ? variant.price_santim : product.price_santim
+  const unitPrice = priceOf(product, variant).now
   if (product.stock_quantity < 1) return null
 
   if (!user) {

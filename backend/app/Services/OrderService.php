@@ -15,7 +15,6 @@ use App\Models\OrderStatusHistory;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\ProductVariant;
-use App\Models\Quote;
 use App\Models\Refund;
 use App\Models\Setting;
 use App\Models\User;
@@ -32,6 +31,7 @@ class OrderService
         private readonly LedgerService $ledger,
         private readonly Alerts $alerts,
         private readonly InventoryService $inventory,
+        private readonly CouponService $coupons,
     ) {}
 
     /**
@@ -41,11 +41,13 @@ class OrderService
      *
      * @return array{0: Checkout, 1: bool} the checkout and whether it was created now
      */
-    public function place(User $customer, Address $address, string $idempotencyKey, string $paymentMethod, array $fulfillment, int $expectedTotal, ?string $note): array
+    public function place(User $customer, Address $address, string $idempotencyKey, string $paymentMethod, array $fulfillment, int $expectedTotal, ?string $note, ?string $couponCode = null): array
     {
-        return DB::transaction(function () use ($customer, $address, $idempotencyKey, $paymentMethod, $fulfillment, $expectedTotal, $note) {
+        return DB::transaction(function () use ($customer, $address, $idempotencyKey, $paymentMethod, $fulfillment, $expectedTotal, $note, $couponCode) {
             // One checkout at a time per customer; a retried request returns the first result.
             User::whereKey($customer->id)->lockForUpdate()->first();
+            // Before any other read, so its uses are counted from the latest orders (see CouponService::lock).
+            $coupon = $this->coupons->lock($couponCode);
             $existing = Checkout::where('customer_id', $customer->id)->where('idempotency_key', $idempotencyKey)->first();
             if ($existing) {
                 return [$existing, false];
@@ -56,36 +58,33 @@ class OrderService
                 throw ValidationException::withMessages(['cart' => 'Your cart is empty.']);
             }
 
-            // Lock listing and quote rows in id order (consistent order avoids deadlocks), then
-            // price from the locked, fresh values.
+            // Lock listing rows in id order (consistent order avoids deadlocks), then price from the
+            // locked, fresh values.
             $productIds = $lines->pluck('product_id')->filter()->sort()->values()->all();
             $locked = Product::withTrashed()->whereIn('id', $productIds)->orderBy('id')->lockForUpdate()->get()->keyBy('id');
-            $quoteIds = $lines->pluck('quote_id')->filter()->sort()->values()->all();
-            $lockedQuotes = Quote::whereIn('id', $quoteIds)->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             // Options are guarded by their listing's lock, so reading them now gives settled stock.
             $variants = ProductVariant::withTrashed()->whereIn('id', $lines->pluck('variant_id')->filter()->all())->get()->keyBy('id');
             $current = ProductVariant::whereIn('product_id', $productIds)->get()->groupBy('product_id');
             foreach ($lines as $line) {
-                if ($line->product_id) {
-                    $line->product->setRawAttributes($locked[$line->product_id]->getAttributes(), true);
-                    $line->product->setRelation('variants', $current[$line->product_id] ?? new EloquentCollection);
-                }
+                $line->product->setRawAttributes($locked[$line->product_id]->getAttributes(), true);
+                $line->product->setRelation('variants', $current[$line->product_id] ?? new EloquentCollection);
                 if ($line->variant_id) {
                     $line->setRelation('variant', $variants[$line->variant_id] ?? null);
-                }
-                if ($line->quote_id) {
-                    $line->quote->setRawAttributes($lockedQuotes[$line->quote_id]->getAttributes(), true);
                 }
             }
 
             $area = Area::with('deliveryZone')->findOrFail($address->area_id);
             $priced = $this->calculator->calculate($lines, $area, $fulfillment, $address);
+            [$priced, $coupon] = $this->coupons->apply($priced, $couponCode, $customer, $coupon);
 
             if ($priced['has_problems']) {
                 throw new HttpResponseException(response()->json([
                     'message' => 'Some items in your cart need attention before you can order.',
                     'data' => $priced,
                 ], 409));
+            }
+            if ($priced['coupon']['error'] ?? null) {
+                throw ValidationException::withMessages(['coupon_code' => $priced['coupon']['error']]);
             }
             // Online payments charge a fixed amount up front, so every delivery fee must already be known.
             if ($paymentMethod === 'online' && $priced['delivery_to_confirm']) {
@@ -115,6 +114,11 @@ class OrderService
             $checkout->items_total_santim = $priced['items_total_santim'];
             $checkout->delivery_total_santim = $priced['delivery_total_santim'];
             $checkout->grand_total_santim = $priced['grand_total_santim'];
+            if ($coupon) {
+                $checkout->coupon_id = $coupon->id;
+                $checkout->coupon_code = $coupon->code;
+                $checkout->coupon_discount_santim = $priced['coupon']['discount_santim'];
+            }
             $online = $paymentMethod === 'online';
             if ($online) {
                 $checkout->payment_due_at = now()->addMinutes(max(5, (int) config('marketplace.payments.window_minutes')));
@@ -140,6 +144,7 @@ class OrderService
                 $order->commission_santim = Order::commissionFor($group['items_total_santim'], $rateBp);
                 $order->vat_rate_bp = $group['vat_rate_bp'];
                 $order->vat_santim = $group['vat_santim'];
+                $order->coupon_discount_santim = $group['coupon_discount_santim'];
                 $order->vat_number = $group['seller']['vat_number'];
                 $order->payment_method = $paymentMethod;
                 $order->status = $online ? OrderStatus::AwaitingPayment : OrderStatus::PendingConfirmation;
@@ -154,27 +159,22 @@ class OrderService
                     $item->order_id = $order->id;
                     $item->name = $row['name'];
                     $item->unit_price_santim = $row['unit_price_santim'];
+                    $item->list_unit_price_santim = $row['list_unit_price_santim'];
                     $item->quantity = $row['quantity'];
                     $item->line_total_santim = $row['line_total_santim'];
 
-                    if ($cartLine->quote_id) {
-                        $item->quote_id = $cartLine->quote_id;
-                        $item->product_id = $cartLine->quote->product_id;
-                        $item->production_days = $cartLine->quote->production_days;
-                    } else {
-                        $product = $locked[$cartLine->product_id];
-                        $variant = $cartLine->variant_id ? $variants[$cartLine->variant_id] : null;
-                        $item->product_id = $product->id;
-                        $item->variant_id = $variant?->id;
-                        $item->variant_label = $variant ? ($variant->label() ?: null) : null;
-                        $item->stock_type = $product->stock_type->value;
-                        $item->production_days = $product->production_days;
-                        $item->unit_cost_santim = InventoryService::unitCost($product, $variant);
-                        if ($product->stock_type === StockType::InStock) {
-                            // Reserve now; the calculator already checked there is enough under the lock.
-                            $this->inventory->reserve($product, $variant, $row['quantity'], $order, $customer);
-                            $item->reserved_quantity = $row['quantity'];
-                        }
+                    $product = $locked[$cartLine->product_id];
+                    $variant = $cartLine->variant_id ? $variants[$cartLine->variant_id] : null;
+                    $item->product_id = $product->id;
+                    $item->variant_id = $variant?->id;
+                    $item->variant_label = $variant ? ($variant->label() ?: null) : null;
+                    $item->stock_type = $product->stock_type->value;
+                    $item->production_days = $product->production_days;
+                    $item->unit_cost_santim = InventoryService::unitCost($product, $variant);
+                    if ($product->stock_type === StockType::InStock) {
+                        // Reserve now; the calculator already checked there is enough under the lock.
+                        $this->inventory->reserve($product, $variant, $row['quantity'], $order, $customer);
+                        $item->reserved_quantity = $row['quantity'];
                     }
                     $item->save();
                 }
@@ -191,7 +191,7 @@ class OrderService
                 'orders' => $checkout->orders()->pluck('number'),
                 'grand_total_santim' => $checkout->grand_total_santim,
                 'payment_method' => $paymentMethod,
-            ]);
+            ] + ($coupon ? ['coupon' => $coupon->code, 'coupon_discount_santim' => $checkout->coupon_discount_santim] : []));
 
             return [$checkout, true];
         });
@@ -236,9 +236,9 @@ class OrderService
                         $order->total_santim = $order->items_total_santim + $order->delivery_fee_santim;
                         $order->vat_santim = Order::vatInside($order->total_santim, (int) $order->vat_rate_bp);
                     } else {
-                        // VAT now covers the delivery fee too.
+                        // VAT now covers the delivery fee too. The coupon share stays as it was at checkout.
                         $order->vat_santim = Order::vatOn($order->items_total_santim + $order->delivery_fee_santim, (int) $order->vat_rate_bp);
-                        $order->total_santim = $order->items_total_santim + $order->delivery_fee_santim + $order->vat_santim;
+                        $order->total_santim = $order->items_total_santim + $order->delivery_fee_santim + $order->vat_santim - (int) $order->coupon_discount_santim;
                     }
                 }
                 $order->confirmed_at = now();
@@ -279,6 +279,7 @@ class OrderService
                 if ($order->payment_method === 'online') {
                     $this->ledger->creditSale($order);
                 }
+                $this->ledger->creditCoupon($order);
             }
             $this->record($order, $from, $to, $actor, $role, $note);
             $this->audit->log('order.'.$to->value, $order, ['from' => $from->value, 'by' => $role]);
@@ -347,25 +348,22 @@ class OrderService
             if (CartItem::where('user_id', $order->customer_id)->count() >= $max) {
                 return;
             }
-            $column = $item->quote_id ? 'quote_id' : 'product_id';
-            $id = $item->quote_id ?: $item->product_id;
-            if (! $id || ($column === 'product_id' && ! Product::whereKey($id)->exists())) {
+            // Price offers are gone, so an item ordered from one cannot go back in the cart.
+            if ($item->quote_id || ! $item->product_id || ! Product::whereKey($item->product_id)->exists()) {
                 continue;
             }
-            $variantId = $item->quote_id ? null : $item->variant_id;
-            if ($variantId && ! ProductVariant::whereKey($variantId)->exists()) {
+            if ($item->variant_id && ! ProductVariant::whereKey($item->variant_id)->exists()) {
                 continue;
             }
-            $existing = CartItem::where('user_id', $order->customer_id)->where($column, $id);
-            if ($column === 'product_id') {
-                $existing->when($variantId, fn ($q) => $q->where('variant_id', $variantId), fn ($q) => $q->whereNull('variant_id'));
-            }
-            if (! $existing->exists()) {
+            $exists = CartItem::where('user_id', $order->customer_id)->where('product_id', $item->product_id)
+                ->when($item->variant_id, fn ($q) => $q->where('variant_id', $item->variant_id), fn ($q) => $q->whereNull('variant_id'))
+                ->exists();
+            if (! $exists) {
                 $line = new CartItem;
                 $line->user_id = $order->customer_id;
-                $line->{$column} = $id;
-                $line->variant_id = $variantId;
-                $line->quantity = $item->quote_id ? 1 : $item->quantity;
+                $line->product_id = $item->product_id;
+                $line->variant_id = $item->variant_id;
+                $line->quantity = $item->quantity;
                 $line->save();
             }
         }

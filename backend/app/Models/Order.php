@@ -30,6 +30,7 @@ class Order extends Model
             'carry_fee_santim' => 'integer',
             'total_santim' => 'integer',
             'vat_santim' => 'integer',
+            'coupon_discount_santim' => 'integer',
             'paid_santim' => 'integer',
             'commission_rate_bp' => 'integer',
             'commission_santim' => 'integer',
@@ -111,10 +112,14 @@ class Order extends Model
         ];
     }
 
-    /** Placed before VAT moved to checkout: its VAT sits inside the total instead of on top. */
+    /**
+     * Placed before VAT moved to checkout: its VAT sits inside the total instead of on top. Coupons came
+     * later, so an order with one always has VAT on top (its coupon could equal its VAT).
+     */
     public function vatInsidePrice(): bool
     {
-        return $this->vatSantim() > 0 && (int) $this->total_santim === (int) $this->items_total_santim + (int) $this->delivery_fee_santim;
+        return $this->vatSantim() > 0 && (int) $this->coupon_discount_santim === 0
+            && (int) $this->total_santim === (int) $this->items_total_santim + (int) $this->delivery_fee_santim;
     }
 
     /** The VAT part of a price that already includes it: price x rate / (100% + rate), rounded half up. */

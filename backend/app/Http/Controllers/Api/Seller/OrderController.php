@@ -11,6 +11,7 @@ use App\Services\OrderService;
 use App\Support\Money;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -42,7 +43,8 @@ class OrderController extends Controller
 
         return response()->json(['data' => [
             'counts' => $counts,
-            'delivered_sales_santim' => (int) (clone $delivered)->sum('total_santim'),
+            // Coupons count as sales: Betoch pays them to the store.
+            'delivered_sales_santim' => (int) (clone $delivered)->sum(DB::raw('total_santim + coupon_discount_santim')),
             'commission_on_delivered_santim' => (int) (clone $delivered)->sum('commission_santim'),
             'balance' => BalanceController::summary($request->user()->sellerProfile()->firstOrFail()->id),
         ]]);

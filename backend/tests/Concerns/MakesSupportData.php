@@ -33,32 +33,21 @@ trait MakesSupportData
     }
 
     /**
-     * Admin asks the store, the store proposes a price, the admin sends it to the customer.
-     *
-     * @return array{quote: int, request: int, proposal: int}
+     * An offer Betoch sent inside a support inquiry, written the way the app stored them before
+     * price offers were removed.
      */
-    protected function relayOffer(int $ticketId, User $admin, SellerProfile $store, array $proposal = [], array $send = []): array
+    protected function sentOffer(int $ticketId, SellerProfile $store, array $overrides = []): Quote
     {
-        $request = $this->actAs($admin)->postJson('/api/admin/support/requests', [
-            'support_ticket_id' => $ticketId, 'seller_profile_id' => $store->id, 'topic' => 'price',
-            'subject' => 'Price for a custom piece', 'body' => 'Can you make it 240 cm wide, and for how much?',
-        ])->assertCreated()->json('data.id');
-
-        $messages = $this->actAs($store->user)->postJson("/api/seller/requests/$request/messages", [
-            'body' => 'Yes, we can.',
-            'proposal' => array_merge([
-                'price' => '44000', 'quantity' => 2, 'production_days' => 25,
-                'valid_until' => now()->addDays(5)->toDateString(),
-            ], $proposal),
-        ])->assertCreated()->json('data.messages');
-        $proposalId = collect($messages)->last(fn ($m) => $m['proposal'] !== null)['id'];
-
-        $quote = $this->actAs($admin)->postJson("/api/admin/support/requests/$request/proposals/$proposalId/send", array_merge([
+        $quote = new Quote(array_merge([
             'title' => 'Built-in wardrobe', 'description' => 'Walnut, 240 cm, installed on site.',
+            'price_santim' => 4_400_000, 'quantity' => 2, 'delivery_fee_santim' => null, 'production_days' => 25,
             'valid_until' => now()->addDays(5)->toDateString(),
-        ], $send))->assertCreated()->json('data.id');
+        ], $overrides));
+        $quote->support_ticket_id = $ticketId;
+        $quote->seller_profile_id = $store->id;
+        $quote->save();
 
-        return ['quote' => $quote, 'request' => $request, 'proposal' => $proposalId];
+        return $quote;
     }
 
     /**

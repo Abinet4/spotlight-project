@@ -40,6 +40,7 @@ class OrderController extends Controller
             'fulfillment.*' => [Rule::in(['delivery', 'pickup'])],
             'expected_total_santim' => ['required', 'integer', 'min:0'],
             'note' => ['nullable', 'string', 'max:500'],
+            'coupon_code' => ['nullable', 'string', 'max:40'],
         ]);
         if ($data['payment_method'] === 'cod' && ! Setting::codEnabled()) {
             throw ValidationException::withMessages(['payment_method' => 'Cash on delivery is not available right now.']);
@@ -56,7 +57,7 @@ class OrderController extends Controller
 
         [$checkout, $created] = $this->orders->place(
             $user, $address, $key, $data['payment_method'], $data['fulfillment'] ?? [],
-            $data['expected_total_santim'], isset($data['note']) ? trim($data['note']) ?: null : null,
+            $data['expected_total_santim'], isset($data['note']) ? trim($data['note']) ?: null : null, $data['coupon_code'] ?? null,
         );
 
         $payload = $this->checkoutPayload($checkout);
@@ -121,6 +122,7 @@ class OrderController extends Controller
             'grand_total_santim' => $checkout->grand_total_santim,
             'items_total_santim' => $checkout->items_total_santim,
             'delivery_total_santim' => $checkout->delivery_total_santim,
+            'coupon' => $checkout->coupon_code ? ['code' => $checkout->coupon_code, 'discount_santim' => $checkout->coupon_discount_santim] : null,
             'payment_method' => $checkout->payment_method,
             'orders' => $checkout->orders->map(fn (Order $o) => (new OrderResource($o))->as('customer')->resolve())->values(),
         ];

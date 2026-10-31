@@ -312,6 +312,8 @@ class SaleController extends Controller
             'delivery_santim' => (int) $order->delivery_fee_santim,
             'total_santim' => $order->total_santim,
             'vat' => $order->vatSummary(),
+            // A Betoch coupon came off the customer's total; Betoch pays it to the store on delivery.
+            'coupon_santim' => (int) $order->coupon_discount_santim,
             'commission_santim' => $order->commission_santim,
             'returned_santim' => (int) $recorded->sum(fn ($r) => $r->creditSantim()),
             'refunded_santim' => (int) $recorded->sum('refund_santim'),

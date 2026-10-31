@@ -1,6 +1,6 @@
 import {
-  BarChart3, CreditCard, History, LayoutDashboard, LifeBuoy, MessageSquare, Package, Settings, ShoppingBag, Star, Store, Tags, Truck,
-  Users, Wallet,
+  BarChart3, CreditCard, History, LayoutDashboard, LifeBuoy, MessageSquare, Package, Settings, ShoppingBag, Star, Store, Tags, TicketPercent,
+  Truck, Users, Wallet,
 } from 'lucide-react'
 import { Outlet } from 'react-router-dom'
 import WorkArea, { useAreaSummary } from '../../components/WorkArea'
@@ -20,6 +20,7 @@ const GROUPS = [
   ['Money', [
     { to: '/admin/settlements', label: 'Settlements', icon: Wallet },
     { to: '/admin/reports', label: 'Reports', icon: BarChart3 },
+    { to: '/admin/coupons', label: 'Coupons', icon: TicketPercent },
   ]],
   ['Setup', [
     { to: '/admin/categories', label: 'Categories', icon: Tags },

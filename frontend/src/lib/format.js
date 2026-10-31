@@ -77,7 +77,7 @@ export const SUPPORT_STATUS_TONES = {
 export const SUPPORT_TOPICS = {
   product: 'Product question',
   availability: 'Availability',
-  price: 'Price or offer',
+  price: 'Price question',
   custom: 'Custom order', // Old inquiries only: Betoch sells finished furniture.
   delivery: 'Delivery',
   order: 'My order',
@@ -89,7 +89,7 @@ export const SUPPORT_TOPICS = {
 export const REQUEST_TOPICS = {
   stock: 'Stock check',
   specs: 'Product details',
-  price: 'Price offer',
+  price: 'Price check',
   delivery: 'Delivery arrangements',
   fulfilment: 'Order fulfilment',
   other: 'Something else',
@@ -199,5 +199,5 @@ export function newIdempotencyKey() {
   return `k-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
 }
 
-export const ENTRY_LABELS = { commission: 'Commission', payment: 'Payment received', adjustment: 'Adjustment', sale: 'Online sale', payout: 'Paid out to store' }
+export const ENTRY_LABELS = { commission: 'Commission', payment: 'Payment received', adjustment: 'Adjustment', sale: 'Online sale', coupon: 'Coupon paid by Betoch', payout: 'Paid out to store' }
 export const METHOD_LABELS = { cash: 'Cash', bank_transfer: 'Bank transfer', telebirr: 'telebirr', chapa: 'Chapa', other: 'Other' }

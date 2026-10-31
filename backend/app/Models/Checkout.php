@@ -14,6 +14,7 @@ class Checkout extends Model
             'items_total_santim' => 'integer',
             'delivery_total_santim' => 'integer',
             'grand_total_santim' => 'integer',
+            'coupon_discount_santim' => 'integer',
             'floor' => 'integer',
             'has_lift' => 'boolean',
             'payment_due_at' => 'datetime',
@@ -24,6 +25,11 @@ class Checkout extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'customer_id');
+    }
+
+    public function coupon(): BelongsTo
+    {
+        return $this->belongsTo(Coupon::class);
     }
 
     public function orders(): HasMany

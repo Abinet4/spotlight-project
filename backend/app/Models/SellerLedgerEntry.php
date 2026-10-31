@@ -14,7 +14,7 @@ class SellerLedgerEntry extends Model
 
     // commission: owed on a delivered order. payment: the seller paid us. sale: an online sale we hold
     // for the seller. payout: we paid the seller. adjustment: a correction either way.
-    public const TYPES = ['commission', 'payment', 'sale', 'payout', 'adjustment'];
+    public const TYPES = ['commission', 'payment', 'sale', 'coupon', 'payout', 'adjustment'];
 
     public const METHODS = ['cash', 'bank_transfer', 'telebirr', 'other'];
 

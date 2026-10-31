@@ -27,25 +27,21 @@ export function CartLine({ line, onChange, readOnly }) {
       <ProductImage src={line.product?.image} alt="" className="size-16 shrink-0 rounded-lg" />
       <div className="min-w-0 flex-1">
         <p className="font-medium text-stone-900">
-          {line.product?.slug && line.kind === 'product' ? <Link to={`/products/${line.product.slug}`} className="hover:underline">{line.name}</Link> : line.name}
+          {line.product?.slug ? <Link to={`/products/${line.product.slug}`} className="hover:underline">{line.name}</Link> : line.name}
         </p>
         {line.variant?.label && <p className="text-sm text-stone-700">{line.variant.label}</p>}
         <p className="text-sm text-stone-600">
-          {line.kind === 'quote' ? `Price offer, ${line.quantity} x ${formatETB(line.unit_price_santim)}` : `${formatETB(line.unit_price_santim)} each`}
-          {line.kind === 'quote' && line.quote.production_days !== null && ` · ready ${line.quote.production_days} days after confirmation`}
+          {formatETB(line.unit_price_santim)} each
+          {line.list_unit_price_santim && <> <s className="whitespace-nowrap text-stone-400"><span className="sr-only">was </span>{formatETB(line.list_unit_price_santim)}</s> <span className="font-semibold whitespace-nowrap text-red-700">{line.discount_percent}% off</span></>}
         </p>
         {line.problem && <p className="mt-1 text-sm font-medium text-red-700">{line.problem}</p>}
         {!readOnly && (
           <div className="mt-2 flex items-center gap-2">
-            {line.kind === 'product' ? (
-              <>
-                <label htmlFor={`qty-${line.id}`} className="sr-only">Quantity for {line.name}</label>
-                <select id={`qty-${line.id}`} className="input w-20 py-1" value={line.quantity} disabled={busy}
-                  onChange={(e) => run(() => onChange(api.put(`/cart/items/${line.id}`, { quantity: Number(e.target.value) })))}>
-                  {options.map((n) => <option key={n} value={n}>{n}</option>)}
-                </select>
-              </>
-            ) : <span className="text-sm text-stone-500">Quantity {line.quantity}</span>}
+            <label htmlFor={`qty-${line.id}`} className="sr-only">Quantity for {line.name}</label>
+            <select id={`qty-${line.id}`} className="input w-20 py-1" value={line.quantity} disabled={busy}
+              onChange={(e) => run(() => onChange(api.put(`/cart/items/${line.id}`, { quantity: Number(e.target.value) })))}>
+              {options.map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
             <button type="button" className="btn-ghost text-sm text-red-700" disabled={busy}
               onClick={() => run(() => onChange(api.delete(`/cart/items/${line.id}`)))}>Remove</button>
           </div>
@@ -84,7 +80,7 @@ export default function Cart() {
       {error && <div className="mb-4"><Alert tone="error">{error}</Alert></div>}
       {c.line_count === 0 ? (
         <EmptyState icon={ShoppingBag} title="Your cart is empty" action={<Link to="/" className="btn-primary">Browse furniture</Link>}>
-          Add furniture from any listing, or order an offer you accepted in Support.
+          Add furniture from any listing to see it here.
         </EmptyState>
       ) : (
         <div className="grid gap-6 lg:grid-cols-[1fr_280px]">

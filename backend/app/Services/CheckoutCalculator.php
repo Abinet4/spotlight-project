@@ -2,14 +2,12 @@
 
 namespace App\Services;
 
-use App\Enums\QuoteStatus;
 use App\Enums\StockType;
 use App\Models\Address;
 use App\Models\Area;
 use App\Models\CartItem;
 use App\Models\Order;
 use App\Models\Product;
-use App\Models\SellerProfile;
 use App\Models\Setting;
 use Illuminate\Support\Collection;
 
@@ -18,8 +16,7 @@ use Illuminate\Support\Collection;
  * so what the customer sees is exactly what is charged.
  *
  * Lines are grouped by seller; each group becomes one order. Delivery is one trip per seller:
- * the group fee is the highest line fee. A line's fee comes from its quote, else the listing,
- * else the distance from the store's map pin to the customer's (when both are set), else the
+ * the group fee is the highest line fee. A line's fee comes from the listing, else the distance from the store's map pin to the customer's (when both are set), else the
  * delivery zone of the chosen sub-city. If any line has no fee, the seller confirms the group
  * fee before the order goes ahead. A trip longer than the distance limit always needs the
  * seller to confirm; the zone fee would undercharge it.
@@ -36,7 +33,7 @@ class CheckoutCalculator
     public function __construct(private readonly DistancePricing $distance) {}
 
     /**
-     * @param  Collection<int, CartItem>  $items  with product.seller and quote.seller/product loaded
+     * @param  Collection<int, CartItem>  $items  with product.seller loaded
      * @param  array<int|string, string>  $fulfillment  seller_profile_id => 'delivery'|'pickup'
      * @param  Address|null  $address  the delivery address (map pin, floor, lift), when one is chosen
      */
@@ -47,18 +44,15 @@ class CheckoutCalculator
         $this->storesSetFee = Setting::storesSetDeliveryFee();
         $vatBp = Setting::vatRateBp();
         $visibleProductIds = Product::visible()->whereIn('products.id', $items->pluck('product_id')->filter()->all())->pluck('products.id')->flip();
-        $activeSellerIds = SellerProfile::publiclyVisible()
-            ->whereIn('id', $items->map(fn (CartItem $i) => $i->product?->seller_profile_id ?? $i->quote?->seller_profile_id)->filter()->unique()->all())
-            ->pluck('id')->flip();
         $zone = $area?->deliveryZone?->is_active ? $area->deliveryZone : null;
 
-        $groups = $items->groupBy(fn (CartItem $i) => $i->product?->seller_profile_id ?? $i->quote?->seller_profile_id)
-            ->map(function (Collection $lines, $sellerId) use ($visibleProductIds, $activeSellerIds, $zone, $area, $fulfillment, $pin, $carry, $vatBp) {
-                $seller = $lines->first()->product?->seller ?? $lines->first()->quote?->seller;
+        $groups = $items->groupBy(fn (CartItem $i) => $i->product->seller_profile_id)
+            ->map(function (Collection $lines, $sellerId) use ($visibleProductIds, $zone, $area, $fulfillment, $pin, $carry, $vatBp) {
+                $seller = $lines->first()->product->seller;
                 // One trip per store, so one distance; it stands in for the zone fee on every line.
                 $trip = $this->distance->quote($seller, $pin);
                 $defaultFee = $trip ? $trip['fee_santim'] : $zone?->fee_santim;
-                $rows = $lines->map(fn (CartItem $i) => $this->line($i, $visibleProductIds, $activeSellerIds, $defaultFee));
+                $rows = $lines->map(fn (CartItem $i) => $this->line($i, $visibleProductIds, $defaultFee));
 
                 $deliveryAvailable = $rows->every(fn ($r) => $r['offers_delivery']);
                 $pickupAvailable = $rows->every(fn ($r) => $r['pickup_available']);
@@ -141,18 +135,16 @@ class CheckoutCalculator
     }
 
     /** @param  int|null  $defaultFee  from the distance, or the zone when distance does not apply */
-    private function line(CartItem $item, Collection $visibleProductIds, Collection $activeSellerIds, ?int $defaultFee): array
+    private function line(CartItem $item, Collection $visibleProductIds, ?int $defaultFee): array
     {
-        if ($item->quote_id) {
-            return $this->quoteLine($item, $activeSellerIds, $defaultFee);
-        }
-
         $p = $item->product;
         $v = $item->variant_id ? $item->variant : null;
         $problem = null;
         $stock = (int) ($v ? $v->stock_quantity : $p->stock_quantity);
         $max = $p->stock_type === StockType::InStock ? $stock : (int) config('marketplace.cart.max_quantity');
-        $unitPrice = $v ? $v->priceSantim($p) : (int) $p->price_santim;
+        $listPrice = $v ? $v->priceSantim($p) : (int) $p->price_santim;
+        // The store's sale, while it runs, lowers the price; the store pays for it.
+        $unitPrice = $p->priceNowSantim($listPrice);
         if (! $visibleProductIds->has($p->id)) {
             $problem = 'This listing is no longer available.';
         } elseif ($item->variant_id && (! $v || $v->trashed())) {
@@ -170,7 +162,6 @@ class CheckoutCalculator
 
         return [
             'id' => $item->id,
-            'kind' => 'product',
             'product' => [
                 'id' => $p->id, 'slug' => $p->slug, 'name' => $p->name,
                 'image' => $p->relationLoaded('primaryImage') ? $p->primaryImage?->thumbUrl() : null,
@@ -178,10 +169,11 @@ class CheckoutCalculator
                 // For the "will it fit" check at checkout.
                 'dimensions' => ['width_cm' => $p->width_cm, 'depth_cm' => $p->depth_cm, 'height_cm' => $p->height_cm],
             ],
-            'quote' => null,
             'variant' => $v ? ['id' => $v->id, 'label' => $v->label()] : null,
             'name' => $p->name,
             'unit_price_santim' => $unitPrice,
+            'list_unit_price_santim' => $unitPrice < $listPrice ? $listPrice : null,
+            'discount_percent' => $unitPrice < $listPrice ? $p->activeDiscountPercent() : null,
             'quantity' => $item->quantity,
             'max_quantity' => max(0, min($max, (int) config('marketplace.cart.max_quantity'))),
             'line_total_santim' => $unitPrice * $item->quantity,
@@ -189,44 +181,6 @@ class CheckoutCalculator
             'offers_delivery' => $p->offers_delivery,
             'pickup_available' => $p->pickup_available,
             'delivery_fee_santim' => $p->offers_delivery ? $fee : null,
-        ];
-    }
-
-    private function quoteLine(CartItem $item, Collection $activeSellerIds, ?int $defaultFee): array
-    {
-        $q = $item->quote;
-        $p = $q->product;
-        $problem = null;
-        if ($q->status !== QuoteStatus::Accepted) {
-            $problem = 'This quote is no longer accepted.';
-        } elseif ($q->orderDeadline()->isPast()) {
-            $problem = 'This offer has expired. Ask Betoch Support for a new one.';
-        } elseif (! $activeSellerIds->has($q->seller_profile_id)) {
-            $problem = 'This store is not taking orders right now.';
-        } elseif ($q->isOrdered()) {
-            $problem = 'This quote has already been ordered.';
-        }
-
-        // A custom quote is one line for its full quantity; its own delivery fee wins.
-        // Same rule as a listing's fee: a store's own charge counts only while admins allow it (free always does).
-        $quoteFee = $q->delivery_fee_santim === 0 || ($q->delivery_fee_santim !== null && $this->storesSetFee) ? $q->delivery_fee_santim : null;
-        $fee = $quoteFee ?? ($p?->ownDeliveryFeeSantim($this->storesSetFee) ?? $defaultFee);
-
-        return [
-            'id' => $item->id,
-            'kind' => 'quote',
-            'product' => $p ? ['id' => $p->id, 'slug' => $p->slug, 'name' => $p->name, 'image' => null, 'stock_type' => null, 'production_days' => null] : null,
-            'quote' => ['id' => $q->id, 'title' => $q->title, 'quantity' => $q->quantity, 'production_days' => $q->production_days, 'conversation_id' => $q->conversation_id, 'support_ticket_id' => $q->support_ticket_id, 'order_by' => $q->orderDeadline()->toIso8601String()],
-            'variant' => null,
-            'name' => $q->title,
-            'unit_price_santim' => $q->price_santim,
-            'quantity' => $q->quantity,
-            'max_quantity' => $q->quantity,
-            'line_total_santim' => $q->price_santim * $q->quantity,
-            'problem' => $problem,
-            'offers_delivery' => $p ? $p->offers_delivery || $q->delivery_fee_santim !== null : true,
-            'pickup_available' => $p ? $p->pickup_available : true,
-            'delivery_fee_santim' => $fee,
         ];
     }
 }

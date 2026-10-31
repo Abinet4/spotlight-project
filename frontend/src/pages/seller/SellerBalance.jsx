@@ -17,7 +17,7 @@ export function LedgerTable({ entries, admin = false }) {
           <div className="min-w-0">
             <p className="text-stone-900">
               <span className="font-medium">{ENTRY_LABELS[e.type]}</span>
-              {e.order && <> · <Link to={`${admin ? '/admin' : '/seller'}/orders/${e.order.id}`} className="text-brand-700 hover:underline">{e.order.number}</Link></>}
+              {e.order && <> · <Link to={`${admin ? '/admin' : '/seller'}/orders/${e.order.id}`} className="whitespace-nowrap text-brand-700 hover:underline">{e.order.number}</Link></>}
             </p>
             <p className="text-xs break-words text-stone-500">
               {formatDateTime(e.created_at)}
@@ -49,6 +49,7 @@ export function BalanceCards({ b, admin = false }) {
       { label: 'Paid so far', value: formatETB(b.paid_total_santim) || 'ETB 0' },
       { label: 'Adjustments', value: `${b.adjustments_total_santim < 0 ? '- ' : ''}${formatETB(Math.abs(b.adjustments_total_santim)) || 'ETB 0'}` },
       online && { label: 'Online sales held', value: formatETB(b.online_sales_total_santim) || 'ETB 0' },
+      b.coupons_total_santim > 0 && { label: 'Coupons paid by Betoch', value: formatETB(b.coupons_total_santim) },
       online && { label: admin ? 'Paid out to the store' : 'Paid out to you', value: formatETB(b.payouts_total_santim) || 'ETB 0' },
     ]} />
   )
@@ -65,9 +66,9 @@ export default function SellerBalance() {
 
   return (
     <>
-      <PageHeader title="Balance" subtitle="Cash orders: you owe the commission. Online orders: the marketplace owes you the sale minus commission." />
+      <PageHeader title="Balance" subtitle="Cash orders: you owe the commission. Online orders: the marketplace owes you the sale minus commission. Coupons: Betoch pays you the amount taken off." />
       {b.over_limit && <div className="mb-4"><Alert tone="error">Your unpaid commission is over the limit, so you cannot confirm new cash orders. Orders paid online still go ahead. Pay your balance and the marketplace team will record it.</Alert></div>}
-      {b.owed_to_seller_santim > 0 && <div className="mb-4"><Alert tone="success">The marketplace owes you {formatETB(b.owed_to_seller_santim)} from online sales. The team sends it to you and records each payout here.</Alert></div>}
+      {b.owed_to_seller_santim > 0 && <div className="mb-4"><Alert tone="success">The marketplace owes you {formatETB(b.owed_to_seller_santim)} from online sales{b.coupons_total_santim > 0 ? ' and coupons' : ''}. The team sends it to you and records each payout here.</Alert></div>}
       <BalanceCards b={b} />
       {/* Payment details matter when the store owes something; otherwise they fold away. */}
       <details className="card mt-4 p-4 text-sm" open={b.balance_santim > 0}>

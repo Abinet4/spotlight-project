@@ -37,6 +37,7 @@ final class AuditPresenter
         'settlement.payout_recorded' => 'Payout to store recorded',
         'settlement.payment_recorded' => 'Commission payment recorded',
         'settlement.adjusted' => 'Commission balance adjusted',
+        'demo.offers_added' => 'Demo sales and coupons added',
     ];
 
     private const GROUPS = [
@@ -45,6 +46,7 @@ final class AuditPresenter
         'settlement' => 'Commission', 'support' => 'Support', 'quote' => 'Price offer', 'review' => 'Review',
         'delivery_zone' => 'Delivery zone', 'settings' => 'Settings', 'report' => 'Report', 'inventory' => 'Stock',
         'erp' => 'Store records', 'audit' => 'Audit log', 'sms' => 'Text messages', 'admin' => 'Admin account',
+        'coupon' => 'Coupon',
     ];
 
     private const TYPES = [

@@ -21,6 +21,7 @@ class ProductResource extends JsonResource
         // Shoppers see the fee that applies; the owner and admins see what the store entered.
         $storesSetFee = self::storesSetFee($request);
         $fee = $this->withModeration ? $this->delivery_fee_santim : $this->ownDeliveryFeeSantim($storesSetFee);
+        $percent = $this->activeDiscountPercent();
 
         return [
             'id' => $this->id,
@@ -29,8 +30,14 @@ class ProductResource extends JsonResource
             'description' => $this->description,
             'price' => Money::toBirr($this->price_santim),
             'price_santim' => $this->price_santim,
+            // What a customer pays now: the price less the store's sale while one runs.
+            'price_now' => Money::toBirr($this->priceNowSantim()),
+            'price_now_santim' => $this->priceNowSantim(),
+            'discount' => $percent ? ['percent' => $percent, 'ends_at' => $this->discount_ends_at?->toIso8601String()] : null,
+            // The sale as the store set it, running, not started or ended, for its own form.
+            'discount_percent' => $this->when($this->withModeration, fn () => $this->discount_percent),
+            'discount_ends_on' => $this->when($this->withModeration, fn () => $this->discount_ends_at?->copy()->timezone(config('marketplace.timezone'))->toDateString()),
             'currency' => config('marketplace.currency'),
-            'price_negotiable' => $this->price_negotiable,
             'condition' => $this->condition->value,
             'stock_type' => $this->stock_type->value,
             'stock_quantity' => $this->stock_quantity,
@@ -58,6 +65,7 @@ class ProductResource extends JsonResource
                 'material' => $v->material,
                 'price' => Money::toBirr($v->priceSantim($this->resource)),
                 'price_santim' => $v->priceSantim($this->resource),
+                'price_now_santim' => $v->priceNowSantim($this->resource),
                 'stock_quantity' => $v->stock_quantity,
                 'is_available' => $this->stock_type->value === 'made_to_order' || $v->stock_quantity > 0,
             ] + ($this->withModeration ? ['own_price' => Money::toBirr($v->price_santim), 'sku' => $v->sku] : []))->values()->all()),

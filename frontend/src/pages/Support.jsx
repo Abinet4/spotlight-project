@@ -189,8 +189,7 @@ export function SupportTicketView() {
   }
 
   async function close() {
-    const pending = offers.some((q) => q.status === 'pending')
-    if (!window.confirm(`Close this question? You can always ask a new one.${pending ? ' The offer waiting for your answer will be declined.' : ''}`)) return
+    if (!window.confirm('Close this question? You can always ask a new one.')) return
     try {
       await api.post(`/support/tickets/${t.id}/close`)
       reload()
@@ -228,8 +227,8 @@ export function SupportTicketView() {
 
       {offers.length > 0 && (
         <section aria-labelledby="offers" className="mt-4 space-y-3">
-          <h2 id="offers" className="text-sm font-semibold text-stone-700">{offers.length === 1 ? 'Offer for you' : 'Offers for you'}</h2>
-          {offers.map((q) => <OfferCard key={q.id} quote={q} onChanged={reload} />)}
+          <h2 id="offers" className="text-sm font-semibold text-stone-700">{offers.length === 1 ? 'Earlier price offer' : 'Earlier price offers'}</h2>
+          {offers.map((q) => <OfferCard key={q.id} quote={q} />)}
         </section>
       )}
 

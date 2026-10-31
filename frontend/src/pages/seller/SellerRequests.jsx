@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { Alert, EmptyState, ErrorState, Field, PageHeader, Pagination, Spinner } from '../../components/ui'
-import { useConfig } from '../../context/ConfigContext'
 import { useInbox } from '../../context/InboxContext'
 import { api, parseError } from '../../lib/api'
 import { QUOTE_STATUS_LABELS, formatDateTime, formatETB, timeAgo, toQuery } from '../../lib/format'
@@ -73,51 +72,6 @@ export function SellerRequests() {
   )
 }
 
-function today(offsetDays = 0) {
-  const d = new Date()
-  d.setDate(d.getDate() + offsetDays)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-const EMPTY_PROPOSAL = { price: '', quantity: 1, delivery_fee: '', valid_until: today(7) }
-
-function ProposalFields({ value, onChange, errors }) {
-  // While the marketplace prices delivery, a store can only offer it free.
-  const storesSetFee = Boolean(useConfig().delivery?.stores_set_fee)
-  const set = (key) => (e) => onChange({ ...value, [key]: e.target.value })
-  return (
-    <div className="grid gap-3 rounded-xl bg-stone-50 p-3 sm:grid-cols-2">
-      <p className="text-xs text-stone-600 sm:col-span-2">
-        Betoch checks your price and may send it to the customer as an offer. If they accept, they order it through checkout like any listing.
-      </p>
-      <Field label="Unit price (ETB)" name="p-price" error={errors.price}>
-        <input id="p-price" className="input" inputMode="decimal" placeholder="e.g. 45000" value={value.price} onChange={set('price')} />
-      </Field>
-      <Field label="Quantity" name="p-qty" error={errors.quantity}>
-        <input id="p-qty" type="number" min="1" max="1000" className="input" value={value.quantity} onChange={set('quantity')} />
-      </Field>
-      {storesSetFee ? (
-        <Field label="Delivery fee (ETB, optional)" name="p-fee" error={errors.delivery_fee} hint="Leave empty to price delivery at checkout. Enter 0 for free delivery.">
-          <input id="p-fee" className="input" inputMode="decimal" value={value.delivery_fee} onChange={set('delivery_fee')} />
-        </Field>
-      ) : (
-        <div className="text-sm">
-          <label className="flex items-center gap-2 pt-6">
-            <input type="checkbox" className="size-4 accent-brand-700" checked={value.delivery_fee === '0'}
-              onChange={(e) => onChange({ ...value, delivery_fee: e.target.checked ? '0' : '' })} />
-            Free delivery
-          </label>
-          <p className="mt-1 text-xs text-stone-500">Otherwise the marketplace prices delivery at checkout.</p>
-          {errors.delivery_fee && <p className="mt-1 text-xs text-red-700">{errors.delivery_fee}</p>}
-        </div>
-      )}
-      <Field label="Price valid until" name="p-valid" error={errors.valid_until}>
-        <input id="p-valid" type="date" className="input" min={today()} max={today(60)} value={value.valid_until} onChange={set('valid_until')} />
-      </Field>
-    </div>
-  )
-}
-
 function ProposalSummary({ p }) {
   return (
     <div className="mt-2 rounded-lg border border-stone-200 bg-white p-3 text-sm text-stone-800">
@@ -129,7 +83,7 @@ function ProposalSummary({ p }) {
         {p.production_days !== null && ` · ready in ${p.production_days} days`} · valid until {p.valid_until}
       </p>
       <p className="mt-1 text-xs font-medium text-stone-600">
-        {p.offer_status ? `Sent to the customer as an offer · ${QUOTE_STATUS_LABELS[p.offer_status]?.replace('Waiting for your answer', 'Waiting for the customer')}` : p.sent ? 'Sent to the customer' : 'Not sent to the customer yet'}
+        {p.offer_status ? `Sent to the customer as an offer · ${QUOTE_STATUS_LABELS[p.offer_status]?.replace('Waiting for your answer', 'Waiting for the customer')}` : p.sent ? 'Sent to the customer' : 'Not sent: Betoch now sells at listing prices only'}
       </p>
     </div>
   )
@@ -140,8 +94,6 @@ export function SellerRequestView() {
   const { refreshUnread } = useInbox()
   const { data, error, loading, reload } = useFetch(`/seller/requests/${id}`)
   const [body, setBody] = useState('')
-  const [withProposal, setWithProposal] = useState(false)
-  const [proposal, setProposal] = useState(EMPTY_PROPOSAL)
   const [errors, setErrors] = useState({})
   const [sendError, setSendError] = useState(null)
   const [sending, setSending] = useState(false)
@@ -174,27 +126,13 @@ export function SellerRequestView() {
     setErrors({})
     setSendError(null)
     try {
-      await api.post(`/seller/requests/${r.id}/messages`, {
-        body,
-        proposal: withProposal ? {
-          ...proposal,
-          quantity: Number(proposal.quantity) || 1,
-          delivery_fee: String(proposal.delivery_fee).trim() || null,
-        } : null,
-      })
+      await api.post(`/seller/requests/${r.id}/messages`, { body })
       setBody('')
-      setWithProposal(false)
-      setProposal(EMPTY_PROPOSAL)
       await reload()
     } catch (err) {
       const parsed = parseError(err)
-      // Proposal errors come back as "proposal.price" and so on; show each under its own field.
-      const fields = {}
-      for (const [key, messages] of Object.entries(err.response?.data?.errors || {})) {
-        fields[key.replace(/^proposal\./, '')] ??= messages[0]
-      }
-      setErrors(fields)
-      setSendError(Object.values(fields)[0] || parsed.message)
+      setErrors(parsed.fields)
+      setSendError(Object.values(parsed.fields)[0] || parsed.message)
     } finally {
       setSending(false)
     }
@@ -239,14 +177,9 @@ export function SellerRequestView() {
         <div className="mt-4"><Alert>Betoch closed this request. Nothing more is needed from you.</Alert></div>
       ) : (
         <form onSubmit={send} className="card mt-4 space-y-3 p-4" noValidate>
-          <Field label="Your answer to Betoch" name="answer" error={errors.body} hint="Only the Betoch team reads this. Do not include your phone number for the customer; Betoch handles the conversation.">
+          <Field label="Your answer to Betoch" name="answer" error={errors.body} hint="Only the Betoch team reads this. Do not include your phone number for the customer; Betoch handles the conversation. Customers pay the listing price, so change the listing if the price should change.">
             <textarea id="answer" className="input min-h-24" maxLength={3000} value={body} onChange={(e) => setBody(e.target.value)} />
           </Field>
-          <label className="flex items-center gap-2 text-sm font-medium text-stone-800">
-            <input type="checkbox" className="size-4 accent-brand-700" checked={withProposal} onChange={(e) => setWithProposal(e.target.checked)} />
-            Include a price proposal
-          </label>
-          {withProposal && <ProposalFields value={proposal} onChange={setProposal} errors={errors} />}
           <button type="submit" className="btn-primary" disabled={sending}>{sending ? 'Sending...' : 'Send to Betoch'}</button>
         </form>
       )}

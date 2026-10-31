@@ -8,20 +8,37 @@ import { useFetch } from '../../lib/useFetch'
 import VariantEditor from './VariantEditor'
 
 const EMPTY = {
-  name: '', category_id: '', description: '', price: '', price_negotiable: false,
+  name: '', category_id: '', description: '', price: '', discount_percent: '', discount_ends_on: '',
   condition: 'new', stock_quantity: '1',
   width_cm: '', depth_cm: '', height_cm: '', material: '', color: '',
   area_id: '', offers_delivery: true, pickup_available: false, delivery_fee: '', delivery_notes: '',
 }
 
-const BOOL_FIELDS = ['price_negotiable', 'offers_delivery', 'pickup_available']
+const BOOL_FIELDS = ['offers_delivery', 'pickup_available']
+
+const todayInAddis = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Addis_Ababa' })
+const shortDay = (ymd) => new Date(`${ymd}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+
+/** A sale whose last day has passed: the form starts without it, so saving takes it off. */
+const saleEnded = (p) => Boolean(p.discount_percent && p.discount_ends_on && p.discount_ends_on < todayInAddis())
+
+/** What customers pay with the sale, as the server works it out: the amount off rounded half up. */
+function salePreview(price, percent) {
+  const santim = Math.round(Number(String(price).replace(/,/g, '')) * 100)
+  const pct = Number(percent)
+  if (!santim || !Number.isInteger(pct) || pct < 1 || pct > 90) return null
+  return { now: santim - Math.floor((santim * pct + 50) / 100), was: santim }
+}
 
 function fromProduct(p) {
+  const ended = saleEnded(p)
   return {
     ...EMPTY,
     name: p.name, category_id: String(p.category?.id ?? ''), description: p.description,
     price: p.price.endsWith('.00') ? p.price.slice(0, -3) : p.price,
-    price_negotiable: p.price_negotiable, condition: p.condition,
+    discount_percent: ended ? '' : String(p.discount_percent ?? ''),
+    discount_ends_on: ended ? '' : p.discount_ends_on ?? '',
+    condition: p.condition,
     stock_quantity: String(p.stock_quantity ?? ''),
     width_cm: String(p.dimensions.width_cm ?? ''), depth_cm: String(p.dimensions.depth_cm ?? ''), height_cm: String(p.dimensions.height_cm ?? ''),
     material: p.material ?? '', color: p.color ?? '', area_id: String(p.area_id ?? ''),
@@ -108,6 +125,8 @@ export default function SellerProductForm() {
     try {
       // While the marketplace prices delivery, a listing is either free to deliver or left to it.
       const data = payload(storesSetFee ? values : { ...values, delivery_fee: isFree(values.delivery_fee) ? '0' : '' })
+      // No percent, no sale: an end date left in the greyed-out box goes too.
+      if (!data.discount_percent) data.discount_ends_on = null
       if (editing) {
         // With options, stock is set per option. Otherwise the server checks no order came in since the form opened.
         if (hasOptions) delete data.stock_quantity
@@ -164,7 +183,7 @@ export default function SellerProductForm() {
         actions={<Link to="/seller/listings" className="btn-ghost">Cancel</Link>}
       />
       {product?.status === 'published' && (
-        <div className="mb-4"><Alert tone="info">Price and stock changes go live immediately. Changing the name, description, category, material or condition sends the listing back for review.</Alert></div>
+        <div className="mb-4"><Alert tone="info">Price, sale and stock changes go live immediately. Changing the name, description, category, material or condition sends the listing back for review.</Alert></div>
       )}
       {product?.status === 'rejected' && product.moderation_note && (
         <div className="mb-4"><Alert tone="error">Reviewer note: {product.moderation_note}</Alert></div>
@@ -194,7 +213,26 @@ export default function SellerProductForm() {
               <input className="input" inputMode="decimal" {...bind('price')} />
             </Field>
           </div>
-          <label className="flex items-center gap-2 text-sm"><input className="size-4 accent-brand-700" {...bind('price_negotiable', 'checkbox')} /> Price is negotiable</label>
+        </section>
+
+        <section className="card space-y-4 p-5">
+          <h2 className="font-semibold text-stone-900">Sale</h2>
+          <p className="text-sm text-stone-600">Take a percent off this listing and every option of it. Your store gives the sale: commission is worked out on the sale price. Leave it empty for no sale.</p>
+          {product && saleEnded(product) && <p className="text-sm text-stone-600">Your {product.discount_percent}% sale ended on {shortDay(product.discount_ends_on)}. Saving takes it off the listing.</p>}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Percent off" name="discount_percent" error={errors.discount_percent} hint="1 to 90, for example 15">
+              <input className="input" inputMode="numeric" {...bind('discount_percent')} />
+            </Field>
+            <Field label="Last day of the sale (optional)" name="discount_ends_on" error={errors.discount_ends_on} hint="Leave empty to run it until you take it off.">
+              <input className="input" min={todayInAddis()} disabled={!values.discount_percent} {...bind('discount_ends_on', 'date')} />
+            </Field>
+          </div>
+          {salePreview(values.price, values.discount_percent) && (
+            <p className="text-sm text-stone-700">
+              Customers pay <span className="font-semibold whitespace-nowrap text-red-700">{formatETB(salePreview(values.price, values.discount_percent).now)}</span> instead of <span className="whitespace-nowrap">{formatETB(salePreview(values.price, values.discount_percent).was)}</span>
+              {values.discount_ends_on ? ` until the end of ${shortDay(values.discount_ends_on)}.` : ' until you take the sale off.'}
+            </p>
+          )}
         </section>
 
         <section className="card space-y-4 p-5">

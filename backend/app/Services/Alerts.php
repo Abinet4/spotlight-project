@@ -3,14 +3,12 @@
 namespace App\Services;
 
 use App\Enums\OrderStatus;
-use App\Enums\QuoteStatus;
 use App\Enums\Role;
 use App\Enums\UserStatus;
 use App\Models\Checkout;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\ProductVariant;
-use App\Models\Quote;
 use App\Models\Refund;
 use App\Models\Review;
 use App\Models\SellerLedgerEntry;
@@ -330,73 +328,6 @@ class Alerts
                     channels: $this->cooldown("store-answer:{$request->id}", $admin) ? ['database', 'mail'] : ['database'],
                 ));
             }
-        });
-    }
-
-    public function offerSent(Quote $quote): void
-    {
-        $this->afterCommit(function () use ($quote) {
-            $quote = Quote::with('supportTicket.customer')->find($quote->id);
-            if (! $quote?->supportTicket) {
-                return;
-            }
-            $this->notify($quote->supportTicket->customer, new Alert(
-                kind: 'quote.new',
-                title: 'Betoch sent you an offer',
-                body: "{$quote->title}: ".self::etb($quote->totalSantim()).'. Accept it in Support to order at this price.',
-                url: "/support/{$quote->support_ticket_id}",
-                channels: ['database', 'mail'],
-            ));
-        });
-    }
-
-    /**
-     * An offer Betoch sent was accepted, declined or withdrawn. The store is told without the customer's name.
-     */
-    public function offerAnswered(Quote $quote, QuoteStatus $to): void
-    {
-        $this->afterCommit(function () use ($quote, $to) {
-            $quote = Quote::with(['seller.user', 'supportTicket.assignee'])->find($quote->id);
-            if (! $quote?->supportTicket || $to === QuoteStatus::Withdrawn) {
-                return;
-            }
-            $verb = $to === QuoteStatus::Accepted ? 'accepted' : 'declined';
-            $this->notify($quote->seller?->user, new Alert(
-                kind: 'quote.answered',
-                title: "The customer {$verb} your offer",
-                body: $quote->title.($to === QuoteStatus::Accepted ? '. You will see it under Orders when they check out.' : ''),
-                url: $quote->seller_request_id ? "/seller/requests/{$quote->seller_request_id}" : '/seller/orders',
-                channels: ['database', 'mail'],
-            ));
-            $this->notify($quote->supportTicket->assignee, new Alert(
-                kind: 'support.offer_answered',
-                title: "Customer {$verb} the offer on inquiry {$quote->supportTicket->reference()}",
-                body: $quote->title,
-                url: "/admin/support/{$quote->support_ticket_id}",
-                channels: ['database'],
-            ));
-        });
-    }
-
-    /**
-     * A quote from before support messaging (sent in a store chat) was accepted or declined.
-     *
-     * @param  'accepted'|'declined'  $verb
-     */
-    public function quoteAnswered(Quote $quote, string $verb): void
-    {
-        $this->afterCommit(function () use ($quote, $verb) {
-            $quote = Quote::with('seller.user')->find($quote->id);
-            if (! $quote) {
-                return;
-            }
-            $this->notify($quote->seller?->user, new Alert(
-                kind: 'quote.answered',
-                title: "A customer {$verb} your quote",
-                body: $quote->title.($verb === 'accepted' ? '. You will see it under Orders when they check out.' : ''),
-                url: '/seller/orders',
-                channels: ['database', 'mail'],
-            ));
         });
     }
 

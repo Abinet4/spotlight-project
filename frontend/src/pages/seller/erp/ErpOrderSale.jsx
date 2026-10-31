@@ -83,7 +83,8 @@ export default function ErpOrderSale() {
           <div className="flex justify-between"><dt>Items</dt><dd className="tabular-nums">{money(o.items_total_santim)}</dd></div>
           {o.delivery_santim > 0 && <div className="flex justify-between"><dt>Delivery</dt><dd className="tabular-nums">{money(o.delivery_santim)}</dd></div>}
           {o.vat && !o.vat.included && <div className="flex justify-between"><dt>VAT ({o.vat.rate_percent}%)</dt><dd className="tabular-nums">{money(o.vat.amount_santim)}</dd></div>}
-          <div className="flex justify-between border-t border-stone-200 pt-1 font-bold"><dt>Total</dt><dd className="tabular-nums">{money(o.total_santim)}</dd></div>
+          {o.coupon_santim > 0 && <div className="flex justify-between"><dt>Coupon (Betoch pays you)</dt><dd className="tabular-nums">-{money(o.coupon_santim)}</dd></div>}
+          <div className="flex justify-between border-t border-stone-200 pt-1 font-bold"><dt>{o.coupon_santim > 0 ? 'Customer paid' : 'Total'}</dt><dd className="tabular-nums">{money(o.total_santim)}</dd></div>
           {o.vat?.included && <div className="flex justify-between text-xs text-stone-600"><dt>Includes VAT ({o.vat.rate_percent}%)</dt><dd className="tabular-nums">{money(o.vat.amount_santim)}</dd></div>}
           {o.vat?.number && <p className="text-right text-xs text-stone-500">Store VAT registration {o.vat.number}</p>}
         </dl>

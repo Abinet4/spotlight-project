@@ -35,6 +35,7 @@ export default function AdminReports() {
             { label: 'Commission collected', value: money(d.commission_collected_santim) },
             { label: 'Orders placed', value: d.placed.orders, hint: money(d.placed.value_santim) },
             { label: 'Delivery fees (to stores)', value: money(d.delivered.delivery_fees_santim) },
+            d.delivered.coupons_santim > 0 && { label: 'Coupons paid by Betoch', value: money(d.delivered.coupons_santim), hint: 'credited to stores' },
             { label: 'Cancelled', value: d.cancelled.orders, hint: `customer ${d.cancelled.by_customer} · store ${d.cancelled.by_seller} · admin ${d.cancelled.by_admin}` },
           ]} />
           {d.online && (

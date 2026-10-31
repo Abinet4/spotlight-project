@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\Account\ProfileController;
 use App\Http\Controllers\Api\Account\TwoStepController;
 use App\Http\Controllers\Api\AddressController;
 use App\Http\Controllers\Api\Admin\CategoryController as AdminCategoryController;
+use App\Http\Controllers\Api\Admin\CouponController;
 use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Admin\DeliveryZoneController;
 use App\Http\Controllers\Api\Admin\OrderController as AdminOrderController;
@@ -29,7 +30,6 @@ use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\PaymentController;
-use App\Http\Controllers\Api\QuoteController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\Seller\BalanceController;
 use App\Http\Controllers\Api\Seller\Erp\ExpenseController as ErpExpenseController;
@@ -181,15 +181,11 @@ Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
     Route::get('/conversations', [ConversationController::class, 'index']);
     Route::get('/conversations/{id}', [ConversationController::class, 'show'])->whereNumber('id');
 
-    Route::post('/quotes/{id}/accept', [QuoteController::class, 'accept'])->whereNumber('id');
-    Route::post('/quotes/{id}/decline', [QuoteController::class, 'decline'])->whereNumber('id');
-
     Route::get('/cart', [CartController::class, 'show']);
     Route::get('/cart/count', [CartController::class, 'count']);
     Route::post('/cart/items', [CartController::class, 'add']);
     Route::put('/cart/items/{id}', [CartController::class, 'update'])->whereNumber('id');
     Route::delete('/cart/items/{id}', [CartController::class, 'remove'])->whereNumber('id');
-    Route::post('/quotes/{id}/add-to-cart', [CartController::class, 'addQuote'])->whereNumber('id');
 
     Route::post('/checkout', [OrderController::class, 'checkout'])->middleware('throttle:checkout');
     Route::get('/orders', [OrderController::class, 'index']);
@@ -229,8 +225,6 @@ Route::prefix('seller')->middleware(['auth:sanctum', 'role:seller'])->group(func
     Route::get('/requests/unread-count', [SellerRequestInboxController::class, 'unreadCount']);
     Route::get('/requests/{id}', [SellerRequestInboxController::class, 'show'])->whereNumber('id');
     Route::post('/requests/{id}/messages', [SellerRequestInboxController::class, 'reply'])->whereNumber('id')->middleware('throttle:messages');
-    // Quotes sent in the old store chats can still be withdrawn until they expire.
-    Route::post('/quotes/{id}/withdraw', [QuoteController::class, 'withdraw'])->whereNumber('id');
 
     Route::get('/orders', [SellerOrderController::class, 'index']);
     Route::get('/orders/summary', [SellerOrderController::class, 'summary']);
@@ -367,6 +361,10 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
     Route::put('/categories/{category}', [AdminCategoryController::class, 'update']);
     Route::delete('/categories/{category}', [AdminCategoryController::class, 'destroy']);
 
+    Route::get('/coupons', [CouponController::class, 'index']);
+    Route::post('/coupons', [CouponController::class, 'store']);
+    Route::put('/coupons/{coupon}', [CouponController::class, 'update']);
+    Route::delete('/coupons/{coupon}', [CouponController::class, 'destroy']);
     Route::get('/delivery-zones', [DeliveryZoneController::class, 'index']);
     Route::post('/delivery-zones', [DeliveryZoneController::class, 'store']);
     Route::put('/delivery-zones/{zone}', [DeliveryZoneController::class, 'update']);
@@ -417,8 +415,6 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
     Route::get('/support/requests/{id}', [AdminSellerRequestController::class, 'show'])->whereNumber('id');
     Route::post('/support/requests/{id}/messages', [AdminSellerRequestController::class, 'reply'])->whereNumber('id')->middleware('throttle:staff-messages');
     Route::post('/support/requests/{id}/close', [AdminSellerRequestController::class, 'close'])->whereNumber('id');
-    Route::post('/support/requests/{id}/proposals/{messageId}/send', [AdminSellerRequestController::class, 'relay'])->whereNumber(['id', 'messageId']);
-    Route::post('/support/offers/{id}/withdraw', [AdminSellerRequestController::class, 'withdrawOffer'])->whereNumber('id');
     Route::get('/support/old-chats', [AdminSupportController::class, 'legacyIndex']);
     Route::get('/support/old-chats/{id}', [AdminSupportController::class, 'legacyShow'])->whereNumber('id');
 });

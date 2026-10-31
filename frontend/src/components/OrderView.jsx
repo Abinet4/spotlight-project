@@ -57,6 +57,7 @@ export default function OrderView({ order, viewer, actions, itemExtra }) {
                   {i.variant_label && <p className="text-stone-700">{i.variant_label}</p>}
                   <p className="text-stone-600">
                     {i.quantity} x {formatETB(i.unit_price_santim)}
+                    {i.list_unit_price_santim && <> <s className="whitespace-nowrap text-stone-400"><span className="sr-only">was </span>{formatETB(i.list_unit_price_santim)}</s> on sale</>}
                     {i.quote_id && ' · price offer'}
                     {i.production_days ? ` · ready in about ${i.production_days} days` : ''}
                   </p>
@@ -102,6 +103,11 @@ export default function OrderView({ order, viewer, actions, itemExtra }) {
               <span className="text-right">{formatETB(order.vat.amount_santim)}{order.fulfillment === 'delivery' && order.delivery_fee_santim === null && ' + on delivery'}</span>
             </div>
           )}
+          {order.coupon && (
+            <div className="flex justify-between gap-2 font-medium text-emerald-800">
+              <span>Coupon{order.coupon.code && ` ${order.coupon.code}`}</span><span className="text-right">-{formatETB(order.coupon.discount_santim)}</span>
+            </div>
+          )}
           <div className="flex justify-between border-t border-stone-100 pt-2 text-base font-bold"><span>Total</span><span>{formatETB(order.total_santim)}</span></div>
           {order.vat?.included && (
             <div className="flex justify-between text-xs text-stone-600"><span>Includes VAT ({order.vat.rate_percent}%)</span><span>{formatETB(order.vat.amount_santim)}</span></div>
@@ -115,6 +121,13 @@ export default function OrderView({ order, viewer, actions, itemExtra }) {
                 : `Refund of ${formatETB(order.refund.amount_santim)} on the way. The marketplace team sends it back to how you paid.`}
             </p>
           )}
+          {viewer === 'seller' && order.coupon && (
+            <p className="text-xs text-stone-600">
+              {order.payment_method === 'online' ? 'The customer paid the total. ' : `Collect ${formatETB(order.total_santim)} from the customer. `}
+              Betoch pays you the {formatETB(order.coupon.discount_santim)} coupon once the order is delivered (see Balance).
+            </p>
+          )}
+          {viewer === 'admin' && order.coupon && <p className="text-xs text-stone-500">Betoch pays the coupon: the store is credited it on delivery.</p>}
           {viewer !== 'customer' && order.commission_santim !== undefined && (
             <p className="text-xs text-stone-500">Commission {order.commission_rate_percent}% on items: {formatETB(order.commission_santim)}</p>
           )}
